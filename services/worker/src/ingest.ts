@@ -1,0 +1,50 @@
+import { config } from "./config.js";
+import { logger } from "./logger.js";
+import { normalize } from "./domain/normalize.js";
+import type { Store } from "./store/index.js";
+import type { TokenManager } from "./txline/auth.js";
+import { fetchSnapshot } from "./txline/snapshot.js";
+import { streamScores } from "./txline/stream.js";
+
+export interface IngestDeps {
+  tokens: TokenManager;
+  store: Store;
+  signal: AbortSignal;
+}
+
+export async function runIngest({ tokens, store, signal }: IngestDeps): Promise<void> {
+  const { fixtureId } = config.txline;
+
+  if (fixtureId != null) {
+    try {
+      const snap = await fetchSnapshot(tokens, fixtureId);
+      for (const raw of snap) {
+        await store.persist(raw, normalize(raw, { terminalActions: config.terminalActions }));
+      }
+      logger.info({ fixtureId, count: snap.length }, "backfilled from snapshot");
+    } catch (err) {
+      logger.warn({ err: String(err), fixtureId }, "snapshot backfill failed — continuing live");
+    }
+  }
+
+  const lastEventId = await store.getLastEventId();
+
+  for await (const raw of streamScores({ tokens, fixtureId, lastEventId, signal })) {
+    const events = normalize(raw, { terminalActions: config.terminalActions });
+    await store.persist(raw, events);
+
+    const cursor = raw.Seq ?? raw.Id;
+    if (cursor != null) await store.setLastEventId(String(cursor));
+
+    for (const e of events) {
+      if (e.type === "substitution") {
+        logger.info(
+          { fixtureId: e.fixtureId, side: e.side, out: e.playerOutId, in: e.playerInId, minute: e.minute },
+          "substitution",
+        );
+      } else if (e.type === "status" && e.terminal) {
+        logger.info({ fixtureId: e.fixtureId, action: e.action }, "match terminal — settlement cue");
+      }
+    }
+  }
+}
