@@ -1,0 +1,89 @@
+{
+  "players_on_the_pitch": {
+    "FixtureId": 18167317,
+    "GameState": "scheduled",
+    "StartTime": 1782673200000,
+    "IsTeam": true,
+    "FixtureGroupId": 10115677,
+    "CompetitionId": 72,
+    "CountryId": 466,
+    "SportId": 1,
+    "Participant1IsHome": true,
+    "Participant2Id": 1686,
+    "Participant1Id": 3011,
+    "CoverageSecondaryData": true,
+    "CoverageType": "TV/Stream",
+    "Action": "players_on_the_pitch",
+    "Id": 20,
+    "Ts": 1782672744171,
+    "ConnectionId": 691,
+    "Seq": 13,
+    "StatusId": 1,
+    "Type": "Soccer",
+    "Confirmed": true,
+    "Clock": {
+      "Running": false,
+      "Seconds": 0
+    },
+    "Stats": {}
+  },
+  "players_warming_up": {
+    "FixtureId": 18167317,
+    "GameState": "scheduled",
+    "StartTime": 1782673200000,
+    "IsTeam": true,
+    "FixtureGroupId": 10115677,
+    "CompetitionId": 72,
+    "CountryId": 466,
+    "SportId": 1,
+    "Participant1IsHome": true,
+    "Participant2Id": 1686,
+    "Participant1Id": 3011,
+    "CoverageSecondaryData": true,
+    "CoverageType": "TV/Stream",
+    "Action": "players_warming_up",
+    "Id": 19,
+    "Ts": 1782671112565,
+    "ConnectionId": 691,
+    "Seq": 12,
+    "StatusId": 1,
+    "Type": "Soccer",
+    "Confirmed": true,
+    "Clock": {
+      "Running": false,
+      "Seconds": 0
+    },
+    "Stats": {}
+  },
+  "jersey": {
+    "FixtureId": 18167317,
+    "GameState": "scheduled",
+    "StartTime": 1782673200000,
+    "IsTeam": true,
+    "FixtureGroupId": 10115677,
+    "CompetitionId": 72,
+    "CountryId": 466,
+    "SportId": 1,
+    "Participant1IsHome": true,
+    "Participant2Id": 1686,
+    "Participant1Id": 3011,
+    "CoverageSecondaryData": true,
+    "CoverageType": "TV/Stream",
+    "Action": "jersey",
+    "Id": 14,
+    "Ts": 1782670488878,
+    "ConnectionId": 691,
+    "Seq": 8,
+    "StatusId": 1,
+    "Type": "Soccer",
+    "Clock": {
+      "Running": false,
+      "Seconds": 0
+    },
+    "Data": {
+      "Color": "black"
+    },
+    "Stats": {},
+    "Participant": 2
+  }
+}

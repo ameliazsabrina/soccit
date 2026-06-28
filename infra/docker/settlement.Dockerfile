@@ -1,0 +1,17 @@
+FROM node:20.19.0-slim
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+ENV NODE_ENV=production
+
+RUN corepack enable && groupadd -r app && useradd -r -g app app
+
+WORKDIR /app/services/settlement
+
+COPY services/settlement/package.json services/settlement/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY services/settlement ./
+
+USER app
+CMD ["pnpm", "start"]

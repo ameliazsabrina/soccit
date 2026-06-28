@@ -1,0 +1,144 @@
+name: soccit
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - backend
+
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    environment:
+      PORT: 8787
+      HOST: 0.0.0.0
+      REDIS_URL: redis://redis:6379
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: ${MONGO_DB:-soccit}
+      SOLANA_CLUSTER: ${SOLANA_CLUSTER:-devnet}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-}
+      HELIUS_API_KEY: ${HELIUS_API_KEY:-}
+      PROGRAM_ID: ${PROGRAM_ID:-TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "8787:8787"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend
+
+  scoring:
+    profiles: ["e2e", "live"]
+    build:
+      context: .
+      dockerfile: infra/docker/scoring.Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: ${MONGO_DB:-soccit}
+      SOLANA_CLUSTER: ${SOLANA_CLUSTER:-devnet}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-}
+      HELIUS_API_KEY: ${HELIUS_API_KEY:-}
+      PROGRAM_ID: ${PROGRAM_ID:-TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v}
+      SCORING_FIXTURE_ID: ${SCORING_FIXTURE_ID:-900001}
+      PREDICTIONS_SOURCE: ${PREDICTIONS_SOURCE:-file}
+      PREDICTIONS_FILE: ${PREDICTIONS_FILE:-infra/e2e/predictions.local.json}
+      REFRESH_INTERVAL_MS: ${REFRESH_INTERVAL_MS:-5000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    networks:
+      - backend
+
+  worker:
+    profiles: ["live"]
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: ${MONGO_DB:-soccit}
+      SOLANA_CLUSTER: ${SOLANA_CLUSTER:-devnet}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-}
+      HELIUS_API_KEY: ${HELIUS_API_KEY:-}
+      TXLINE_BASE_URL: ${TXLINE_BASE_URL:-https://txline.txodds.com}
+      TXLINE_API_TOKEN: ${TXLINE_API_TOKEN:-}
+      TXLINE_TX_SIG: ${TXLINE_TX_SIG:-}
+      TXLINE_FIXTURE_ID: ${TXLINE_FIXTURE_ID:-}
+      TERMINAL_ACTIONS: ${TERMINAL_ACTIONS:-game_finalised}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    networks:
+      - backend
+
+  settlement:
+    profiles: ["live"]
+    build:
+      context: .
+      dockerfile: infra/docker/settlement.Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+      SOLANA_CLUSTER: ${SOLANA_CLUSTER:-devnet}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-}
+      HELIUS_API_KEY: ${HELIUS_API_KEY:-}
+      PROGRAM_ID: ${PROGRAM_ID:-TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v}
+      USDC_MINT: ${USDC_MINT:-}
+      PLATFORM_WALLET: ${PLATFORM_WALLET:-11111111111111111111111111111111}
+      RESOLVER_KEYPAIR_PATH: /run/secrets/resolver-keypair.json
+      POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-5000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ${RESOLVER_KEYPAIR_PATH:-./secrets/resolver-keypair.json}:/run/secrets/resolver-keypair.json:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  redis-data:
+  mongo-data:

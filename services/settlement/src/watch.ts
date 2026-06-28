@@ -31,6 +31,58 @@ export function fixtureIdFromLeaderboardKey(key: string): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+export interface SettlementGuardState {
+  /** Fixtures that reached a terminal outcome (settled, or non-retryable). */
+  completed: Set<number>;
+  /** Fixtures with a settlement attempt in progress right now. */
+  inFlight: Set<number>;
+}
+
+/**
+ * Premature- and duplicate-settlement guard. Only a *final* leaderboard whose
+ * fixture is neither already completed nor mid-attempt is eligible to settle.
+ */
+export function isSettleable(payload: LeaderboardPayload, state: SettlementGuardState): boolean {
+  return (
+    payload.final && !state.completed.has(payload.fixtureId) && !state.inFlight.has(payload.fixtureId)
+  );
+}
+
+/**
+ * Fold a settlement result into the completed set. A fixture is "done" when it
+ * settled, or when it returned a non-retryable result (e.g. already settled
+ * on-chain) — retryable failures are intentionally left open for a later signal.
+ */
+export function recordOutcome(fixtureId: number, result: SettlementResult, completed: Set<number>): void {
+  if (result.settled || !result.retry) completed.add(fixtureId);
+}
+
+/**
+ * Single guarded settlement attempt. Enforces the final-gate and dedup invariants
+ * via {@link isSettleable}, marks the fixture in-flight for the duration of the
+ * on-chain call so a concurrent signal cannot double-settle, and records the
+ * outcome. Errors are swallowed (logged) so the watcher keeps running.
+ */
+export async function attemptSettlement(
+  settle: (deps: KeeperDeps, payload: LeaderboardPayload) => Promise<SettlementResult>,
+  deps: KeeperDeps,
+  payload: LeaderboardPayload,
+  state: SettlementGuardState,
+): Promise<void> {
+  if (!isSettleable(payload, state)) return;
+  const { fixtureId } = payload;
+  state.inFlight.add(fixtureId);
+  logger.info({ fixtureId }, "final leaderboard observed — settling");
+  try {
+    const result = await settle(deps, payload);
+    recordOutcome(fixtureId, result, state.completed);
+  } catch (err) {
+    logger.error({ fixtureId, err: String(err) }, "settlement failed — will retry on next signal");
+  } finally {
+    state.inFlight.delete(fixtureId);
+  }
+}
+
 async function scanLeaderboardKeys(reader: Redis): Promise<string[]> {
   let cursor = "0";
   const keys: string[] = [];
@@ -100,8 +152,7 @@ export async function watchLeaderboards(opts: WatchOptions): Promise<void> {
   const settle = opts.settle ?? settleFixture;
   const reader = new Redis(redisUrl, { maxRetriesPerRequest: null });
   const subscriber = new Redis(redisUrl, { maxRetriesPerRequest: null });
-  const completed = new Set<number>();
-  const inFlight = new Set<number>();
+  const state: SettlementGuardState = { completed: new Set(), inFlight: new Set() };
   let done = false;
 
   const finish = async () => {
@@ -110,25 +161,12 @@ export async function watchLeaderboards(opts: WatchOptions): Promise<void> {
     reader.disconnect();
   };
 
-  const attempt = async (payload: LeaderboardPayload): Promise<void> => {
-    const { fixtureId } = payload;
-    if (!payload.final || completed.has(fixtureId) || inFlight.has(fixtureId)) return;
-
-    inFlight.add(fixtureId);
-    logger.info({ fixtureId }, "final leaderboard observed — settling");
-    try {
-      const result = await settle(deps, payload);
-      if (result.settled || !result.retry) completed.add(fixtureId);
-    } catch (err) {
-      logger.error({ fixtureId, err: String(err) }, "settlement failed — will retry on next signal");
-    } finally {
-      inFlight.delete(fixtureId);
-    }
-  };
+  const attempt = (payload: LeaderboardPayload): Promise<void> =>
+    attemptSettlement(settle, deps, payload, state);
 
   const readAndAttempt = async (key: string): Promise<void> => {
     const fixtureId = fixtureIdFromLeaderboardKey(key);
-    if (fixtureId == null || completed.has(fixtureId)) return;
+    if (fixtureId == null || state.completed.has(fixtureId)) return;
     const payload = tryParse(await reader.get(key));
     if (payload) await attempt(payload);
   };

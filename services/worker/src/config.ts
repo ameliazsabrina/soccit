@@ -11,13 +11,7 @@ function expandHome(p: string): string {
   return p;
 }
 
-function heliusDevnetRpcUrl(apiKey: string): string {
-  return `https://devnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`;
-}
-
-const heliusApiKey = process.env.NODE_ENV === "test"
-  ? z.string().default("test")
-  : z.string().min(1, "HELIUS_API_KEY is required");
+const HELIUS_SUBDOMAIN = { devnet: "devnet", "mainnet-beta": "mainnet" } as const;
 
 const csv = (s: string): number[] =>
   s
@@ -33,7 +27,9 @@ const Schema = z.object({
   TXLINE_API_TOKEN: z.string().optional(),
   TXLINE_TX_SIG: z.string().optional(),
   SOLANA_KEYPAIR_PATH: z.string().default("~/.config/solana/soccit-txline.json"),
-  HELIUS_API_KEY: heliusApiKey,
+  SOLANA_CLUSTER: z.enum(["devnet", "mainnet-beta"]).default("devnet"),
+  SOLANA_RPC_URL: z.preprocess((v) => (v === "" ? undefined : v), z.string().url().optional()),
+  HELIUS_API_KEY: z.string().optional(),
   TXLINE_FIXTURE_ID: z.string().optional(),
   TERMINAL_ACTIONS: z.string().default("game_finalised"),
   REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
@@ -43,6 +39,16 @@ const Schema = z.object({
 });
 
 const env = Schema.parse(process.env);
+
+function resolveRpcUrl(): string {
+  if (env.SOLANA_RPC_URL) return env.SOLANA_RPC_URL;
+  const key = env.HELIUS_API_KEY ?? (process.env.NODE_ENV === "test" ? "test" : undefined);
+  if (!key) throw new Error("Set SOLANA_RPC_URL or HELIUS_API_KEY");
+  if (key === "test" && process.env.NODE_ENV !== "test") {
+    throw new Error('HELIUS_API_KEY is the placeholder "test"; set a real key or SOLANA_RPC_URL');
+  }
+  return `https://${HELIUS_SUBDOMAIN[env.SOLANA_CLUSTER]}.helius-rpc.com/?api-key=${encodeURIComponent(key)}`;
+}
 
 export const config = {
   txline: {
@@ -54,7 +60,8 @@ export const config = {
   },
   solana: {
     keypairPath: expandHome(env.SOLANA_KEYPAIR_PATH),
-    rpcUrl: heliusDevnetRpcUrl(env.HELIUS_API_KEY),
+    cluster: env.SOLANA_CLUSTER,
+    rpcUrl: resolveRpcUrl(),
   },
   terminalActions: new Set(
     env.TERMINAL_ACTIONS.split(",").map((x) => x.trim()).filter(Boolean),

@@ -66,7 +66,10 @@ export function normalize(raw: RawEvent, opts: NormalizeOptions = {}): DomainEve
       break;
   }
 
-  if (action && STATUS_ACTIONS.has(action)) {
+  // A configured terminal action must always surface as a status event — even
+  // when it is not one of the built-in status actions — otherwise the terminal
+  // cue never reaches the stream and scoring/settlement never fire.
+  if (action && (STATUS_ACTIONS.has(action) || terminal.has(action))) {
     events.push({
       type: "status",
       ...base,

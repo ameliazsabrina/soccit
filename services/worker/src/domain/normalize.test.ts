@@ -94,11 +94,18 @@ describe("normalize (real TxLINE wire format)", () => {
     expect(normalize(raw)[0]).toMatchObject({ type: "substitution", minute: 0 });
   });
 
-  it("honors a custom terminal-action set", () => {
+  it("emits a TERMINAL status for a custom terminal action outside the built-in status set", () => {
     const raw: RawEvent = { FixtureId: 1, Action: "abandoned" };
     const events = normalize(raw, { terminalActions: new Set(["abandoned", "game_finalised"]) });
     expect(isTerminal(raw, new Set(["abandoned"]))).toBe(true);
-    expect(events).toHaveLength(0);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "status", action: "abandoned", terminal: true });
+  });
+
+  it("still emits nothing for an unconfigured non-status action (kickoff stays ignored)", () => {
+    const raw: RawEvent = { FixtureId: 1, Action: "abandoned" };
+    // not in the terminal set this time → no status event
+    expect(normalize(raw, { terminalActions: new Set(["game_finalised"]) })).toHaveLength(0);
   });
 });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyPlayerData, extractLineup } from "./lineup.js";
 import { RawEvent } from "../txline/types.js";
 import rawLineups from "./__fixtures__/lineups.json";
+import pitchBeats from "./__fixtures__/pitch-beats.json";
 
 const lineupsEvent = (): RawEvent => RawEvent.parse(rawLineups);
 
@@ -90,5 +91,47 @@ describe("extractLineup (real TxLINE wire format)", () => {
       Data: { PlayerIds: [123456789] },
     });
     expect(updated).toBeNull();
+  });
+});
+
+// Captured live 2026-06-29 from /api/scores/updates/17926593 (a finished World
+// Cup fixture, 1098 events). Empirically: players_on_the_pitch and
+// players_warming_up each appear EXACTLY ONCE, pre-kickoff (Seq 13/14,
+// StatusId 1, Clock 0), carry NO player payload, and 16 substitutions produce
+// ZERO subsequent players_on_the_pitch beats. So the feed never sends an
+// authoritative "current on-pitch set" mid-match — substitution events are the
+// roster-change signal. The original "onPitch is never cleared" concern is moot.
+describe("applyPlayerData against the REAL TxLINE players_on_the_pitch/warming beats", () => {
+  it("is a safe no-op for the real id-less players_on_the_pitch beat (cannot corrupt onPitch)", () => {
+    const snap = extractLineup(lineupsEvent())!;
+    const onPitchBefore = snap.teams.flatMap((t) => t.players).map((p) => p.onPitch);
+    const beat = RawEvent.parse(pitchBeats.players_on_the_pitch);
+    expect(beat.Action).toBe("players_on_the_pitch");
+    // real beat carries no player ids → no change is produced
+    expect(applyPlayerData(snap, beat)).toBeNull();
+    expect(snap.teams.flatMap((t) => t.players).map((p) => p.onPitch)).toEqual(onPitchBefore);
+  });
+
+  it("is a safe no-op for the real id-less players_warming_up beat", () => {
+    const snap = extractLineup(lineupsEvent())!;
+    const beat = RawEvent.parse(pitchBeats.players_warming_up);
+    expect(beat.Action).toBe("players_warming_up");
+    expect(applyPlayerData(snap, beat)).toBeNull();
+  });
+
+  // The real `jersey` action is a per-TEAM kit color ({Color} + top-level
+  // Participant), pre-kickoff — NOT a per-player shirt-number update. Verified
+  // 2026-06-29 across fixtures 18167317 (live) and 17926593. Per-player numbers
+  // come from `lineups.rosterNumber` (handled by extractLineup). So applyPlayerData's
+  // jersey branch (which expects PlayerId + JerseyNumber) is a safe no-op and must
+  // never overwrite a player's number from a team-color beat.
+  it("is a safe no-op for the real team-color jersey beat (never clobbers player numbers)", () => {
+    const snap = extractLineup(lineupsEvent())!;
+    const numbersBefore = snap.teams.flatMap((t) => t.players).map((p) => p.number);
+    const beat = RawEvent.parse(pitchBeats.jersey);
+    expect(beat.Action).toBe("jersey");
+    expect((beat.Data as { Color?: string }).Color).toBeTypeOf("string");
+    expect(applyPlayerData(snap, beat)).toBeNull();
+    expect(snap.teams.flatMap((t) => t.players).map((p) => p.number)).toEqual(numbersBefore);
   });
 });
