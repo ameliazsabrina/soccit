@@ -1,7 +1,7 @@
 import { Redis } from "ioredis";
 import { logger } from "./logger.js";
 import { leaderboardKey, leaderboardPayload, type LeaderboardPayload } from "./leaderboard.js";
-import { settleFixture, type KeeperDeps } from "./keeper.js";
+import { settleFixture, type KeeperDeps, type SettlementResult } from "./keeper.js";
 
 export const LEADERBOARD_PATTERN = "leaderboard:*";
 
@@ -11,7 +11,7 @@ export interface WatchOptions {
   fixtureId?: number;
   pollIntervalMs: number;
   signal: AbortSignal;
-  settle?: (deps: KeeperDeps, payload: LeaderboardPayload) => Promise<string | null>;
+  settle?: (deps: KeeperDeps, payload: LeaderboardPayload) => Promise<SettlementResult>;
 }
 
 function tryParse(raw: string | null): LeaderboardPayload | null {
@@ -61,8 +61,8 @@ export async function watchFixture(opts: WatchOptions): Promise<void> {
     if (!payload.final) return false;
     logger.info({ fixtureId }, "final leaderboard observed — settling");
     try {
-      await (opts.settle ?? settleFixture)(deps, payload);
-      return true;
+      const result = await (opts.settle ?? settleFixture)(deps, payload);
+      return result.settled || !result.retry;
     } catch (err) {
       logger.error({ fixtureId, err: String(err) }, "settlement failed — will retry on next signal");
       return false;
@@ -117,8 +117,8 @@ export async function watchLeaderboards(opts: WatchOptions): Promise<void> {
     inFlight.add(fixtureId);
     logger.info({ fixtureId }, "final leaderboard observed — settling");
     try {
-      await settle(deps, payload);
-      completed.add(fixtureId);
+      const result = await settle(deps, payload);
+      if (result.settled || !result.retry) completed.add(fixtureId);
     } catch (err) {
       logger.error({ fixtureId, err: String(err) }, "settlement failed — will retry on next signal");
     } finally {

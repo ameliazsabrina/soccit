@@ -41,6 +41,10 @@ export interface KeeperDeps {
   sendRetryBaseMs?: number;
 }
 
+export type SettlementResult =
+  | { settled: true; sig: string }
+  | { settled: false; retry: boolean };
+
 const DEFAULT_SEND_RETRIES = 3;
 const DEFAULT_SEND_RETRY_BASE_MS = 500;
 
@@ -90,18 +94,18 @@ export async function sendAndConfirmWithRetry(
 export async function settleFixture(
   deps: KeeperDeps,
   payload: LeaderboardPayload,
-): Promise<string | null> {
+): Promise<SettlementResult> {
   const fixtureId = payload.fixtureId;
   const found = await fetchMatch(deps, fixtureId);
   if (!found) {
     logger.warn({ fixtureId }, "no Match account on-chain — skipping");
-    return null;
+    return { settled: false, retry: true };
   }
   const { pda: matchAccount, match } = found;
 
   if (match.status === STATUS_SETTLED || match.settled) {
     logger.info({ fixtureId }, "match already settled — nothing to do");
-    return null;
+    return { settled: false, retry: false };
   }
 
   const mint = match.usdcMint;
@@ -153,7 +157,7 @@ export async function settleFixture(
     );
   } else if (match.status !== STATUS_RESOLVED) {
     logger.warn({ fixtureId, status: match.status }, "unexpected match status — skipping");
-    return null;
+    return { settled: false, retry: true };
   }
 
   ixs.push(
@@ -176,5 +180,5 @@ export async function settleFixture(
     { fixtureId, sig, winners: winners.map((w) => w?.toBase58() ?? null) },
     "settled match on-chain",
   );
-  return sig;
+  return { settled: true, sig };
 }
