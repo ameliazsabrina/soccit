@@ -10,9 +10,9 @@ import { getMatchState } from "./modules/match/match.service.js";
 import { MatchNotFoundError } from "./modules/match/match.errors.js";
 import { getLeaderboard, leaderboardKey } from "./modules/leaderboard/leaderboard.service.js";
 import { LeaderboardNotReadyError } from "./modules/leaderboard/leaderboard.errors.js";
-import { getLineup } from "./modules/lineup/lineup.service.js";
+import { getLineup, loadPlayerIndex } from "./modules/lineup/lineup.service.js";
 import { LineupNotReadyError } from "./modules/lineup/lineup.errors.js";
-import { backfill, tail } from "./modules/events/events.service.js";
+import { backfill, enrichEntry, tail } from "./modules/events/events.service.js";
 import { getRedis, newRedisConnection } from "./redis.js";
 import { subscribeChannel } from "./pubsub.js";
 
@@ -78,14 +78,18 @@ app.get("/api/events/:id", (c) => {
   return streamSSE(c, async (stream) => {
     const keepalive = setInterval(() => void stream.writeln(": keepalive"), config.sseKeepaliveMs);
     const reader = newRedisConnection();
+    let index = await loadPlayerIndex(fixtureId);
     let cursor = fromId;
     try {
       for (const entry of await backfill(reader, fixtureId, cursor)) {
         cursor = entry.id;
-        await stream.writeSSE({ id: entry.id, event: entry.type, data: JSON.stringify(entry) });
+        const enriched = enrichEntry(entry, index);
+        await stream.writeSSE({ id: entry.id, event: entry.type, data: JSON.stringify(enriched) });
       }
       for await (const entry of tail(fixtureId, cursor, signal)) {
-        await stream.writeSSE({ id: entry.id, event: entry.type, data: JSON.stringify(entry) });
+        if (entry.type === "substitution" && index.size === 0) index = await loadPlayerIndex(fixtureId);
+        const enriched = enrichEntry(entry, index);
+        await stream.writeSSE({ id: entry.id, event: entry.type, data: JSON.stringify(enriched) });
       }
     } finally {
       clearInterval(keepalive);

@@ -1,9 +1,30 @@
 import type { Redis } from "ioredis";
+import { z } from "zod";
 import { config } from "../../config.js";
 import { newRedisConnection } from "../../redis.js";
+import type { ResolvedPlayer } from "../lineup/lineup.schema.js";
 import type { EventEntry } from "./events.schema.js";
 
 export const eventStreamKey = (fixtureId: number) => `events:${fixtureId}`;
+
+const subPayloadSchema = z.object({
+  playerOutId: z.number().int().optional(),
+  playerInId: z.number().int().optional(),
+});
+
+export function enrichEntry(entry: EventEntry, index: Map<number, ResolvedPlayer>): EventEntry {
+  if (entry.type !== "substitution") return entry;
+  const parsed = subPayloadSchema.safeParse(entry.payload);
+  if (!parsed.success) return entry;
+  const { playerOutId, playerInId } = parsed.data;
+  return {
+    ...entry,
+    players: {
+      out: playerOutId != null ? index.get(playerOutId) ?? null : null,
+      in: playerInId != null ? index.get(playerInId) ?? null : null,
+    },
+  };
+}
 
 export function parseFields(fields: string[]): { type: string; payload: unknown } {
   const map: Record<string, string> = {};

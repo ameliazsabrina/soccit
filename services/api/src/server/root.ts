@@ -7,9 +7,9 @@ import {
   parseLeaderboard,
 } from "../modules/leaderboard/leaderboard.service.js";
 import { eventEntrySchema, eventsInput } from "../modules/events/events.schema.js";
-import { backfill, tail } from "../modules/events/events.service.js";
+import { backfill, enrichEntry, tail } from "../modules/events/events.service.js";
 import { lineupInput, lineupOutput } from "../modules/lineup/lineup.schema.js";
-import { getLineup } from "../modules/lineup/lineup.service.js";
+import { getLineup, loadPlayerIndex } from "../modules/lineup/lineup.service.js";
 import { getRedis, newRedisConnection } from "../redis.js";
 import { subscribeChannel } from "../pubsub.js";
 import { publicProcedure, router } from "./trpc.js";
@@ -44,18 +44,20 @@ const leaderboardRouter = router({
 const eventsRouter = router({
   stream: publicProcedure.input(eventsInput).subscription(async function* ({ input, signal }) {
     const sig = resolveSignal(signal);
+    let index = await loadPlayerIndex(input.fixtureId);
     const reader = newRedisConnection();
     let cursor = input.fromId ?? "0-0";
     try {
       for (const entry of await backfill(reader, input.fixtureId, cursor)) {
         cursor = entry.id;
-        yield eventEntrySchema.parse(entry);
+        yield eventEntrySchema.parse(enrichEntry(entry, index));
       }
     } finally {
       reader.disconnect();
     }
     for await (const entry of tail(input.fixtureId, cursor, sig)) {
-      yield eventEntrySchema.parse(entry);
+      if (entry.type === "substitution" && index.size === 0) index = await loadPlayerIndex(input.fixtureId);
+      yield eventEntrySchema.parse(enrichEntry(entry, index));
     }
   }),
 });
