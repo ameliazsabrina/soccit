@@ -12,6 +12,8 @@ export const storedPlayerSchema = z.object({
   number: z.string().nullable(),
   starter: z.boolean(),
   positionId: z.number().int().nullable(),
+  onPitch: z.boolean().nullable().optional(),
+  warmingUp: z.boolean().nullable().optional(),
 });
 
 export const storedTeamSchema = z.object({

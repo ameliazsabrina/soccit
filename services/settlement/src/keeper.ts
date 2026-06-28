@@ -37,7 +37,12 @@ export interface KeeperDeps {
   resolver: Keypair;
   platformWallet: PublicKey;
   terminalPhase?: number;
+  sendRetries?: number;
+  sendRetryBaseMs?: number;
 }
+
+const DEFAULT_SEND_RETRIES = 3;
+const DEFAULT_SEND_RETRY_BASE_MS = 500;
 
 function parseWinner(s: string | null): PublicKey | null {
   return s ? new PublicKey(s) : null;
@@ -48,6 +53,38 @@ async function fetchMatch(deps: KeeperDeps, fixtureId: number): Promise<{ pda: P
   const info = await deps.connection.getAccountInfo(pda);
   if (!info) return null;
   return { pda, match: decodeMatch(info.data as Buffer) };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function sendAndConfirmWithRetry(
+  deps: KeeperDeps,
+  tx: Transaction,
+): Promise<string> {
+  const maxAttempts = Math.max(1, deps.sendRetries ?? DEFAULT_SEND_RETRIES);
+  const baseMs = Math.max(0, deps.sendRetryBaseMs ?? DEFAULT_SEND_RETRY_BASE_MS);
+  let lastErr: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const sig = await deps.connection.sendTransaction(tx, [deps.resolver], {
+        skipPreflight: false,
+      });
+      await deps.connection.confirmTransaction(sig, "confirmed");
+      if (attempt > 1) logger.info({ attempt, sig }, "transaction confirmed after retry");
+      return sig;
+    } catch (err) {
+      lastErr = err;
+      if (attempt === maxAttempts) break;
+      const delayMs = baseMs * 2 ** (attempt - 1);
+      logger.warn({ attempt, maxAttempts, delayMs, err: String(err) }, "transaction send failed — retrying");
+      if (delayMs > 0) await sleep(delayMs);
+    }
+  }
+
+  throw lastErr;
 }
 
 export async function settleFixture(
@@ -134,10 +171,7 @@ export async function settleFixture(
   );
 
   const tx = new Transaction().add(...ixs);
-  const sig = await deps.connection.sendTransaction(tx, [deps.resolver], {
-    skipPreflight: false,
-  });
-  await deps.connection.confirmTransaction(sig, "confirmed");
+  const sig = await sendAndConfirmWithRetry(deps, tx);
   logger.info(
     { fixtureId, sig, winners: winners.map((w) => w?.toBase58() ?? null) },
     "settled match on-chain",

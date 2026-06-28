@@ -1,7 +1,7 @@
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { normalize } from "./domain/normalize.js";
-import { extractLineup } from "./domain/lineup.js";
+import { applyPlayerData, extractLineup, type LineupSnapshot } from "./domain/lineup.js";
 import type { Store } from "./store/index.js";
 import type { TokenManager } from "./txline/auth.js";
 import { fetchSnapshot } from "./txline/snapshot.js";
@@ -15,6 +15,7 @@ export interface IngestDeps {
 
 export async function runIngest({ tokens, store, signal }: IngestDeps): Promise<void> {
   const { fixtureId } = config.txline;
+  const lineups = new Map<number, LineupSnapshot>();
 
   if (fixtureId != null) {
     try {
@@ -22,7 +23,17 @@ export async function runIngest({ tokens, store, signal }: IngestDeps): Promise<
       for (const raw of snap) {
         await store.persist(raw, normalize(raw, { terminalActions: config.terminalActions }));
         const lineup = extractLineup(raw);
-        if (lineup) await store.writeLineup(lineup);
+        if (lineup) {
+          lineups.set(lineup.fixtureId, lineup);
+          await store.writeLineup(lineup);
+        } else {
+          const current = lineups.get(raw.FixtureId);
+          const updated = current ? applyPlayerData(current, raw) : null;
+          if (updated) {
+            lineups.set(updated.fixtureId, updated);
+            await store.writeLineup(updated);
+          }
+        }
       }
       logger.info({ fixtureId, count: snap.length }, "backfilled from snapshot");
     } catch (err) {
@@ -38,11 +49,20 @@ export async function runIngest({ tokens, store, signal }: IngestDeps): Promise<
 
     const lineup = extractLineup(raw);
     if (lineup) {
+      lineups.set(lineup.fixtureId, lineup);
       await store.writeLineup(lineup);
       logger.info(
         { fixtureId: lineup.fixtureId, teams: lineup.teams.length, players: Object.keys(lineup.names).length },
         "lineup cached",
       );
+    } else {
+      const current = lineups.get(raw.FixtureId);
+      const updated = current ? applyPlayerData(current, raw) : null;
+      if (updated) {
+        lineups.set(updated.fixtureId, updated);
+        await store.writeLineup(updated);
+        logger.info({ fixtureId: updated.fixtureId, action: raw.Action }, "lineup player data updated");
+      }
     }
 
     const cursor = raw.Seq ?? raw.Id;

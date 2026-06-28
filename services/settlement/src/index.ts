@@ -2,10 +2,9 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { loadKeypair, type KeeperDeps } from "./keeper.js";
-import { watchFixture } from "./watch.js";
+import { watchLeaderboards } from "./watch.js";
 
 async function main(): Promise<void> {
-  if (config.fixtureId == null) throw new Error("SETTLEMENT_FIXTURE_ID is required");
   const fixtureId = config.fixtureId;
 
   const programId = new PublicKey(config.solana.programId);
@@ -33,10 +32,9 @@ async function main(): Promise<void> {
 
   const deps: KeeperDeps = { connection, programId, resolver, platformWallet };
 
-  await watchFixture({
+  await watchLeaderboards({
     deps,
     redisUrl: config.redis.url,
-    fixtureId,
     pollIntervalMs: config.pollIntervalMs,
     signal: controller.signal,
   });

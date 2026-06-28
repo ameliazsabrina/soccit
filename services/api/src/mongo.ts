@@ -7,6 +7,7 @@ import type { UserDoc } from "./modules/user/user.schema.js";
 let client: MongoClient | undefined;
 let dbReady: Promise<Db> | undefined;
 let usersReady: Promise<Collection<UserDoc>> | undefined;
+let participationsReady: Promise<Collection<ParticipationDoc>> | undefined;
 
 function requireMongoUrl(): string {
   if (!config.mongo.url) throw new Error("MONGO_URL is required for user features");
@@ -40,7 +41,17 @@ export function getUsersCollection(): Promise<Collection<UserDoc>> {
 }
 
 export async function getParticipationsCollection(): Promise<Collection<ParticipationDoc>> {
-  return (await getDb()).collection<ParticipationDoc>("participations");
+  if (!participationsReady) {
+    participationsReady = (async () => {
+      const participations = (await getDb()).collection<ParticipationDoc>("participations");
+      await Promise.all([
+        participations.createIndex({ wallet: 1, fixtureId: 1 }, { unique: true }),
+        participations.createIndex({ wallet: 1 }),
+      ]);
+      return participations;
+    })();
+  }
+  return participationsReady;
 }
 
 export async function closeMongo(): Promise<void> {
@@ -49,5 +60,6 @@ export async function closeMongo(): Promise<void> {
     client = undefined;
     dbReady = undefined;
     usersReady = undefined;
+    participationsReady = undefined;
   }
 }

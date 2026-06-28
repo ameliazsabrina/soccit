@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractLineup } from "./lineup.js";
+import { applyPlayerData, extractLineup } from "./lineup.js";
 import { RawEvent } from "../txline/types.js";
 import rawLineups from "./__fixtures__/lineups.json";
 
@@ -49,5 +49,46 @@ describe("extractLineup (real TxLINE wire format)", () => {
     const snap = extractLineup(raw);
     expect(snap?.teams).toHaveLength(1);
     expect(snap?.teams[0]?.side).toBe(1);
+  });
+
+  it("applies players_on_the_pitch updates to a cached lineup", () => {
+    const snap = extractLineup(lineupsEvent());
+    expect(snap).not.toBeNull();
+    const updated = applyPlayerData(snap!, {
+      FixtureId: 17588325,
+      Action: "players_on_the_pitch",
+      Ts: 1782610978000,
+      Data: { Players: [{ PlayerId: 10282425 }, { PlayerId: 279394 }] },
+    });
+    const player = updated?.teams[0]?.players.find((p) => p.id === 10282425);
+    expect(player?.onPitch).toBe(true);
+    expect(updated?.updatedAt).toBe(1782610978000);
+  });
+
+  it("applies warming-up and jersey updates to cached players", () => {
+    const snap = extractLineup(lineupsEvent());
+    const warming = applyPlayerData(snap!, {
+      FixtureId: 17588325,
+      Action: "players_warming_up",
+      Data: { PlayerIds: [1072568] },
+    });
+    const jersey = applyPlayerData(warming!, {
+      FixtureId: 17588325,
+      Action: "jersey",
+      Data: { PlayerId: 1072568, JerseyNumber: 99 },
+    });
+    const player = jersey?.teams[1]?.players.find((p) => p.id === 1072568);
+    expect(player?.warmingUp).toBe(true);
+    expect(player?.number).toBe("99");
+  });
+
+  it("ignores player-data actions until the player exists in the lineup", () => {
+    const snap = extractLineup(lineupsEvent());
+    const updated = applyPlayerData(snap!, {
+      FixtureId: 17588325,
+      Action: "players_warming_up",
+      Data: { PlayerIds: [123456789] },
+    });
+    expect(updated).toBeNull();
   });
 });
