@@ -11,6 +11,14 @@ function expandHome(p: string): string {
   return p;
 }
 
+function heliusDevnetRpcUrl(apiKey: string): string {
+  return `https://devnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`;
+}
+
+const heliusApiKey = process.env.NODE_ENV === "test"
+  ? z.string().default("test")
+  : z.string().min(1, "HELIUS_API_KEY is required");
+
 const csv = (s: string): number[] =>
   s
     .split(",")
@@ -25,7 +33,7 @@ const Schema = z.object({
   TXLINE_API_TOKEN: z.string().optional(),
   TXLINE_TX_SIG: z.string().optional(),
   SOLANA_KEYPAIR_PATH: z.string().default("~/.config/solana/soccit-txline.json"),
-  SOLANA_RPC_URL: z.string().url().default("https://api.devnet.solana.com"),
+  HELIUS_API_KEY: heliusApiKey,
   TXLINE_FIXTURE_ID: z.string().optional(),
   TERMINAL_ACTIONS: z.string().default("game_finalised"),
   REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
@@ -46,7 +54,7 @@ export const config = {
   },
   solana: {
     keypairPath: expandHome(env.SOLANA_KEYPAIR_PATH),
-    rpcUrl: env.SOLANA_RPC_URL,
+    rpcUrl: heliusDevnetRpcUrl(env.HELIUS_API_KEY),
   },
   terminalActions: new Set(
     env.TERMINAL_ACTIONS.split(",").map((x) => x.trim()).filter(Boolean),

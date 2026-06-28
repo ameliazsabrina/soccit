@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   const fixtureId = BigInt(arg("fixture") ?? (config.fixtureId ?? ""));
   const team1Id = Number(arg("team1") ?? 0);
   const team2Id = Number(arg("team2") ?? 0);
-  const entryFee = BigInt(arg("fee") ?? 1_000_000);
+  const entryFee = BigInt(arg("fee") ?? config.entryFeeBaseUnits);
   const mintStr = arg("mint") ?? config.solana.usdcMint;
   if (!mintStr) throw new Error("USDC mint required (--mint or USDC_MINT)");
   if (!fixtureId) throw new Error("fixture id required (--fixture or SETTLEMENT_FIXTURE_ID)");

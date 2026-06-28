@@ -3,8 +3,16 @@ import { z } from "zod";
 
 loadDotenv();
 
+function heliusDevnetRpcUrl(apiKey: string): string {
+  return `https://devnet.helius-rpc.com/?api-key=${encodeURIComponent(apiKey)}`;
+}
+
+const heliusApiKey = process.env.NODE_ENV === "test"
+  ? z.string().default("test")
+  : z.string().min(1, "HELIUS_API_KEY is required");
+
 const Schema = z.object({
-  SOLANA_RPC_URL: z.string().url().default("https://api.devnet.solana.com"),
+  HELIUS_API_KEY: heliusApiKey,
   PROGRAM_ID: z.string().default("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v"),
   SCORING_FIXTURE_ID: z.string().optional(),
   PREDICTIONS_SOURCE: z.enum(["onchain", "file"]).default("onchain"),
@@ -24,7 +32,7 @@ if (env.PREDICTIONS_SOURCE === "file" && !env.PREDICTIONS_FILE) {
 
 export const config = {
   solana: {
-    rpcUrl: env.SOLANA_RPC_URL,
+    rpcUrl: heliusDevnetRpcUrl(env.HELIUS_API_KEY),
     programId: env.PROGRAM_ID,
   },
   fixtureId: env.SCORING_FIXTURE_ID ? Number(env.SCORING_FIXTURE_ID) : undefined,
