@@ -35,7 +35,7 @@ export interface DecodedMatch {
   terminalPhase: number;
   settled: boolean;
   resolver: PublicKey;
-  usdtMint: PublicKey;
+  usdcMint: PublicKey;
   vault: PublicKey;
   winner1: PublicKey;
   winner2: PublicKey;
@@ -76,7 +76,7 @@ export function decodeMatch(buf: Buffer): DecodedMatch {
     terminalPhase: buf.readUInt8(41),
     settled: buf.readUInt8(42) === 1,
     resolver: new PublicKey(buf.subarray(43, 75)),
-    usdtMint: new PublicKey(buf.subarray(75, 107)),
+    usdcMint: new PublicKey(buf.subarray(75, 107)),
     vault: new PublicKey(buf.subarray(107, 139)),
     winner1: new PublicKey(buf.subarray(139, 171)),
     winner2: new PublicKey(buf.subarray(171, 203)),
@@ -90,7 +90,7 @@ export function decodeMatch(buf: Buffer): DecodedMatch {
 export interface CreateMatchParams {
   programId: PublicKey;
   admin: PublicKey;
-  usdtMint: PublicKey;
+  usdcMint: PublicKey;
   matchId: bigint;
   team1Id: number;
   team2Id: number;
@@ -99,10 +99,10 @@ export interface CreateMatchParams {
 }
 
 export function buildCreateMatchInstruction(params: CreateMatchParams): TransactionInstruction {
-  const { programId, admin, usdtMint, matchId, team1Id, team2Id, entryFee, resolver } = params;
+  const { programId, admin, usdcMint, matchId, team1Id, team2Id, entryFee, resolver } = params;
   const match = matchPda(programId, matchId);
   const vaultAuthority = vaultAuthorityPda(programId, match);
-  const vault = associatedTokenAddress(usdtMint, vaultAuthority);
+  const vault = associatedTokenAddress(usdcMint, vaultAuthority);
 
   const data = Buffer.alloc(8 + 8 + 4 + 4 + 8 + 32);
   CREATE_MATCH_DISCRIMINATOR.copy(data, 0);
@@ -117,7 +117,7 @@ export function buildCreateMatchInstruction(params: CreateMatchParams): Transact
     keys: [
       { pubkey: admin, isSigner: true, isWritable: true },
       { pubkey: match, isSigner: false, isWritable: true },
-      { pubkey: usdtMint, isSigner: false, isWritable: false },
+      { pubkey: usdcMint, isSigner: false, isWritable: false },
       { pubkey: vaultAuthority, isSigner: false, isWritable: false },
       { pubkey: vault, isSigner: false, isWritable: true },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
@@ -155,7 +155,7 @@ export interface PlacePredictionParams {
   programId: PublicKey;
   user: PublicKey;
   matchAccount: PublicKey;
-  userUsdtAta: PublicKey;
+  userUsdcAta: PublicKey;
   vault: PublicKey;
   side: number;
   kind: number;
@@ -166,7 +166,7 @@ export interface PlacePredictionParams {
 }
 
 export function buildPlacePredictionInstruction(params: PlacePredictionParams): TransactionInstruction {
-  const { programId, user, matchAccount, userUsdtAta, vault, side, kind, outId, inId, lockMinute, slotIndex } =
+  const { programId, user, matchAccount, userUsdcAta, vault, side, kind, outId, inId, lockMinute, slotIndex } =
     params;
   const entry = entryPda(programId, matchAccount, user);
   const prediction = predictionPda(programId, matchAccount, user, slotIndex);
@@ -187,7 +187,7 @@ export function buildPlacePredictionInstruction(params: PlacePredictionParams): 
       { pubkey: matchAccount, isSigner: false, isWritable: true },
       { pubkey: entry, isSigner: false, isWritable: true },
       { pubkey: prediction, isSigner: false, isWritable: true },
-      { pubkey: userUsdtAta, isSigner: false, isWritable: true },
+      { pubkey: userUsdcAta, isSigner: false, isWritable: true },
       { pubkey: vault, isSigner: false, isWritable: true },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },

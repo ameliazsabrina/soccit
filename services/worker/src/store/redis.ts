@@ -2,11 +2,13 @@ import { Redis } from "ioredis";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
 import type { DomainEvent } from "../domain/events.js";
+import type { LineupSnapshot } from "../domain/lineup.js";
 import { matchMinute, type RawEvent } from "../txline/types.js";
 
 const LAST_EVENT_ID_KEY = "txline:scores:lastEventId";
 const fixtureKey = (id: number) => `fixture:${id}`;
 const eventStreamKey = (id: number) => `events:${id}`;
+const lineupKey = (id: number) => `lineup:${id}`;
 
 export class RedisStore {
   private redis: Redis;
@@ -57,6 +59,10 @@ export class RedisStore {
     }
 
     await pipe.exec();
+  }
+
+  async writeLineup(snap: LineupSnapshot): Promise<void> {
+    await this.redis.set(lineupKey(snap.fixtureId), JSON.stringify(snap));
   }
 
   async close(): Promise<void> {

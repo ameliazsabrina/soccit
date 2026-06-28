@@ -75,15 +75,15 @@ worker activate itself on boot.
 
 ## Network topology (devnet submission)
 
-The Soccit program (escrow/predict/resolve/settle) deploys to **devnet** with a mock
-USDT mint. The TxLINE data feed is chain-agnostic HTTP — only the one-time on-chain
+The Soccit program (escrow/predict/resolve/settle) deploys to **devnet** with the
+official devnet USDC mint. The TxLINE data feed is chain-agnostic HTTP — only the one-time on-chain
 `subscribe` must happen on **mainnet** (TxLINE's program only exists there).
 
 | Component | Network | Notes |
 |---|---|---|
 | TxLINE `subscribe` (one-time) | Mainnet | Their program, ~$0.001 |
 | TxLINE API/SSE feed | HTTP | Just needs the API token |
-| Soccit program | **Devnet** | Mock USDT, devnet SOL |
+| Soccit program | **Devnet** | Official devnet USDC, devnet SOL |
 | Worker ingestor | HTTP → devnet | Reads feed, writes devnet |
 | Resolver/settlement | **Devnet** | Calls Soccit program |
 

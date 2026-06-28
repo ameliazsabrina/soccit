@@ -1,6 +1,7 @@
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { logger } from "../logger.js";
 import type { DomainEvent } from "../domain/events.js";
+import type { LineupSnapshot } from "../domain/lineup.js";
 import { matchMinute, type RawEvent } from "../txline/types.js";
 
 export class MongoStore {
@@ -9,6 +10,7 @@ export class MongoStore {
   private rawScores!: Collection;
   private events!: Collection;
   private fixtures!: Collection;
+  private lineups!: Collection;
 
   constructor(url: string, private readonly dbName: string) {
     this.client = new MongoClient(url);
@@ -20,12 +22,14 @@ export class MongoStore {
     this.rawScores = this.db.collection("raw_scores");
     this.events = this.db.collection("events");
     this.fixtures = this.db.collection("fixtures");
+    this.lineups = this.db.collection("lineups");
 
     await Promise.all([
       this.rawScores.createIndex({ fixtureId: 1, ts: 1 }),
       this.events.createIndex({ fixtureId: 1, ts: 1 }),
       this.events.createIndex({ type: 1 }),
       this.fixtures.createIndex({ fixtureId: 1 }, { unique: true }),
+      this.lineups.createIndex({ fixtureId: 1 }, { unique: true }),
     ]);
     logger.info("mongo connected");
   }
@@ -50,6 +54,14 @@ export class MongoStore {
           _updatedAt: ingestedAt,
         },
       },
+      { upsert: true },
+    );
+  }
+
+  async writeLineup(snap: LineupSnapshot): Promise<void> {
+    await this.lineups.updateOne(
+      { fixtureId: snap.fixtureId },
+      { $set: { ...snap, _updatedAt: Date.now() } },
       { upsert: true },
     );
   }

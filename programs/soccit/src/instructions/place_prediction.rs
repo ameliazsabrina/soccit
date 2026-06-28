@@ -1,7 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-use crate::{constants::*, error::SoccitError, state::{Entry, Match, Prediction}};
+use crate::{
+    constants::*,
+    error::SoccitError,
+    state::{Entry, Match, Prediction},
+};
 
 #[derive(Accounts)]
 #[instruction(side: u8, kind: u8, out_id: u32, in_id: u32, lock_minute: u16, slot_index: u8)]
@@ -36,10 +40,10 @@ pub struct PlacePrediction<'info> {
 
     #[account(
         mut,
-        constraint = user_usdt_ata.mint == match_account.usdt_mint @ SoccitError::MintMismatch,
-        constraint = user_usdt_ata.owner == user.key(),
+        constraint = user_usdc_ata.mint == match_account.usdc_mint @ SoccitError::MintMismatch,
+        constraint = user_usdc_ata.owner == user.key(),
     )]
-    pub user_usdt_ata: Account<'info, TokenAccount>,
+    pub user_usdc_ata: Account<'info, TokenAccount>,
 
     #[account(
         mut,
@@ -91,7 +95,10 @@ pub fn place_prediction_handler(
     }
 
     require!(entry.slots_used < MAX_SLOTS, SoccitError::SlotsFull);
-    require!(slot_index == entry.slots_used, SoccitError::SlotIndexMismatch);
+    require!(
+        slot_index == entry.slots_used,
+        SoccitError::SlotIndexMismatch
+    );
 
     let new_players: &[u32] = match kind {
         KIND_OUT => &[out_id],
@@ -118,7 +125,7 @@ pub fn place_prediction_handler(
         CpiContext::new(
             ctx.accounts.token_program.key(),
             Transfer {
-                from: ctx.accounts.user_usdt_ata.to_account_info(),
+                from: ctx.accounts.user_usdc_ata.to_account_info(),
                 to: ctx.accounts.vault.to_account_info(),
                 authority: ctx.accounts.user.to_account_info(),
             },

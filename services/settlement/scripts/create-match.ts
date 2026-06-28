@@ -18,8 +18,8 @@ async function main(): Promise<void> {
   const team1Id = Number(arg("team1") ?? 0);
   const team2Id = Number(arg("team2") ?? 0);
   const entryFee = BigInt(arg("fee") ?? 1_000_000);
-  const mintStr = arg("mint") ?? config.solana.usdtMint;
-  if (!mintStr) throw new Error("USDT mint required (--mint or USDT_MINT)");
+  const mintStr = arg("mint") ?? config.solana.usdcMint;
+  if (!mintStr) throw new Error("USDC mint required (--mint or USDC_MINT)");
   if (!fixtureId) throw new Error("fixture id required (--fixture or SETTLEMENT_FIXTURE_ID)");
 
   const adminPath = arg("admin") ?? config.solana.resolverKeypairPath;
@@ -29,18 +29,18 @@ async function main(): Promise<void> {
     : loadKeypair(config.solana.resolverKeypairPath).publicKey;
 
   const programId = new PublicKey(config.solana.programId);
-  const usdtMint = new PublicKey(mintStr);
+  const usdcMint = new PublicKey(mintStr);
   const connection = new Connection(config.solana.rpcUrl, "confirmed");
 
   const match = matchPda(programId, fixtureId);
   const vaultAuthority = vaultAuthorityPda(programId, match);
-  const vault = getAssociatedTokenAddressSync(usdtMint, vaultAuthority, true);
+  const vault = getAssociatedTokenAddressSync(usdcMint, vaultAuthority, true);
 
   console.error(`> rpc:        ${config.solana.rpcUrl}`);
   console.error(`> admin:      ${admin.publicKey.toBase58()}`);
   console.error(`> resolver:   ${resolver.toBase58()}`);
   console.error(`> fixture:    ${fixtureId}`);
-  console.error(`> mint:       ${usdtMint.toBase58()}`);
+  console.error(`> mint:       ${usdcMint.toBase58()}`);
   console.error(`> match PDA:  ${match.toBase58()}`);
   console.error(`> vault auth: ${vaultAuthority.toBase58()}`);
   console.error(`> vault ATA:  ${vault.toBase58()}`);
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   const ix = buildCreateMatchInstruction({
     programId,
     admin: admin.publicKey,
-    usdtMint,
+    usdcMint,
     matchId: fixtureId,
     team1Id,
     team2Id,

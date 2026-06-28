@@ -28,7 +28,7 @@ function encodeMatch(over: Partial<{
   status: number;
   settled: boolean;
   resolver: PublicKey;
-  usdtMint: PublicKey;
+  usdcMint: PublicKey;
   vault: PublicKey;
   winner1: PublicKey;
   winner2: PublicKey;
@@ -46,7 +46,7 @@ function encodeMatch(over: Partial<{
   buf.writeUInt8(1, 41);
   buf.writeUInt8(over.settled ? 1 : 0, 42);
   (over.resolver ?? PublicKey.unique()).toBuffer().copy(buf, 43);
-  (over.usdtMint ?? PublicKey.unique()).toBuffer().copy(buf, 75);
+  (over.usdcMint ?? PublicKey.unique()).toBuffer().copy(buf, 75);
   (over.vault ?? PublicKey.unique()).toBuffer().copy(buf, 107);
   (over.winner1 ?? PublicKey.default).toBuffer().copy(buf, 139);
   (over.winner2 ?? PublicKey.default).toBuffer().copy(buf, 171);
@@ -73,12 +73,12 @@ describe("decodeMatch", () => {
     const vault = PublicKey.unique();
     const w1 = PublicKey.unique();
     const decoded = decodeMatch(
-      encodeMatch({ resolver, usdtMint: mint, vault, winner1: w1, status: STATUS_RESOLVED }),
+      encodeMatch({ resolver, usdcMint: mint, vault, winner1: w1, status: STATUS_RESOLVED }),
     );
     expect(decoded.matchId).toBe(17926593n);
     expect(decoded.status).toBe(STATUS_RESOLVED);
     expect(decoded.resolver.toBase58()).toBe(resolver.toBase58());
-    expect(decoded.usdtMint.toBase58()).toBe(mint.toBase58());
+    expect(decoded.usdcMint.toBase58()).toBe(mint.toBase58());
     expect(decoded.vault.toBase58()).toBe(vault.toBase58());
     expect(decoded.winner1.toBase58()).toBe(w1.toBase58());
     expect(decoded.winner2.equals(PublicKey.default)).toBe(true);
@@ -148,13 +148,13 @@ describe("buildPlacePredictionInstruction", () => {
   it("encodes args and derives the prediction PDA", () => {
     const user = PublicKey.unique();
     const matchAccount = matchPda(PROGRAM_ID, 17926593n);
-    const userUsdtAta = PublicKey.unique();
+    const userUsdcAta = PublicKey.unique();
     const vault = PublicKey.unique();
     const ix = buildPlacePredictionInstruction({
       programId: PROGRAM_ID,
       user,
       matchAccount,
-      userUsdtAta,
+      userUsdcAta,
       vault,
       side: 1,
       kind: 2,
@@ -182,12 +182,12 @@ describe("buildPlacePredictionInstruction", () => {
 describe("buildCreateMatchInstruction", () => {
   it("encodes args and derives match + vault accounts", () => {
     const admin = PublicKey.unique();
-    const usdtMint = PublicKey.unique();
+    const usdcMint = PublicKey.unique();
     const resolver = PublicKey.unique();
     const ix = buildCreateMatchInstruction({
       programId: PROGRAM_ID,
       admin,
-      usdtMint,
+      usdcMint,
       matchId: 17926593n,
       team1Id: 11,
       team2Id: 22,

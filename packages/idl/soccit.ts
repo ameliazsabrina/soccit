@@ -54,7 +54,7 @@ export type Soccit = {
           }
         },
         {
-          "name": "usdtMint"
+          "name": "usdcMint"
         },
         {
           "name": "vaultAuthority",
@@ -125,7 +125,7 @@ export type Soccit = {
               },
               {
                 "kind": "account",
-                "path": "usdtMint"
+                "path": "usdcMint"
               }
             ],
             "program": {
@@ -275,7 +275,7 @@ export type Soccit = {
           "writable": true
         },
         {
-          "name": "userUsdtAta",
+          "name": "userUsdcAta",
           "writable": true
         },
         {
@@ -580,7 +580,7 @@ export type Soccit = {
     {
       "code": 6013,
       "name": "mintMismatch",
-      "msg": "Provided USDT mint does not match the match mint"
+      "msg": "Provided token mint does not match the match mint"
     },
     {
       "code": 6014,
@@ -686,7 +686,7 @@ export type Soccit = {
             "type": "pubkey"
           },
           {
-            "name": "usdtMint",
+            "name": "usdcMint",
             "type": "pubkey"
           },
           {

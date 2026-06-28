@@ -1,0 +1,38 @@
+{
+  "name": "@soccit/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Soccit read API gateway: tRPC + plain SSE serving match state, leaderboards, and live event/leaderboard streams from Redis and on-chain.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@soccit/scoring": "file:../scoring",
+    "@solana/web3.js": "^1.98.0",
+    "@trpc/server": "^11.0.0",
+    "dotenv": "^16.4.7",
+    "hono": "^4.6.14",
+    "ioredis": "^5.4.2",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "uuid": "^9.0.1"
+    }
+  }
+}

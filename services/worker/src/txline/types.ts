@@ -19,6 +19,29 @@ export const EventData = z
   })
   .passthrough();
 
+export const LineupPlayer = z
+  .object({
+    rosterNumber: z.string().optional(),
+    starter: z.boolean().optional(),
+    positionId: z.number().optional(),
+    player: z
+      .object({
+        normativeId: z.number().optional(),
+        preferredName: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+export const LineupTeam = z
+  .object({
+    normativeId: z.number().optional(),
+    preferredName: z.string().optional(),
+    lineups: z.array(LineupPlayer).optional(),
+  })
+  .passthrough();
+
 export const RawEvent = z
   .object({
     FixtureId: z.number(),
@@ -36,11 +59,14 @@ export const RawEvent = z
     Seq: z.number().optional(),
     Data: EventData.optional(),
     Stats: z.record(z.string(), z.number()).optional(),
+    Lineups: z.array(LineupTeam).optional(),
   })
   .passthrough();
 
 export type RawEvent = z.infer<typeof RawEvent>;
 export type EventData = z.infer<typeof EventData>;
+export type LineupTeam = z.infer<typeof LineupTeam>;
+export type LineupPlayer = z.infer<typeof LineupPlayer>;
 
 export const StreamEnvelope = z
   .object({

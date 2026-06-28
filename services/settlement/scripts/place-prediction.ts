@@ -33,13 +33,13 @@ async function main(): Promise<void> {
   if (!info) throw new Error(`match ${fixtureId} not found on-chain`);
   const match = decodeMatch(info.data as Buffer);
 
-  const userUsdtAta = getAssociatedTokenAddressSync(match.usdtMint, user.publicKey);
+  const userUsdcAta = getAssociatedTokenAddressSync(match.usdcMint, user.publicKey);
   const prediction = predictionPda(programId, matchAccount, user.publicKey, slotIndex);
 
   console.error(`> user:       ${user.publicKey.toBase58()}`);
   console.error(`> match:      ${matchAccount.toBase58()}`);
-  console.error(`> mint:       ${match.usdtMint.toBase58()}`);
-  console.error(`> user ATA:   ${userUsdtAta.toBase58()}`);
+  console.error(`> mint:       ${match.usdcMint.toBase58()}`);
+  console.error(`> user ATA:   ${userUsdcAta.toBase58()}`);
   console.error(`> prediction: ${prediction.toBase58()}`);
   console.error(`> side=${side} kind=${kind} out=${outId} in=${inId} lock=${lockMinute} slot=${slotIndex}`);
 
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     programId,
     user: user.publicKey,
     matchAccount,
-    userUsdtAta,
+    userUsdcAta,
     vault: match.vault,
     side,
     kind,

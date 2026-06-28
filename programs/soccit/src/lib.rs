@@ -23,7 +23,9 @@ pub mod soccit {
         entry_fee: u64,
         resolver: Pubkey,
     ) -> Result<()> {
-        instructions::create_match::create_match_handler(ctx, match_id, team1_id, team2_id, entry_fee, resolver)
+        instructions::create_match::create_match_handler(
+            ctx, match_id, team1_id, team2_id, entry_fee, resolver,
+        )
     }
 
     pub fn place_prediction(
@@ -35,7 +37,15 @@ pub mod soccit {
         lock_minute: u16,
         slot_index: u8,
     ) -> Result<()> {
-        instructions::place_prediction::place_prediction_handler(ctx, side, kind, out_id, in_id, lock_minute, slot_index)
+        instructions::place_prediction::place_prediction_handler(
+            ctx,
+            side,
+            kind,
+            out_id,
+            in_id,
+            lock_minute,
+            slot_index,
+        )
     }
 
     pub fn resolve(

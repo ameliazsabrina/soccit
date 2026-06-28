@@ -48,7 +48,7 @@
           }
         },
         {
-          "name": "usdt_mint"
+          "name": "usdc_mint"
         },
         {
           "name": "vault_authority",
@@ -119,7 +119,7 @@
               },
               {
                 "kind": "account",
-                "path": "usdt_mint"
+                "path": "usdc_mint"
               }
             ],
             "program": {
@@ -269,7 +269,7 @@
           "writable": true
         },
         {
-          "name": "user_usdt_ata",
+          "name": "user_usdc_ata",
           "writable": true
         },
         {
@@ -574,7 +574,7 @@
     {
       "code": 6013,
       "name": "MintMismatch",
-      "msg": "Provided USDT mint does not match the match mint"
+      "msg": "Provided token mint does not match the match mint"
     },
     {
       "code": 6014,
@@ -680,7 +680,7 @@
             "type": "pubkey"
           },
           {
-            "name": "usdt_mint",
+            "name": "usdc_mint",
             "type": "pubkey"
           },
           {

@@ -67,7 +67,7 @@ export async function settleFixture(
     return null;
   }
 
-  const mint = match.usdtMint;
+  const mint = match.usdcMint;
   const vaultAuthority = vaultAuthorityPda(deps.programId, matchAccount);
 
   const winners =

@@ -21,7 +21,7 @@ pub struct CreateMatch<'info> {
     )]
     pub match_account: Account<'info, Match>,
 
-    pub usdt_mint: Account<'info, Mint>,
+    pub usdc_mint: Account<'info, Mint>,
 
     /// CHECK: PDA that owns the vault ATA. No data; seeds + bump verified here.
     #[account(
@@ -33,7 +33,7 @@ pub struct CreateMatch<'info> {
     #[account(
         init,
         payer = admin,
-        associated_token::mint = usdt_mint,
+        associated_token::mint = usdc_mint,
         associated_token::authority = vault_authority,
     )]
     pub vault: Account<'info, TokenAccount>,
@@ -61,7 +61,7 @@ pub fn create_match_handler(
     m.terminal_phase = 0;
     m.settled = false;
     m.resolver = resolver;
-    m.usdt_mint = ctx.accounts.usdt_mint.key();
+    m.usdc_mint = ctx.accounts.usdc_mint.key();
     m.vault = ctx.accounts.vault.key();
     m.winner1 = Pubkey::default();
     m.winner2 = Pubkey::default();

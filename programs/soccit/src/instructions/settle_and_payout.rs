@@ -30,25 +30,25 @@ pub struct SettleAndPayout<'info> {
 
     #[account(
         mut,
-        constraint = winner1_ata.mint == match_account.usdt_mint @ SoccitError::MintMismatch,
+        constraint = winner1_ata.mint == match_account.usdc_mint @ SoccitError::MintMismatch,
     )]
     pub winner1_ata: Option<Box<Account<'info, TokenAccount>>>,
 
     #[account(
         mut,
-        constraint = winner2_ata.mint == match_account.usdt_mint @ SoccitError::MintMismatch,
+        constraint = winner2_ata.mint == match_account.usdc_mint @ SoccitError::MintMismatch,
     )]
     pub winner2_ata: Option<Box<Account<'info, TokenAccount>>>,
 
     #[account(
         mut,
-        constraint = winner3_ata.mint == match_account.usdt_mint @ SoccitError::MintMismatch,
+        constraint = winner3_ata.mint == match_account.usdc_mint @ SoccitError::MintMismatch,
     )]
     pub winner3_ata: Option<Box<Account<'info, TokenAccount>>>,
 
     #[account(
         mut,
-        constraint = platform_ata.mint == match_account.usdt_mint @ SoccitError::MintMismatch,
+        constraint = platform_ata.mint == match_account.usdc_mint @ SoccitError::MintMismatch,
     )]
     pub platform_ata: Box<Account<'info, TokenAccount>>,
 
@@ -95,14 +95,8 @@ pub fn settle_and_payout_handler(ctx: Context<SettleAndPayout>) -> Result<()> {
             continue;
         }
         let ata = atas[i].ok_or(SoccitError::WinnerAccountMismatch)?;
-        require!(
-            ata.owner == winners[i],
-            SoccitError::WinnerAccountMismatch
-        );
-        let amount = pool
-            .checked_mul(pcts[i])
-            .ok_or(SoccitError::Overflow)?
-            / 100;
+        require!(ata.owner == winners[i], SoccitError::WinnerAccountMismatch);
+        let amount = pool.checked_mul(pcts[i]).ok_or(SoccitError::Overflow)? / 100;
         if amount > 0 {
             token::transfer(
                 CpiContext::new_with_signer(

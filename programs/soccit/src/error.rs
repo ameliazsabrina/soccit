@@ -28,7 +28,7 @@ pub enum SoccitError {
     SelfSubstitution,
     #[msg("Provided vault account does not match the match vault")]
     VaultMismatch,
-    #[msg("Provided USDT mint does not match the match mint")]
+    #[msg("Provided token mint does not match the match mint")]
     MintMismatch,
     #[msg("Winner token account does not belong to the recorded winner")]
     WinnerAccountMismatch,

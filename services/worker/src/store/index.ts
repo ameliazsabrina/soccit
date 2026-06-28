@@ -1,6 +1,7 @@
 import { config } from "../config.js";
 import { logger } from "../logger.js";
 import type { DomainEvent } from "../domain/events.js";
+import type { LineupSnapshot } from "../domain/lineup.js";
 import type { RawEvent } from "../txline/types.js";
 import { RedisStore } from "./redis.js";
 import { MongoStore } from "./mongo.js";
@@ -22,6 +23,11 @@ export class Store {
   async persist(raw: RawEvent, events: DomainEvent[]): Promise<void> {
     await this.redis.persist(raw, events);
     if (this.mongo) await this.mongo.persist(raw, events);
+  }
+
+  async writeLineup(snap: LineupSnapshot): Promise<void> {
+    await this.redis.writeLineup(snap);
+    if (this.mongo) await this.mongo.writeLineup(snap);
   }
 
   getLastEventId(): Promise<string | undefined> {

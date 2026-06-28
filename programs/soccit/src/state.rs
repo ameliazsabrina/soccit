@@ -14,7 +14,7 @@ pub struct Match {
     pub terminal_phase: u8,
     pub settled: bool,
     pub resolver: Pubkey,
-    pub usdt_mint: Pubkey,
+    pub usdc_mint: Pubkey,
     pub vault: Pubkey,
     pub winner1: Pubkey,
     pub winner2: Pubkey,

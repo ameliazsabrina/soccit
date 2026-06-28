@@ -1,6 +1,7 @@
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { normalize } from "./domain/normalize.js";
+import { extractLineup } from "./domain/lineup.js";
 import type { Store } from "./store/index.js";
 import type { TokenManager } from "./txline/auth.js";
 import { fetchSnapshot } from "./txline/snapshot.js";
@@ -20,6 +21,8 @@ export async function runIngest({ tokens, store, signal }: IngestDeps): Promise<
       const snap = await fetchSnapshot(tokens, fixtureId);
       for (const raw of snap) {
         await store.persist(raw, normalize(raw, { terminalActions: config.terminalActions }));
+        const lineup = extractLineup(raw);
+        if (lineup) await store.writeLineup(lineup);
       }
       logger.info({ fixtureId, count: snap.length }, "backfilled from snapshot");
     } catch (err) {
@@ -32,6 +35,15 @@ export async function runIngest({ tokens, store, signal }: IngestDeps): Promise<
   for await (const raw of streamScores({ tokens, fixtureId, lastEventId, signal })) {
     const events = normalize(raw, { terminalActions: config.terminalActions });
     await store.persist(raw, events);
+
+    const lineup = extractLineup(raw);
+    if (lineup) {
+      await store.writeLineup(lineup);
+      logger.info(
+        { fixtureId: lineup.fixtureId, teams: lineup.teams.length, players: Object.keys(lineup.names).length },
+        "lineup cached",
+      );
+    }
 
     const cursor = raw.Seq ?? raw.Id;
     if (cursor != null) await store.setLastEventId(String(cursor));
