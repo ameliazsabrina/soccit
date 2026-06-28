@@ -1,4 +1,5 @@
 import { leaderboardOutput } from "@soccit/scoring/leaderboard/schema";
+import { z } from "zod";
 import { matchInput, matchStateOutput } from "../modules/match/match.schema.js";
 import { getMatchState } from "../modules/match/match.service.js";
 import { enrichedLeaderboardOutput } from "../modules/leaderboard/leaderboard.schema.js";
@@ -12,8 +13,16 @@ import { eventEntrySchema, eventsInput } from "../modules/events/events.schema.j
 import { backfill, enrichEntry, tail } from "../modules/events/events.service.js";
 import { lineupInput, lineupOutput } from "../modules/lineup/lineup.schema.js";
 import { getLineup, loadPlayerIndex } from "../modules/lineup/lineup.service.js";
-import { registerInput, userProfile, walletInput } from "../modules/user/user.schema.js";
-import { getUser, registerUser } from "../modules/user/user.service.js";
+import {
+  AVATARS,
+  registerInput,
+  setAvatarInput,
+  userProfile,
+  walletInput,
+} from "../modules/user/user.schema.js";
+import { getUser, registerUser, setAvatar } from "../modules/user/user.service.js";
+import { userMatchesOutput } from "../modules/participation/participation.schema.js";
+import { getUserMatches } from "../modules/participation/participation.service.js";
 import { getRedis, newRedisConnection } from "../redis.js";
 import { subscribeChannel } from "../pubsub.js";
 import { publicProcedure, router } from "./trpc.js";
@@ -85,6 +94,18 @@ const userRouter = router({
     .input(walletInput)
     .output(userProfile)
     .query(({ input }) => getUser(input.wallet)),
+
+  setAvatar: publicProcedure
+    .input(setAvatarInput)
+    .output(userProfile)
+    .mutation(({ input }) => setAvatar(input)),
+
+  matches: publicProcedure
+    .input(walletInput)
+    .output(userMatchesOutput)
+    .query(({ input }) => getUserMatches(input.wallet)),
+
+  avatars: publicProcedure.output(z.array(z.string())).query(() => [...AVATARS]),
 });
 
 export const appRouter = router({

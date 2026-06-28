@@ -19,8 +19,9 @@ import { LeaderboardNotReadyError } from "./modules/leaderboard/leaderboard.erro
 import { getLineup, loadPlayerIndex } from "./modules/lineup/lineup.service.js";
 import { LineupNotReadyError } from "./modules/lineup/lineup.errors.js";
 import { backfill, enrichEntry, tail } from "./modules/events/events.service.js";
-import { registerInput, walletInput } from "./modules/user/user.schema.js";
-import { getUser, registerUser } from "./modules/user/user.service.js";
+import { AVATARS, registerInput, setAvatarInput, walletInput } from "./modules/user/user.schema.js";
+import { getUser, registerUser, setAvatar } from "./modules/user/user.service.js";
+import { getUserMatches } from "./modules/participation/participation.service.js";
 import {
   InvalidSignatureError,
   UserNotFoundError,
@@ -85,6 +86,27 @@ app.get("/api/user/:wallet", async (c) => {
     throw err;
   }
 });
+
+app.patch("/api/user/:wallet/avatar", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const parsed = setAvatarInput.safeParse({ ...(body ?? {}), wallet: c.req.param("wallet") });
+  if (!parsed.success) return c.json({ error: "invalid body" }, 400);
+  try {
+    return c.json(await setAvatar(parsed.data));
+  } catch (err) {
+    if (err instanceof InvalidSignatureError) return c.json({ error: err.message }, 401);
+    if (err instanceof UserNotFoundError) return c.json({ error: err.message }, 404);
+    throw err;
+  }
+});
+
+app.get("/api/user/:wallet/matches", async (c) => {
+  const parsed = walletInput.safeParse({ wallet: c.req.param("wallet") });
+  if (!parsed.success) return c.json({ error: "invalid wallet" }, 400);
+  return c.json(await getUserMatches(parsed.data.wallet));
+});
+
+app.get("/api/avatars", (c) => c.json([...AVATARS]));
 
 app.get("/api/leaderboard/:id", async (c) => {
   const fixtureId = parseFixtureId(c.req.param("id"));
