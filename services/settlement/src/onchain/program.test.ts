@@ -9,6 +9,7 @@ import {
   buildResolveInstruction,
   buildSettleInstruction,
   decodeMatch,
+  entryPda,
   matchPda,
   predictionPda,
   vaultAuthorityPda,
@@ -32,6 +33,7 @@ function encodeMatch(over: Partial<{
   winner1: PublicKey;
   winner2: PublicKey;
   winner3: PublicKey;
+  participantCount: number;
 }> = {}): Buffer {
   const buf = Buffer.alloc(MATCH_ACCOUNT_LEN);
   MATCH_DISC.copy(buf, 0);
@@ -51,6 +53,7 @@ function encodeMatch(over: Partial<{
   (over.winner3 ?? PublicKey.default).toBuffer().copy(buf, 203);
   buf.writeUInt8(254, 235);
   buf.writeUInt8(255, 236);
+  buf.writeUInt32LE(over.participantCount ?? 3, 237);
   return buf;
 }
 
@@ -79,6 +82,7 @@ describe("decodeMatch", () => {
     expect(decoded.vault.toBase58()).toBe(vault.toBase58());
     expect(decoded.winner1.toBase58()).toBe(w1.toBase58());
     expect(decoded.winner2.equals(PublicKey.default)).toBe(true);
+    expect(decoded.participantCount).toBe(3);
   });
 
   it("rejects a wrong discriminator", () => {
@@ -157,7 +161,7 @@ describe("buildPlacePredictionInstruction", () => {
       outId: 10101970,
       inId: 908961,
       lockMinute: 20,
-      nonce: 7n,
+      slotIndex: 3,
     });
     expect(ix.data.subarray(0, 8).equals(PLACE_DISC)).toBe(true);
     expect(ix.data.readUInt8(8)).toBe(1);
@@ -165,10 +169,12 @@ describe("buildPlacePredictionInstruction", () => {
     expect(ix.data.readUInt32LE(10)).toBe(10101970);
     expect(ix.data.readUInt32LE(14)).toBe(908961);
     expect(ix.data.readUInt16LE(18)).toBe(20);
-    expect(ix.data.readBigUInt64LE(20)).toBe(7n);
-    expect(ix.data.length).toBe(28);
-    const pred = predictionPda(PROGRAM_ID, matchAccount, user, 7n);
-    expect(ix.keys[2]!.pubkey.toBase58()).toBe(pred.toBase58());
+    expect(ix.data.readUInt8(20)).toBe(3);
+    expect(ix.data.length).toBe(21);
+    const entry = entryPda(PROGRAM_ID, matchAccount, user);
+    const pred = predictionPda(PROGRAM_ID, matchAccount, user, 3);
+    expect(ix.keys[2]!.pubkey.toBase58()).toBe(entry.toBase58());
+    expect(ix.keys[3]!.pubkey.toBase58()).toBe(pred.toBase58());
     expect(ix.keys[0]).toMatchObject({ pubkey: user, isSigner: true, isWritable: true });
   });
 });

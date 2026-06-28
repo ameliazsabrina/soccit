@@ -1,9 +1,3 @@
-//! End-to-end lifecycle + money-invariant tests for the Soccit program, run on
-//! LiteSVM (the Anchor 1.0 default test runner). Covers:
-//!   create_match → place_prediction (xN) → resolve → settle_and_payout
-//! plus the negative paths (non-resolver resolve/settle, double settle) and the
-//! payout math (35/25/20 + remainder, undefined places roll into platform fee).
-
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
 use anchor_lang::solana_program::instruction::Instruction;
 use litesvm::LiteSVM;
@@ -16,7 +10,7 @@ use spl_associated_token_account::get_associated_token_address;
 
 use anchor_lang::prelude::Pubkey;
 
-const ENTRY_FEE: u64 = 10_000_000; // 10 USDT @ 6 decimals
+const ENTRY_FEE: u64 = 10_000_000;
 const MATCH_ID: u64 = 42;
 
 fn program_id() -> Pubkey {
@@ -31,14 +25,20 @@ fn vault_authority_pda(match_key: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[b"vault", match_key.as_ref()], &program_id())
 }
 
-fn pred_pda(match_key: &Pubkey, owner: &Pubkey, nonce: u64) -> (Pubkey, u8) {
+fn pred_pda(match_key: &Pubkey, owner: &Pubkey, slot_index: u8) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &[b"pred", match_key.as_ref(), owner.as_ref(), &nonce.to_le_bytes()],
+        &[b"pred", match_key.as_ref(), owner.as_ref(), &[slot_index]],
         &program_id(),
     )
 }
 
-/// Build a fresh LiteSVM with the program loaded and a funded payer.
+fn entry_pda(match_key: &Pubkey, owner: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"entry", match_key.as_ref(), owner.as_ref()],
+        &program_id(),
+    )
+}
+
 fn setup() -> (LiteSVM, Keypair) {
     let mut svm = LiteSVM::new();
     let bytes = include_bytes!("../../../target/deploy/soccit.so");
@@ -67,7 +67,6 @@ fn read_match(svm: &LiteSVM, match_key: &Pubkey) -> soccit::Match {
     soccit::Match::try_deserialize(&mut &acc.data[..]).expect("deserialize match")
 }
 
-/// Create the match + vault. Returns (match_pda, vault_ata).
 fn create_match(
     svm: &mut LiteSVM,
     admin: &Keypair,
@@ -104,7 +103,6 @@ fn create_match(
     (m, vault)
 }
 
-/// Fund a new user with USDT and return (keypair, ata).
 fn new_funded_user(svm: &mut LiteSVM, mint_authority: &Keypair, mint: &Pubkey, amount: u64) -> (Keypair, Pubkey) {
     let user = Keypair::new();
     svm.airdrop(&user.pubkey(), 100_000_000_000).unwrap();
@@ -127,14 +125,16 @@ fn place_prediction(
     out_id: u32,
     in_id: u32,
     lock_minute: u16,
-    nonce: u64,
+    slot_index: u8,
 ) -> Result<(), String> {
-    let (pred, _) = pred_pda(match_key, &user.pubkey(), nonce);
+    let (pred, _) = pred_pda(match_key, &user.pubkey(), slot_index);
+    let (entry, _) = entry_pda(match_key, &user.pubkey());
     let ix = Instruction {
         program_id: program_id(),
         accounts: soccit::accounts::PlacePrediction {
             user: user.pubkey(),
             match_account: *match_key,
+            entry,
             prediction: pred,
             user_usdt_ata: *user_ata,
             vault: *vault,
@@ -142,7 +142,7 @@ fn place_prediction(
             system_program: anchor_lang::system_program::ID,
         }
         .to_account_metas(None),
-        data: soccit::instruction::PlacePrediction { side, kind, out_id, in_id, lock_minute, nonce }.data(),
+        data: soccit::instruction::PlacePrediction { side, kind, out_id, in_id, lock_minute, slot_index }.data(),
     };
     send(svm, &[ix], &user.pubkey(), &[user])
 }
@@ -207,25 +207,26 @@ fn full_lifecycle_pays_top3_and_drains_vault() {
     let mint = CreateMint::new(&mut svm, &admin).decimals(6).send().unwrap();
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
 
-    // Two users, two picks each → pool = 4 * ENTRY_FEE.
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
     let (u2, u2_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    let (u3, u3_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
     let platform = Keypair::new();
     let platform_ata = CreateAssociatedTokenAccount::new(&mut svm, &admin, &mint)
         .owner(&platform.pubkey())
         .send()
         .unwrap();
 
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 1).unwrap();
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 2, 14, 7, 64, 2).unwrap();
-    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 1, 0, 9, 70, 1).unwrap();
-    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 0, 11, 0, 75, 2).unwrap();
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 2, 3, 7, 64, 1).unwrap();
+    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 1, 0, 9, 70, 0).unwrap();
+    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 0, 11, 0, 75, 1).unwrap();
+    place_prediction(&mut svm, &u3, &u3_ata, &m, &vault, 1, 0, 21, 0, 80, 0).unwrap();
 
-    let pool = 4 * ENTRY_FEE;
+    let pool = 5 * ENTRY_FEE;
     assert_eq!(token_balance(&svm, &vault), pool, "vault holds the whole pool");
     assert_eq!(read_match(&svm, &m).pool_total, pool, "pool_total tracks fees");
+    assert_eq!(read_match(&svm, &m).participant_count, 3, "three unique wallets");
 
-    // Backend says: u1 first, u2 second, no eligible third.
     resolve(&mut svm, &resolver, &m, u1.pubkey(), u2.pubkey(), Pubkey::default()).unwrap();
     assert_eq!(read_match(&svm, &m).status, 1);
 
@@ -243,8 +244,7 @@ fn full_lifecycle_pays_top3_and_drains_vault() {
 
     let pay1 = pool * 35 / 100;
     let pay2 = pool * 25 / 100;
-    let platform_amt = pool - pay1 - pay2; // pay3 share rolls into platform
-    // Each user paid 2 entry fees before winning.
+    let platform_amt = pool - pay1 - pay2;
     assert_eq!(token_balance(&svm, &u1_ata), 100_000_000 - 2 * ENTRY_FEE + pay1, "winner1 paid 35%");
     assert_eq!(token_balance(&svm, &u2_ata), 100_000_000 - 2 * ENTRY_FEE + pay2, "winner2 paid 25%");
     assert_eq!(token_balance(&svm, &platform_ata), platform_amt, "platform gets remainder (40%)");
@@ -262,7 +262,6 @@ fn resolve_rejects_non_resolver() {
     let mint = CreateMint::new(&mut svm, &admin).decimals(6).send().unwrap();
     let (m, _vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
 
-    // admin is not the resolver
     let err = resolve(&mut svm, &admin, &m, admin.pubkey(), Pubkey::default(), Pubkey::default());
     assert!(err.is_err(), "non-resolver resolve must fail");
 }
@@ -281,16 +280,13 @@ fn settle_rejects_double_and_non_resolver() {
         .owner(&platform.pubkey())
         .send()
         .unwrap();
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 1).unwrap();
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
     resolve(&mut svm, &resolver, &m, u1.pubkey(), Pubkey::default(), Pubkey::default()).unwrap();
 
-    // non-resolver cannot settle
     let bad = settle(&mut svm, &admin, &m, &vault, Some(u1_ata), None, None, &platform_ata);
     assert!(bad.is_err(), "non-resolver settle must fail");
 
-    // first settle succeeds
     settle(&mut svm, &resolver, &m, &vault, Some(u1_ata), None, None, &platform_ata).unwrap();
-    // second settle must fail (AlreadySettled)
     let dbl = settle(&mut svm, &resolver, &m, &vault, Some(u1_ata), None, None, &platform_ata);
     assert!(dbl.is_err(), "double settle must fail");
 }
@@ -303,8 +299,92 @@ fn place_prediction_rejects_bad_inputs() {
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
 
-    // invalid side (3)
-    assert!(place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 3, 0, 14, 0, 60, 1).is_err());
-    // COMBO missing a leg
-    assert!(place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 2, 14, 0, 60, 2).is_err());
+    assert!(place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 3, 0, 14, 0, 60, 0).is_err());
+    assert!(place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 2, 14, 0, 60, 0).is_err());
+}
+
+#[test]
+fn slot_cap_blocks_sixth_pick() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    let mint = CreateMint::new(&mut svm, &admin).decimals(6).send().unwrap();
+    let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
+    let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+
+    for slot in 0u8..5 {
+        let pid = (slot as u32) + 1;
+        place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, pid, 0, 60, slot).unwrap();
+    }
+    assert_eq!(read_match(&svm, &m).participant_count, 1, "one wallet, one entry");
+
+    let sixth = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 6, 0, 60, 5);
+    assert!(sixth.is_err(), "sixth pick must fail");
+}
+
+#[test]
+fn duplicate_player_blocked() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    let mint = CreateMint::new(&mut svm, &admin).decimals(6).send().unwrap();
+    let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
+    let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+    let dup = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 64, 1);
+    assert!(dup.is_err(), "reusing a player id must fail");
+}
+
+#[test]
+fn side_locked_after_first_pick() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    let mint = CreateMint::new(&mut svm, &admin).decimals(6).send().unwrap();
+    let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
+    let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+    let flipped = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 2, 0, 15, 0, 64, 1);
+    assert!(flipped.is_err(), "second pick on the other side must fail");
+}
+
+#[test]
+fn under_three_participants_pays_solo_eighty_percent() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    svm.airdrop(&resolver.pubkey(), 100_000_000_000).unwrap();
+    let mint = CreateMint::new(&mut svm, &admin).decimals(6).send().unwrap();
+    let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
+
+    let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    let (u2, u2_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    let platform = Keypair::new();
+    let platform_ata = CreateAssociatedTokenAccount::new(&mut svm, &admin, &mint)
+        .owner(&platform.pubkey())
+        .send()
+        .unwrap();
+
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 0, 21, 0, 70, 0).unwrap();
+    assert_eq!(read_match(&svm, &m).participant_count, 2, "two unique wallets");
+
+    let pool = 2 * ENTRY_FEE;
+    resolve(&mut svm, &resolver, &m, u1.pubkey(), u2.pubkey(), Pubkey::default()).unwrap();
+    settle(
+        &mut svm,
+        &resolver,
+        &m,
+        &vault,
+        Some(u1_ata),
+        Some(u2_ata),
+        None,
+        &platform_ata,
+    )
+    .unwrap();
+
+    let pay_solo = pool * 80 / 100;
+    let platform_amt = pool - pay_solo;
+    assert_eq!(token_balance(&svm, &u1_ata), 100_000_000 - ENTRY_FEE + pay_solo, "winner gets 80%");
+    assert_eq!(token_balance(&svm, &u2_ata), 100_000_000 - ENTRY_FEE, "runner-up not paid");
+    assert_eq!(token_balance(&svm, &platform_ata), platform_amt, "platform gets 20%");
+    assert_eq!(token_balance(&svm, &vault), 0, "vault fully drained");
 }

@@ -67,8 +67,18 @@ pub fn settle_and_payout_handler(ctx: Context<SettleAndPayout>) -> Result<()> {
     let pool = m.pool_total;
     let match_key = m.key();
     let vault_bump = m.vault_authority_bump;
-    let winners = [m.winner1, m.winner2, m.winner3];
-    let pcts = [PAY1_PCT, PAY2_PCT, PAY3_PCT];
+
+    let solo = m.participant_count < MIN_PARTICIPANTS_TOP3;
+    let winners = if solo {
+        [m.winner1, Pubkey::default(), Pubkey::default()]
+    } else {
+        [m.winner1, m.winner2, m.winner3]
+    };
+    let pcts = if solo {
+        [PAY_SOLO_PCT, 0, 0]
+    } else {
+        [PAY1_PCT, PAY2_PCT, PAY3_PCT]
+    };
     let atas = [
         ctx.accounts.winner1_ata.as_ref(),
         ctx.accounts.winner2_ata.as_ref(),

@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 
+use crate::constants::MAX_PLAYERS;
+
 #[account]
 #[derive(InitSpace)]
 pub struct Match {
@@ -19,6 +21,19 @@ pub struct Match {
     pub winner3: Pubkey,
     pub vault_authority_bump: u8,
     pub bump: u8,
+    pub participant_count: u32,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Entry {
+    pub owner: Pubkey,
+    pub match_key: Pubkey,
+    pub side: u8,
+    pub slots_used: u8,
+    pub players: [u32; MAX_PLAYERS],
+    pub player_count: u8,
+    pub bump: u8,
 }
 
 #[account]
@@ -32,6 +47,6 @@ pub struct Prediction {
     pub in_player_id: u32,
     pub lock_minute: u16,
     pub fee_paid: u64,
-    pub nonce: u64,
+    pub slot_index: u8,
     pub bump: u8,
 }

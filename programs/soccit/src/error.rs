@@ -16,6 +16,16 @@ pub enum SoccitError {
     InvalidSide,
     #[msg("COMBO prediction requires both an OUT and an IN player id")]
     IncompleteCombo,
+    #[msg("Wallet has already used all of its slots for this match")]
+    SlotsFull,
+    #[msg("All of a wallet's picks must be for the side chosen on its first pick")]
+    SideLocked,
+    #[msg("Player id has already been used in another slot")]
+    DuplicatePlayer,
+    #[msg("Provided slot index does not match the next free slot")]
+    SlotIndexMismatch,
+    #[msg("COMBO prediction cannot use the same player as both OUT and IN")]
+    SelfSubstitution,
     #[msg("Provided vault account does not match the match vault")]
     VaultMismatch,
     #[msg("Provided USDT mint does not match the match mint")]

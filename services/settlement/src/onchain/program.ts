@@ -15,6 +15,7 @@ export const STATUS_SETTLED = 2;
 const MATCH_SEED = Buffer.from("match");
 const VAULT_SEED = Buffer.from("vault");
 const PRED_SEED = Buffer.from("pred");
+const ENTRY_SEED = Buffer.from("entry");
 
 const MATCH_DISCRIMINATOR = Buffer.from([236, 63, 169, 38, 15, 56, 196, 162]);
 const CREATE_MATCH_DISCRIMINATOR = Buffer.from([107, 2, 184, 145, 70, 142, 17, 165]);
@@ -22,7 +23,7 @@ const PLACE_PREDICTION_DISCRIMINATOR = Buffer.from([79, 46, 195, 197, 50, 91, 88
 const RESOLVE_DISCRIMINATOR = Buffer.from([246, 150, 236, 206, 108, 63, 58, 10]);
 const SETTLE_DISCRIMINATOR = Buffer.from([247, 163, 22, 141, 33, 169, 225, 56]);
 
-export const MATCH_ACCOUNT_LEN = 237;
+export const MATCH_ACCOUNT_LEN = 241;
 
 export interface DecodedMatch {
   matchId: bigint;
@@ -41,6 +42,7 @@ export interface DecodedMatch {
   winner3: PublicKey;
   vaultAuthorityBump: number;
   bump: number;
+  participantCount: number;
 }
 
 export function matchIdToLe(matchId: bigint): Buffer {
@@ -81,6 +83,7 @@ export function decodeMatch(buf: Buffer): DecodedMatch {
     winner3: new PublicKey(buf.subarray(203, 235)),
     vaultAuthorityBump: buf.readUInt8(235),
     bump: buf.readUInt8(236),
+    participantCount: buf.readUInt32LE(237),
   };
 }
 
@@ -133,12 +136,17 @@ export function predictionPda(
   programId: PublicKey,
   matchAccount: PublicKey,
   owner: PublicKey,
-  nonce: bigint,
+  slotIndex: number,
 ): PublicKey {
-  const nonceLe = Buffer.alloc(8);
-  nonceLe.writeBigUInt64LE(nonce);
   return PublicKey.findProgramAddressSync(
-    [PRED_SEED, matchAccount.toBuffer(), owner.toBuffer(), nonceLe],
+    [PRED_SEED, matchAccount.toBuffer(), owner.toBuffer(), Buffer.from([slotIndex])],
+    programId,
+  )[0];
+}
+
+export function entryPda(programId: PublicKey, matchAccount: PublicKey, owner: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [ENTRY_SEED, matchAccount.toBuffer(), owner.toBuffer()],
     programId,
   )[0];
 }
@@ -154,28 +162,30 @@ export interface PlacePredictionParams {
   outId: number;
   inId: number;
   lockMinute: number;
-  nonce: bigint;
+  slotIndex: number;
 }
 
 export function buildPlacePredictionInstruction(params: PlacePredictionParams): TransactionInstruction {
-  const { programId, user, matchAccount, userUsdtAta, vault, side, kind, outId, inId, lockMinute, nonce } =
+  const { programId, user, matchAccount, userUsdtAta, vault, side, kind, outId, inId, lockMinute, slotIndex } =
     params;
-  const prediction = predictionPda(programId, matchAccount, user, nonce);
+  const entry = entryPda(programId, matchAccount, user);
+  const prediction = predictionPda(programId, matchAccount, user, slotIndex);
 
-  const data = Buffer.alloc(8 + 1 + 1 + 4 + 4 + 2 + 8);
+  const data = Buffer.alloc(8 + 1 + 1 + 4 + 4 + 2 + 1);
   PLACE_PREDICTION_DISCRIMINATOR.copy(data, 0);
   data.writeUInt8(side, 8);
   data.writeUInt8(kind, 9);
   data.writeUInt32LE(outId, 10);
   data.writeUInt32LE(inId, 14);
   data.writeUInt16LE(lockMinute, 18);
-  data.writeBigUInt64LE(nonce, 20);
+  data.writeUInt8(slotIndex, 20);
 
   return new TransactionInstruction({
     programId,
     keys: [
       { pubkey: user, isSigner: true, isWritable: true },
       { pubkey: matchAccount, isSigner: false, isWritable: true },
+      { pubkey: entry, isSigner: false, isWritable: true },
       { pubkey: prediction, isSigner: false, isWritable: true },
       { pubkey: userUsdtAta, isSigner: false, isWritable: true },
       { pubkey: vault, isSigner: false, isWritable: true },

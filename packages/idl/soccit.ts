@@ -15,9 +15,6 @@ export type Soccit = {
   "instructions": [
     {
       "name": "createMatch",
-      "docs": [
-        "Admin: open a match, init the Match PDA + vault ATA, pin entry fee + resolver."
-      ],
       "discriminator": [
         107,
         2,
@@ -208,9 +205,6 @@ export type Soccit = {
     },
     {
       "name": "placePrediction",
-      "docs": [
-        "User: pay the flat fee into the vault and record a prediction. Placing is locking."
-      ],
       "discriminator": [
         79,
         46,
@@ -251,17 +245,18 @@ export type Soccit = {
           }
         },
         {
-          "name": "prediction",
+          "name": "entry",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  112,
-                  114,
                   101,
-                  100
+                  110,
+                  116,
+                  114,
+                  121
                 ]
               },
               {
@@ -271,13 +266,13 @@ export type Soccit = {
               {
                 "kind": "account",
                 "path": "user"
-              },
-              {
-                "kind": "arg",
-                "path": "nonce"
               }
             ]
           }
+        },
+        {
+          "name": "prediction",
+          "writable": true
         },
         {
           "name": "userUsdtAta",
@@ -318,16 +313,13 @@ export type Soccit = {
           "type": "u16"
         },
         {
-          "name": "nonce",
-          "type": "u64"
+          "name": "slotIndex",
+          "type": "u8"
         }
       ]
     },
     {
       "name": "resolve",
-      "docs": [
-        "Resolver: write the backend-finalized terminal phase + top-3 winners."
-      ],
       "discriminator": [
         246,
         150,
@@ -388,9 +380,6 @@ export type Soccit = {
     },
     {
       "name": "settleAndPayout",
-      "docs": [
-        "Resolver: pay 35/25/20 to winners + remainder to platform; drain the vault."
-      ],
       "discriminator": [
         247,
         163,
@@ -483,6 +472,19 @@ export type Soccit = {
   ],
   "accounts": [
     {
+      "name": "entry",
+      "discriminator": [
+        63,
+        18,
+        152,
+        113,
+        215,
+        246,
+        221,
+        250
+      ]
+    },
+    {
       "name": "match",
       "discriminator": [
         236,
@@ -533,12 +535,12 @@ export type Soccit = {
     {
       "code": 6004,
       "name": "invalidKind",
-      "msg": "Invalid prediction kind (expected 0=OUT, 1=IN, 2=COMBO)"
+      "msg": "Invalid prediction kind"
     },
     {
       "code": 6005,
       "name": "invalidSide",
-      "msg": "Invalid side (expected 1 or 2)"
+      "msg": "Invalid side"
     },
     {
       "code": 6006,
@@ -547,36 +549,103 @@ export type Soccit = {
     },
     {
       "code": 6007,
-      "name": "vaultMismatch",
-      "msg": "Provided vault account does not match the match's vault"
+      "name": "slotsFull",
+      "msg": "Wallet has already used all of its slots for this match"
     },
     {
       "code": 6008,
-      "name": "mintMismatch",
-      "msg": "Provided USDT mint does not match the match's mint"
+      "name": "sideLocked",
+      "msg": "All of a wallet's picks must be for the side chosen on its first pick"
     },
     {
       "code": 6009,
-      "name": "winnerAccountMismatch",
-      "msg": "A provided winner token account does not belong to the recorded winner"
+      "name": "duplicatePlayer",
+      "msg": "Player id has already been used in another slot"
     },
     {
       "code": 6010,
+      "name": "slotIndexMismatch",
+      "msg": "Provided slot index does not match the next free slot"
+    },
+    {
+      "code": 6011,
+      "name": "selfSubstitution",
+      "msg": "COMBO prediction cannot use the same player as both OUT and IN"
+    },
+    {
+      "code": 6012,
+      "name": "vaultMismatch",
+      "msg": "Provided vault account does not match the match vault"
+    },
+    {
+      "code": 6013,
+      "name": "mintMismatch",
+      "msg": "Provided USDT mint does not match the match mint"
+    },
+    {
+      "code": 6014,
+      "name": "winnerAccountMismatch",
+      "msg": "Winner token account does not belong to the recorded winner"
+    },
+    {
+      "code": 6015,
       "name": "vaultUnderfunded",
       "msg": "Vault token balance does not cover the recorded pool total"
     },
     {
-      "code": 6011,
+      "code": 6016,
       "name": "overflow",
       "msg": "Arithmetic overflow"
     }
   ],
   "types": [
     {
-      "name": "match",
+      "name": "entry",
       "docs": [
-        "One per fixture. Source of truth for escrow parameters and settlement."
+        "One per (match, wallet). Tracks the wallet's slot usage, locked side,",
+        "and the players already consumed across its slots."
       ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "matchKey",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "slotsUsed",
+            "type": "u8"
+          },
+          {
+            "name": "players",
+            "type": {
+              "array": [
+                "u32",
+                10
+              ]
+            }
+          },
+          {
+            "name": "playerCount",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "match",
       "type": {
         "kind": "struct",
         "fields": [
@@ -594,30 +663,18 @@ export type Soccit = {
           },
           {
             "name": "entryFee",
-            "docs": [
-              "Flat entry fee per prediction, in USDT base units (6 decimals)."
-            ],
             "type": "u64"
           },
           {
             "name": "poolTotal",
-            "docs": [
-              "Running sum of every entry fee paid into the vault."
-            ],
             "type": "u64"
           },
           {
             "name": "status",
-            "docs": [
-              "0=OPEN, 1=RESOLVED, 2=SETTLED."
-            ],
             "type": "u8"
           },
           {
             "name": "terminalPhase",
-            "docs": [
-              "Terminal phase the resolver reported (F / FET / FPE encoded by backend)."
-            ],
             "type": "u8"
           },
           {
@@ -626,30 +683,18 @@ export type Soccit = {
           },
           {
             "name": "resolver",
-            "docs": [
-              "Authorized key allowed to call `resolve` and `settle_and_payout`."
-            ],
             "type": "pubkey"
           },
           {
             "name": "usdtMint",
-            "docs": [
-              "USDT mint backing this match's escrow."
-            ],
             "type": "pubkey"
           },
           {
             "name": "vault",
-            "docs": [
-              "Vault token account (ATA owned by the vault-authority PDA)."
-            ],
             "type": "pubkey"
           },
           {
             "name": "winner1",
-            "docs": [
-              "Backend-finalized winners (Pubkey::default() == no winner for that place)."
-            ],
             "type": "pubkey"
           },
           {
@@ -662,28 +707,21 @@ export type Soccit = {
           },
           {
             "name": "vaultAuthorityBump",
-            "docs": [
-              "PDA bump for the vault authority."
-            ],
             "type": "u8"
           },
           {
             "name": "bump",
-            "docs": [
-              "PDA bump for this match account."
-            ],
             "type": "u8"
+          },
+          {
+            "name": "participantCount",
+            "type": "u32"
           }
         ]
       }
     },
     {
       "name": "prediction",
-      "docs": [
-        "One per pick. Placing IS locking — `lock_minute` is stamped at placement and",
-        "validity is decided off-chain retroactively. `points` is informational only",
-        "(the contract settles from `winner1/2/3`, not from on-chain scoring)."
-      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -697,16 +735,10 @@ export type Soccit = {
           },
           {
             "name": "side",
-            "docs": [
-              "Team the user committed to (1 or 2)."
-            ],
             "type": "u8"
           },
           {
             "name": "kind",
-            "docs": [
-              "0=OUT, 1=IN, 2=COMBO."
-            ],
             "type": "u8"
           },
           {
@@ -719,9 +751,6 @@ export type Soccit = {
           },
           {
             "name": "lockMinute",
-            "docs": [
-              "Match minute at placement, supplied by the resolver-trusted oracle path."
-            ],
             "type": "u16"
           },
           {
@@ -729,11 +758,8 @@ export type Soccit = {
             "type": "u64"
           },
           {
-            "name": "nonce",
-            "docs": [
-              "Caller-supplied disambiguator so a wallet can place unlimited picks."
-            ],
-            "type": "u64"
+            "name": "slotIndex",
+            "type": "u8"
           },
           {
             "name": "bump",
@@ -744,6 +770,11 @@ export type Soccit = {
     }
   ],
   "constants": [
+    {
+      "name": "entrySeed",
+      "type": "bytes",
+      "value": "[101, 110, 116, 114, 121]"
+    },
     {
       "name": "matchSeed",
       "type": "bytes",

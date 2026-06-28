@@ -33,9 +33,9 @@ pub mod soccit {
         out_id: u32,
         in_id: u32,
         lock_minute: u16,
-        nonce: u64,
+        slot_index: u8,
     ) -> Result<()> {
-        instructions::place_prediction::place_prediction_handler(ctx, side, kind, out_id, in_id, lock_minute, nonce)
+        instructions::place_prediction::place_prediction_handler(ctx, side, kind, out_id, in_id, lock_minute, slot_index)
     }
 
     pub fn resolve(

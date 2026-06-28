@@ -9,9 +9,6 @@
   "instructions": [
     {
       "name": "create_match",
-      "docs": [
-        "Admin: open a match, init the Match PDA + vault ATA, pin entry fee + resolver."
-      ],
       "discriminator": [
         107,
         2,
@@ -202,9 +199,6 @@
     },
     {
       "name": "place_prediction",
-      "docs": [
-        "User: pay the flat fee into the vault and record a prediction. Placing is locking."
-      ],
       "discriminator": [
         79,
         46,
@@ -245,17 +239,18 @@
           }
         },
         {
-          "name": "prediction",
+          "name": "entry",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  112,
-                  114,
                   101,
-                  100
+                  110,
+                  116,
+                  114,
+                  121
                 ]
               },
               {
@@ -265,13 +260,13 @@
               {
                 "kind": "account",
                 "path": "user"
-              },
-              {
-                "kind": "arg",
-                "path": "nonce"
               }
             ]
           }
+        },
+        {
+          "name": "prediction",
+          "writable": true
         },
         {
           "name": "user_usdt_ata",
@@ -312,16 +307,13 @@
           "type": "u16"
         },
         {
-          "name": "nonce",
-          "type": "u64"
+          "name": "slot_index",
+          "type": "u8"
         }
       ]
     },
     {
       "name": "resolve",
-      "docs": [
-        "Resolver: write the backend-finalized terminal phase + top-3 winners."
-      ],
       "discriminator": [
         246,
         150,
@@ -382,9 +374,6 @@
     },
     {
       "name": "settle_and_payout",
-      "docs": [
-        "Resolver: pay 35/25/20 to winners + remainder to platform; drain the vault."
-      ],
       "discriminator": [
         247,
         163,
@@ -477,6 +466,19 @@
   ],
   "accounts": [
     {
+      "name": "Entry",
+      "discriminator": [
+        63,
+        18,
+        152,
+        113,
+        215,
+        246,
+        221,
+        250
+      ]
+    },
+    {
       "name": "Match",
       "discriminator": [
         236,
@@ -527,12 +529,12 @@
     {
       "code": 6004,
       "name": "InvalidKind",
-      "msg": "Invalid prediction kind (expected 0=OUT, 1=IN, 2=COMBO)"
+      "msg": "Invalid prediction kind"
     },
     {
       "code": 6005,
       "name": "InvalidSide",
-      "msg": "Invalid side (expected 1 or 2)"
+      "msg": "Invalid side"
     },
     {
       "code": 6006,
@@ -541,36 +543,103 @@
     },
     {
       "code": 6007,
-      "name": "VaultMismatch",
-      "msg": "Provided vault account does not match the match's vault"
+      "name": "SlotsFull",
+      "msg": "Wallet has already used all of its slots for this match"
     },
     {
       "code": 6008,
-      "name": "MintMismatch",
-      "msg": "Provided USDT mint does not match the match's mint"
+      "name": "SideLocked",
+      "msg": "All of a wallet's picks must be for the side chosen on its first pick"
     },
     {
       "code": 6009,
-      "name": "WinnerAccountMismatch",
-      "msg": "A provided winner token account does not belong to the recorded winner"
+      "name": "DuplicatePlayer",
+      "msg": "Player id has already been used in another slot"
     },
     {
       "code": 6010,
+      "name": "SlotIndexMismatch",
+      "msg": "Provided slot index does not match the next free slot"
+    },
+    {
+      "code": 6011,
+      "name": "SelfSubstitution",
+      "msg": "COMBO prediction cannot use the same player as both OUT and IN"
+    },
+    {
+      "code": 6012,
+      "name": "VaultMismatch",
+      "msg": "Provided vault account does not match the match vault"
+    },
+    {
+      "code": 6013,
+      "name": "MintMismatch",
+      "msg": "Provided USDT mint does not match the match mint"
+    },
+    {
+      "code": 6014,
+      "name": "WinnerAccountMismatch",
+      "msg": "Winner token account does not belong to the recorded winner"
+    },
+    {
+      "code": 6015,
       "name": "VaultUnderfunded",
       "msg": "Vault token balance does not cover the recorded pool total"
     },
     {
-      "code": 6011,
+      "code": 6016,
       "name": "Overflow",
       "msg": "Arithmetic overflow"
     }
   ],
   "types": [
     {
-      "name": "Match",
+      "name": "Entry",
       "docs": [
-        "One per fixture. Source of truth for escrow parameters and settlement."
+        "One per (match, wallet). Tracks the wallet's slot usage, locked side,",
+        "and the players already consumed across its slots."
       ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "match_key",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "slots_used",
+            "type": "u8"
+          },
+          {
+            "name": "players",
+            "type": {
+              "array": [
+                "u32",
+                10
+              ]
+            }
+          },
+          {
+            "name": "player_count",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Match",
       "type": {
         "kind": "struct",
         "fields": [
@@ -588,30 +657,18 @@
           },
           {
             "name": "entry_fee",
-            "docs": [
-              "Flat entry fee per prediction, in USDT base units (6 decimals)."
-            ],
             "type": "u64"
           },
           {
             "name": "pool_total",
-            "docs": [
-              "Running sum of every entry fee paid into the vault."
-            ],
             "type": "u64"
           },
           {
             "name": "status",
-            "docs": [
-              "0=OPEN, 1=RESOLVED, 2=SETTLED."
-            ],
             "type": "u8"
           },
           {
             "name": "terminal_phase",
-            "docs": [
-              "Terminal phase the resolver reported (F / FET / FPE encoded by backend)."
-            ],
             "type": "u8"
           },
           {
@@ -620,30 +677,18 @@
           },
           {
             "name": "resolver",
-            "docs": [
-              "Authorized key allowed to call `resolve` and `settle_and_payout`."
-            ],
             "type": "pubkey"
           },
           {
             "name": "usdt_mint",
-            "docs": [
-              "USDT mint backing this match's escrow."
-            ],
             "type": "pubkey"
           },
           {
             "name": "vault",
-            "docs": [
-              "Vault token account (ATA owned by the vault-authority PDA)."
-            ],
             "type": "pubkey"
           },
           {
             "name": "winner1",
-            "docs": [
-              "Backend-finalized winners (Pubkey::default() == no winner for that place)."
-            ],
             "type": "pubkey"
           },
           {
@@ -656,28 +701,21 @@
           },
           {
             "name": "vault_authority_bump",
-            "docs": [
-              "PDA bump for the vault authority."
-            ],
             "type": "u8"
           },
           {
             "name": "bump",
-            "docs": [
-              "PDA bump for this match account."
-            ],
             "type": "u8"
+          },
+          {
+            "name": "participant_count",
+            "type": "u32"
           }
         ]
       }
     },
     {
       "name": "Prediction",
-      "docs": [
-        "One per pick. Placing IS locking — `lock_minute` is stamped at placement and",
-        "validity is decided off-chain retroactively. `points` is informational only",
-        "(the contract settles from `winner1/2/3`, not from on-chain scoring)."
-      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -691,16 +729,10 @@
           },
           {
             "name": "side",
-            "docs": [
-              "Team the user committed to (1 or 2)."
-            ],
             "type": "u8"
           },
           {
             "name": "kind",
-            "docs": [
-              "0=OUT, 1=IN, 2=COMBO."
-            ],
             "type": "u8"
           },
           {
@@ -713,9 +745,6 @@
           },
           {
             "name": "lock_minute",
-            "docs": [
-              "Match minute at placement, supplied by the resolver-trusted oracle path."
-            ],
             "type": "u16"
           },
           {
@@ -723,11 +752,8 @@
             "type": "u64"
           },
           {
-            "name": "nonce",
-            "docs": [
-              "Caller-supplied disambiguator so a wallet can place unlimited picks."
-            ],
-            "type": "u64"
+            "name": "slot_index",
+            "type": "u8"
           },
           {
             "name": "bump",
@@ -738,6 +764,11 @@
     }
   ],
   "constants": [
+    {
+      "name": "ENTRY_SEED",
+      "type": "bytes",
+      "value": "[101, 110, 116, 114, 121]"
+    },
     {
       "name": "MATCH_SEED",
       "type": "bytes",

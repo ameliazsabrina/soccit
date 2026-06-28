@@ -22,7 +22,7 @@ async function main(): Promise<void> {
   const outId = Number(arg("out") ?? 0);
   const inId = Number(arg("in") ?? 0);
   const lockMinute = Number(arg("lock") ?? 0);
-  const nonce = BigInt(arg("nonce") ?? 0);
+  const slotIndex = Number(arg("slot") ?? 0);
 
   const user = loadKeypair(arg("user") ?? config.solana.resolverKeypairPath);
   const programId = new PublicKey(config.solana.programId);
@@ -34,14 +34,14 @@ async function main(): Promise<void> {
   const match = decodeMatch(info.data as Buffer);
 
   const userUsdtAta = getAssociatedTokenAddressSync(match.usdtMint, user.publicKey);
-  const prediction = predictionPda(programId, matchAccount, user.publicKey, nonce);
+  const prediction = predictionPda(programId, matchAccount, user.publicKey, slotIndex);
 
   console.error(`> user:       ${user.publicKey.toBase58()}`);
   console.error(`> match:      ${matchAccount.toBase58()}`);
   console.error(`> mint:       ${match.usdtMint.toBase58()}`);
   console.error(`> user ATA:   ${userUsdtAta.toBase58()}`);
   console.error(`> prediction: ${prediction.toBase58()}`);
-  console.error(`> side=${side} kind=${kind} out=${outId} in=${inId} lock=${lockMinute} nonce=${nonce}`);
+  console.error(`> side=${side} kind=${kind} out=${outId} in=${inId} lock=${lockMinute} slot=${slotIndex}`);
 
   const ix = buildPlacePredictionInstruction({
     programId,
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     outId,
     inId,
     lockMinute,
-    nonce,
+    slotIndex,
   });
 
   const tx = new Transaction().add(ix);

@@ -1,10 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-use crate::{constants::*, error::SoccitError, state::{Match, Prediction}};
+use crate::{constants::*, error::SoccitError, state::{Entry, Match, Prediction}};
 
 #[derive(Accounts)]
-#[instruction(side: u8, kind: u8, out_id: u32, in_id: u32, lock_minute: u16, nonce: u64)]
+#[instruction(side: u8, kind: u8, out_id: u32, in_id: u32, lock_minute: u16, slot_index: u8)]
 pub struct PlacePrediction<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -17,10 +17,19 @@ pub struct PlacePrediction<'info> {
     pub match_account: Account<'info, Match>,
 
     #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + Entry::INIT_SPACE,
+        seeds = [ENTRY_SEED, match_account.key().as_ref(), user.key().as_ref()],
+        bump,
+    )]
+    pub entry: Account<'info, Entry>,
+
+    #[account(
         init,
         payer = user,
         space = 8 + Prediction::INIT_SPACE,
-        seeds = [PRED_SEED, match_account.key().as_ref(), user.key().as_ref(), &nonce.to_le_bytes()],
+        seeds = [PRED_SEED, match_account.key().as_ref(), user.key().as_ref(), &[slot_index]],
         bump,
     )]
     pub prediction: Account<'info, Prediction>,
@@ -49,7 +58,7 @@ pub fn place_prediction_handler(
     out_id: u32,
     in_id: u32,
     lock_minute: u16,
-    nonce: u64,
+    slot_index: u8,
 ) -> Result<()> {
     require!(
         ctx.accounts.match_account.status == STATUS_OPEN,
@@ -59,7 +68,49 @@ pub fn place_prediction_handler(
     require!(kind <= KIND_COMBO, SoccitError::InvalidKind);
     if kind == KIND_COMBO {
         require!(out_id != 0 && in_id != 0, SoccitError::IncompleteCombo);
+        require!(out_id != in_id, SoccitError::SelfSubstitution);
     }
+
+    let entry = &mut ctx.accounts.entry;
+
+    if entry.owner == Pubkey::default() {
+        entry.owner = ctx.accounts.user.key();
+        entry.match_key = ctx.accounts.match_account.key();
+        entry.side = side;
+        entry.slots_used = 0;
+        entry.player_count = 0;
+        entry.bump = ctx.bumps.entry;
+
+        let m = &mut ctx.accounts.match_account;
+        m.participant_count = m
+            .participant_count
+            .checked_add(1)
+            .ok_or(SoccitError::Overflow)?;
+    } else {
+        require!(side == entry.side, SoccitError::SideLocked);
+    }
+
+    require!(entry.slots_used < MAX_SLOTS, SoccitError::SlotsFull);
+    require!(slot_index == entry.slots_used, SoccitError::SlotIndexMismatch);
+
+    let new_players: &[u32] = match kind {
+        KIND_OUT => &[out_id],
+        KIND_IN => &[in_id],
+        _ => &[out_id, in_id],
+    };
+    let used = entry.player_count as usize;
+    for &pid in new_players {
+        require!(
+            !entry.players[..used].contains(&pid),
+            SoccitError::DuplicatePlayer
+        );
+    }
+    for &pid in new_players {
+        let idx = entry.player_count as usize;
+        entry.players[idx] = pid;
+        entry.player_count += 1;
+    }
+    entry.slots_used += 1;
 
     let fee = ctx.accounts.match_account.entry_fee;
 
@@ -87,7 +138,7 @@ pub fn place_prediction_handler(
     p.in_player_id = in_id;
     p.lock_minute = lock_minute;
     p.fee_paid = fee;
-    p.nonce = nonce;
+    p.slot_index = slot_index;
     p.bump = ctx.bumps.prediction;
     Ok(())
 }
