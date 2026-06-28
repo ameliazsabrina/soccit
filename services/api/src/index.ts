@@ -19,8 +19,14 @@ import { LeaderboardNotReadyError } from "./modules/leaderboard/leaderboard.erro
 import { getLineup, loadPlayerIndex } from "./modules/lineup/lineup.service.js";
 import { LineupNotReadyError } from "./modules/lineup/lineup.errors.js";
 import { backfill, enrichEntry, tail } from "./modules/events/events.service.js";
-import { AVATARS, registerInput, setAvatarInput, walletInput } from "./modules/user/user.schema.js";
-import { getUser, registerUser, setAvatar } from "./modules/user/user.service.js";
+import { registerInput, setAvatarInput, walletInput } from "./modules/user/user.schema.js";
+import {
+  getUser,
+  listAvatars,
+  loadUserProfiles,
+  registerUser,
+  setAvatar,
+} from "./modules/user/user.service.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
 import {
   InvalidSignatureError,
@@ -106,7 +112,7 @@ app.get("/api/user/:wallet/matches", async (c) => {
   return c.json(await getUserMatches(parsed.data.wallet));
 });
 
-app.get("/api/avatars", (c) => c.json([...AVATARS]));
+app.get("/api/avatars", (c) => c.json(listAvatars()));
 
 app.get("/api/leaderboard/:id", async (c) => {
   const fixtureId = parseFixtureId(c.req.param("id"));
@@ -167,15 +173,19 @@ app.get("/api/leaderboard/:id/stream", (c) => {
   return streamSSE(c, async (stream) => {
     const keepalive = setInterval(() => void stream.writeln(": keepalive"), config.sseKeepaliveMs);
     let index = await loadPlayerIndex(fixtureId);
+    const enrich = async (board: ReturnType<typeof parseLeaderboard>) => {
+      if (index.size === 0) index = await loadPlayerIndex(fixtureId);
+      const users = await loadUserProfiles(board.ranking.map((e) => e.owner));
+      return enrichLeaderboard(board, index, users);
+    };
     try {
       const initial = await getRedis().get(leaderboardKey(fixtureId));
       if (initial) {
-        const enriched = enrichLeaderboard(leaderboardOutput.parse(JSON.parse(initial)), index);
+        const enriched = await enrich(leaderboardOutput.parse(JSON.parse(initial)));
         await stream.writeSSE({ event: "leaderboard", data: JSON.stringify(enriched) });
       }
       for await (const message of subscribeChannel(leaderboardKey(fixtureId), signal)) {
-        if (index.size === 0) index = await loadPlayerIndex(fixtureId);
-        const enriched = enrichLeaderboard(parseLeaderboard(message, fixtureId), index);
+        const enriched = await enrich(parseLeaderboard(message, fixtureId));
         await stream.writeSSE({ event: "leaderboard", data: JSON.stringify(enriched) });
       }
     } finally {

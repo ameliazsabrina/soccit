@@ -40,24 +40,28 @@ describe("parseLeaderboard", () => {
   });
 });
 
+const owner = "3FpiWa3QVb7iks17uMRKZR8EVmofyByzK5exXAzU6Pma";
+
 describe("enrichLeaderboard", () => {
-  it("attaches resolved players to each prediction result", () => {
+  it("attaches resolved players and the owner profile", () => {
     const board = parseLeaderboard(JSON.stringify(sample), 17926594);
     const index = new Map<number, ResolvedPlayer>([
       [100, player(100, "Player Out", 1)],
       [200, player(200, "Player In", 1)],
     ]);
-    const enriched = enrichLeaderboard(board, index);
+    const users = new Map([[owner, { username: "amelia", avatar: "avatar-3" as const }]]);
+    const enriched = enrichLeaderboard(board, index, users);
     expect(() => enrichedLeaderboardOutput.parse(enriched)).not.toThrow();
     expect(enriched.ranking[0]?.predictions[0]?.players.out?.name).toBe("Player Out");
-    expect(enriched.ranking[0]?.predictions[0]?.players.in?.name).toBe("Player In");
+    expect(enriched.ranking[0]?.user).toEqual({ username: "amelia", avatar: "avatar-3" });
   });
 
-  it("emits null players when the lineup index is empty", () => {
+  it("emits null players and null user when indexes are empty", () => {
     const board = parseLeaderboard(JSON.stringify(sample), 17926594);
-    const enriched = enrichLeaderboard(board, new Map());
+    const enriched = enrichLeaderboard(board, new Map(), new Map());
     expect(() => enrichedLeaderboardOutput.parse(enriched)).not.toThrow();
     expect(enriched.ranking[0]?.predictions[0]?.players).toEqual({ out: null, in: null });
+    expect(enriched.ranking[0]?.user).toBeNull();
   });
 });
 

@@ -13,6 +13,18 @@ export const AVATARS = [
 
 export const avatarSchema = z.enum(AVATARS);
 
+export const avatarDescriptor = z.object({
+  id: avatarSchema,
+  src: z.string(),
+});
+
+export const avatarsOutput = z.array(avatarDescriptor);
+
+export const profileSummary = z.object({
+  username: z.string(),
+  avatar: avatarSchema.nullable(),
+});
+
 export const usernameSchema = z
   .string()
   .min(3)
@@ -52,6 +64,8 @@ export type SetAvatarInput = z.infer<typeof setAvatarInput>;
 export type WalletInput = z.infer<typeof walletInput>;
 export type UserProfile = z.infer<typeof userProfile>;
 export type Avatar = z.infer<typeof avatarSchema>;
+export type AvatarDescriptor = z.infer<typeof avatarDescriptor>;
+export type ProfileSummary = z.infer<typeof profileSummary>;
 
 export interface UserDoc {
   wallet: string;

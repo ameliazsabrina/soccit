@@ -5,6 +5,7 @@ import {
 } from "@soccit/scoring/leaderboard/schema";
 import { z } from "zod";
 import { resolvedPlayerSchema } from "../lineup/lineup.schema.js";
+import { profileSummary } from "../user/user.schema.js";
 
 export const enrichedPredictionResult = predictionResultSchema.extend({
   players: z.object({
@@ -14,6 +15,7 @@ export const enrichedPredictionResult = predictionResultSchema.extend({
 });
 
 export const enrichedEntrySchema = leaderboardEntrySchema.extend({
+  user: profileSummary.nullable(),
   predictions: z.array(enrichedPredictionResult),
 });
 

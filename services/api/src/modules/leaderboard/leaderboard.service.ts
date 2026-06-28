@@ -2,6 +2,8 @@ import { leaderboardOutput, type LeaderboardOutput } from "@soccit/scoring/leade
 import { getRedis } from "../../redis.js";
 import type { ResolvedPlayer } from "../lineup/lineup.schema.js";
 import { loadPlayerIndex } from "../lineup/lineup.service.js";
+import type { ProfileSummary } from "../user/user.schema.js";
+import { loadUserProfiles } from "../user/user.service.js";
 import { LeaderboardNotReadyError } from "./leaderboard.errors.js";
 import type { EnrichedLeaderboard } from "./leaderboard.schema.js";
 
@@ -15,11 +17,13 @@ export function parseLeaderboard(raw: string | null, fixtureId: number): Leaderb
 export function enrichLeaderboard(
   board: LeaderboardOutput,
   index: Map<number, ResolvedPlayer>,
+  users: Map<string, ProfileSummary>,
 ): EnrichedLeaderboard {
   return {
     ...board,
     ranking: board.ranking.map((entry) => ({
       ...entry,
+      user: users.get(entry.owner) ?? null,
       predictions: entry.predictions.map((p) => ({
         ...p,
         players: {
@@ -34,6 +38,9 @@ export function enrichLeaderboard(
 export async function getLeaderboard(fixtureId: number): Promise<EnrichedLeaderboard> {
   const raw = await getRedis().get(leaderboardKey(fixtureId));
   const board = parseLeaderboard(raw, fixtureId);
-  const index = await loadPlayerIndex(fixtureId);
-  return enrichLeaderboard(board, index);
+  const [index, users] = await Promise.all([
+    loadPlayerIndex(fixtureId),
+    loadUserProfiles(board.ranking.map((e) => e.owner)),
+  ]);
+  return enrichLeaderboard(board, index, users);
 }
