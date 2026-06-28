@@ -56,7 +56,13 @@ export function score(input: ScoreInput): LeaderboardOutput {
       predictions: [],
     };
     entry.points += points;
-    entry.predictions.push({ kind: pred.kind, points });
+    entry.predictions.push({
+      kind: pred.kind,
+      points,
+      side: pred.side,
+      outPlayerId: pred.outPlayerId,
+      inPlayerId: pred.inPlayerId,
+    });
     if (points > 0) {
       entry.earliestScoringLockMinute =
         entry.earliestScoringLockMinute == null

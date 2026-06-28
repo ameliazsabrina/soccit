@@ -8,11 +8,25 @@ import { logger } from "./logger.js";
 import { appRouter } from "./server/root.js";
 import { getMatchState } from "./modules/match/match.service.js";
 import { MatchNotFoundError } from "./modules/match/match.errors.js";
-import { getLeaderboard, leaderboardKey } from "./modules/leaderboard/leaderboard.service.js";
+import { leaderboardOutput } from "@soccit/scoring/leaderboard/schema";
+import {
+  enrichLeaderboard,
+  getLeaderboard,
+  leaderboardKey,
+  parseLeaderboard,
+} from "./modules/leaderboard/leaderboard.service.js";
 import { LeaderboardNotReadyError } from "./modules/leaderboard/leaderboard.errors.js";
 import { getLineup, loadPlayerIndex } from "./modules/lineup/lineup.service.js";
 import { LineupNotReadyError } from "./modules/lineup/lineup.errors.js";
 import { backfill, enrichEntry, tail } from "./modules/events/events.service.js";
+import { registerInput, walletInput } from "./modules/user/user.schema.js";
+import { getUser, registerUser } from "./modules/user/user.service.js";
+import {
+  InvalidSignatureError,
+  UserNotFoundError,
+  UsernameTakenError,
+  WalletAlreadyRegisteredError,
+} from "./modules/user/user.errors.js";
 import { getRedis, newRedisConnection } from "./redis.js";
 import { subscribeChannel } from "./pubsub.js";
 
@@ -43,6 +57,31 @@ app.get("/api/match/:id", async (c) => {
     return c.json(await getMatchState(fixtureId));
   } catch (err) {
     if (err instanceof MatchNotFoundError) return c.json({ error: err.message }, 404);
+    throw err;
+  }
+});
+
+app.post("/api/user", async (c) => {
+  const parsed = registerInput.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid body" }, 400);
+  try {
+    return c.json(await registerUser(parsed.data));
+  } catch (err) {
+    if (err instanceof InvalidSignatureError) return c.json({ error: err.message }, 401);
+    if (err instanceof UsernameTakenError || err instanceof WalletAlreadyRegisteredError) {
+      return c.json({ error: err.message }, 409);
+    }
+    throw err;
+  }
+});
+
+app.get("/api/user/:wallet", async (c) => {
+  const parsed = walletInput.safeParse({ wallet: c.req.param("wallet") });
+  if (!parsed.success) return c.json({ error: "invalid wallet" }, 400);
+  try {
+    return c.json(await getUser(parsed.data.wallet));
+  } catch (err) {
+    if (err instanceof UserNotFoundError) return c.json({ error: err.message }, 404);
     throw err;
   }
 });
@@ -105,11 +144,17 @@ app.get("/api/leaderboard/:id/stream", (c) => {
 
   return streamSSE(c, async (stream) => {
     const keepalive = setInterval(() => void stream.writeln(": keepalive"), config.sseKeepaliveMs);
+    let index = await loadPlayerIndex(fixtureId);
     try {
       const initial = await getRedis().get(leaderboardKey(fixtureId));
-      if (initial) await stream.writeSSE({ event: "leaderboard", data: initial });
+      if (initial) {
+        const enriched = enrichLeaderboard(leaderboardOutput.parse(JSON.parse(initial)), index);
+        await stream.writeSSE({ event: "leaderboard", data: JSON.stringify(enriched) });
+      }
       for await (const message of subscribeChannel(leaderboardKey(fixtureId), signal)) {
-        await stream.writeSSE({ event: "leaderboard", data: message });
+        if (index.size === 0) index = await loadPlayerIndex(fixtureId);
+        const enriched = enrichLeaderboard(parseLeaderboard(message, fixtureId), index);
+        await stream.writeSSE({ event: "leaderboard", data: JSON.stringify(enriched) });
       }
     } finally {
       clearInterval(keepalive);

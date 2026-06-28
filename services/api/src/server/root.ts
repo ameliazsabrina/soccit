@@ -1,7 +1,9 @@
 import { leaderboardOutput } from "@soccit/scoring/leaderboard/schema";
 import { matchInput, matchStateOutput } from "../modules/match/match.schema.js";
 import { getMatchState } from "../modules/match/match.service.js";
+import { enrichedLeaderboardOutput } from "../modules/leaderboard/leaderboard.schema.js";
 import {
+  enrichLeaderboard,
   getLeaderboard,
   leaderboardKey,
   parseLeaderboard,
@@ -10,6 +12,8 @@ import { eventEntrySchema, eventsInput } from "../modules/events/events.schema.j
 import { backfill, enrichEntry, tail } from "../modules/events/events.service.js";
 import { lineupInput, lineupOutput } from "../modules/lineup/lineup.schema.js";
 import { getLineup, loadPlayerIndex } from "../modules/lineup/lineup.service.js";
+import { registerInput, userProfile, walletInput } from "../modules/user/user.schema.js";
+import { getUser, registerUser } from "../modules/user/user.service.js";
 import { getRedis, newRedisConnection } from "../redis.js";
 import { subscribeChannel } from "../pubsub.js";
 import { publicProcedure, router } from "./trpc.js";
@@ -28,15 +32,17 @@ const matchRouter = router({
 const leaderboardRouter = router({
   get: publicProcedure
     .input(matchInput)
-    .output(leaderboardOutput)
+    .output(enrichedLeaderboardOutput)
     .query(({ input }) => getLeaderboard(input.fixtureId)),
 
   stream: publicProcedure.input(matchInput).subscription(async function* ({ input, signal }) {
     const sig = resolveSignal(signal);
+    let index = await loadPlayerIndex(input.fixtureId);
     const initial = await getRedis().get(leaderboardKey(input.fixtureId));
-    if (initial) yield leaderboardOutput.parse(JSON.parse(initial));
+    if (initial) yield enrichLeaderboard(leaderboardOutput.parse(JSON.parse(initial)), index);
     for await (const message of subscribeChannel(leaderboardKey(input.fixtureId), sig)) {
-      yield parseLeaderboard(message, input.fixtureId);
+      if (index.size === 0) index = await loadPlayerIndex(input.fixtureId);
+      yield enrichLeaderboard(parseLeaderboard(message, input.fixtureId), index);
     }
   }),
 });
@@ -69,11 +75,24 @@ const lineupRouter = router({
     .query(({ input }) => getLineup(input.fixtureId)),
 });
 
+const userRouter = router({
+  register: publicProcedure
+    .input(registerInput)
+    .output(userProfile)
+    .mutation(({ input }) => registerUser(input)),
+
+  get: publicProcedure
+    .input(walletInput)
+    .output(userProfile)
+    .query(({ input }) => getUser(input.wallet)),
+});
+
 export const appRouter = router({
   match: matchRouter,
   leaderboard: leaderboardRouter,
   events: eventsRouter,
   lineup: lineupRouter,
+  user: userRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -2,6 +2,12 @@ import { TRPCError, initTRPC } from "@trpc/server";
 import { MatchNotFoundError } from "../modules/match/match.errors.js";
 import { LeaderboardNotReadyError } from "../modules/leaderboard/leaderboard.errors.js";
 import { LineupNotReadyError } from "../modules/lineup/lineup.errors.js";
+import {
+  InvalidSignatureError,
+  UserNotFoundError,
+  UsernameTakenError,
+  WalletAlreadyRegisteredError,
+} from "../modules/user/user.errors.js";
 
 export interface Context {
   signal?: AbortSignal;
@@ -14,9 +20,16 @@ function toTRPCError(err: unknown): TRPCError {
   if (
     err instanceof MatchNotFoundError ||
     err instanceof LeaderboardNotReadyError ||
-    err instanceof LineupNotReadyError
+    err instanceof LineupNotReadyError ||
+    err instanceof UserNotFoundError
   ) {
     return new TRPCError({ code: "NOT_FOUND", message: err.message, cause: err });
+  }
+  if (err instanceof InvalidSignatureError) {
+    return new TRPCError({ code: "UNAUTHORIZED", message: err.message, cause: err });
+  }
+  if (err instanceof UsernameTakenError || err instanceof WalletAlreadyRegisteredError) {
+    return new TRPCError({ code: "CONFLICT", message: err.message, cause: err });
   }
   return new TRPCError({
     code: "INTERNAL_SERVER_ERROR",

@@ -41,6 +41,18 @@ describe("score", () => {
     expect(out.ranking[0]).toMatchObject({ owner: "a", points: 1 });
   });
 
+  it("carries side + player ids onto each prediction result", () => {
+    const out = run(
+      [pred({ owner: "a", side: 1, kind: KIND_OUT, outPlayerId: 100, inPlayerId: 200 })],
+      [sub({ playerOutId: 100 })],
+    );
+    expect(out.ranking[0]?.predictions[0]).toMatchObject({
+      side: 1,
+      outPlayerId: 100,
+      inPlayerId: 200,
+    });
+  });
+
   it("OUT scores 0 when no sub matches", () => {
     const out = run([pred({ owner: "a", kind: KIND_OUT, outPlayerId: 999 })], [sub({ playerOutId: 100 })]);
     expect(out.ranking[0]?.points).toBe(0);

@@ -25,6 +25,9 @@ export const substitutionSchema = z.object({
 export const predictionResultSchema = z.object({
   kind: predictionSchema.shape.kind,
   points: z.number().int().nonnegative(),
+  side: sideSchema,
+  outPlayerId: z.number().int().nonnegative(),
+  inPlayerId: z.number().int().nonnegative(),
 });
 
 export const leaderboardEntrySchema = z.object({
