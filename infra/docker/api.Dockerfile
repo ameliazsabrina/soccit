@@ -4,7 +4,7 @@ ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 ENV NODE_ENV=production
 
-RUN corepack enable && groupadd -r app && useradd -r -g app app
+RUN npm install --global corepack@latest && corepack enable && groupadd -r app && useradd -r -g app app
 
 WORKDIR /app
 
