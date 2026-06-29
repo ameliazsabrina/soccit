@@ -4,7 +4,7 @@ ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 ENV NODE_ENV=production
 
-RUN npm install --global corepack@latest && corepack enable && corepack prepare pnpm@10.28.2 --activate && groupadd -r app && useradd -r -g app app
+RUN npm install --global pnpm@10.28.2 && groupadd -r app && useradd -r -m -g app app
 
 WORKDIR /app/services/settlement
 
