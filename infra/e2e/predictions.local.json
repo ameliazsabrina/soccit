@@ -1,0 +1,26 @@
+[
+  {
+    "owner": "EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ",
+    "side": 1,
+    "kind": 2,
+    "outPlayerId": 101,
+    "inPlayerId": 202,
+    "lockMinute": 10
+  },
+  {
+    "owner": "G6vSMwTKg9ZvF1dP8T5tN2jEZkvzaErw8SkEqcBAdu9R",
+    "side": 1,
+    "kind": 0,
+    "outPlayerId": 101,
+    "inPlayerId": 0,
+    "lockMinute": 12
+  },
+  {
+    "owner": "3FpiWa3QVb7iks17uMRKZR8EVmofyByzK5exXAzU6Pma",
+    "side": 1,
+    "kind": 1,
+    "outPlayerId": 0,
+    "inPlayerId": 202,
+    "lockMinute": 14
+  }
+]
