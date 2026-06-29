@@ -26,7 +26,7 @@ const Schema = z.object({
   RESOLVER_KEYPAIR_PATH: z.string().default("~/.config/solana/soccit-resolver.json"),
   PLATFORM_WALLET: z.string(),
   USDC_MINT: z.string().optional(),
-  ENTRY_FEE_BASE_UNITS: z.coerce.bigint().positive().default(1_000_000n),
+  ENTRY_FEE_BASE_UNITS: z.coerce.bigint().positive().default(5_000_000n),
   SETTLEMENT_FIXTURE_ID: z.string().optional(),
   REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
   POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
