@@ -1,7 +1,7 @@
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { describe, expect, it, vi } from "vitest";
 import { settleFixture, type KeeperDeps } from "./keeper.js";
-import { MATCH_ACCOUNT_LEN, STATUS_OPEN, STATUS_RESOLVED, STATUS_SETTLED } from "./onchain/program.js";
+import { MATCH_ACCOUNT_LEN, STATUS_OPEN, STATUS_RESOLVED, STATUS_SETTLED } from "@soccit/onchain/program";
 import type { LeaderboardPayload } from "./leaderboard.js";
 
 const MATCH_DISC = Buffer.from([236, 63, 169, 38, 15, 56, 196, 162]);

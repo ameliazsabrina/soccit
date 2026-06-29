@@ -6,7 +6,7 @@ import {
   buildCreateMatchInstruction,
   matchPda,
   vaultAuthorityPda,
-} from "../src/onchain/program.js";
+} from "@soccit/onchain/program";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);

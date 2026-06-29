@@ -28,6 +28,9 @@ import {
   setAvatar,
 } from "./modules/user/user.service.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
+import { preparePredictionInput } from "./modules/prediction/prediction.schema.js";
+import { preparePrediction } from "./modules/prediction/prediction.service.js";
+import { MatchNotOpenError } from "./modules/prediction/prediction.errors.js";
 import {
   InvalidSignatureError,
   UserNotFoundError,
@@ -64,6 +67,18 @@ app.get("/api/match/:id", async (c) => {
     return c.json(await getMatchState(fixtureId));
   } catch (err) {
     if (err instanceof MatchNotFoundError) return c.json({ error: err.message }, 404);
+    throw err;
+  }
+});
+
+app.post("/api/prediction/prepare", async (c) => {
+  const parsed = preparePredictionInput.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid body" }, 400);
+  try {
+    return c.json(await preparePrediction(parsed.data));
+  } catch (err) {
+    if (err instanceof MatchNotFoundError) return c.json({ error: err.message }, 404);
+    if (err instanceof MatchNotOpenError) return c.json({ error: err.message }, 409);
     throw err;
   }
 });

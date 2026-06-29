@@ -102,7 +102,7 @@ export function buildCreateMatchInstruction(params: CreateMatchParams): Transact
   const { programId, admin, usdcMint, matchId, team1Id, team2Id, entryFee, resolver } = params;
   const match = matchPda(programId, matchId);
   const vaultAuthority = vaultAuthorityPda(programId, match);
-  const vault = associatedTokenAddress(usdcMint, vaultAuthority);
+  const vault = associatedTokenAddress(usdcMint, vaultAuthority, true);
 
   const data = Buffer.alloc(8 + 8 + 4 + 4 + 8 + 32);
   CREATE_MATCH_DISCRIMINATOR.copy(data, 0);
@@ -277,7 +277,14 @@ export function buildSettleInstruction(params: SettleParams): TransactionInstruc
   });
 }
 
-function associatedTokenAddress(mint: PublicKey, owner: PublicKey): PublicKey {
+export function associatedTokenAddress(
+  mint: PublicKey,
+  owner: PublicKey,
+  allowOwnerOffCurve = false,
+): PublicKey {
+  if (!allowOwnerOffCurve && !PublicKey.isOnCurve(owner.toBuffer())) {
+    throw new Error(`owner ${owner.toBase58()} is off-curve; pass allowOwnerOffCurve=true for PDAs`);
+  }
   return PublicKey.findProgramAddressSync(
     [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
     ASSOCIATED_TOKEN_PROGRAM_ID,

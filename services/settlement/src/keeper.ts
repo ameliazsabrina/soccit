@@ -21,7 +21,7 @@ import {
   matchPda,
   vaultAuthorityPda,
   type DecodedMatch,
-} from "./onchain/program.js";
+} from "@soccit/onchain/program";
 import type { LeaderboardPayload } from "./leaderboard.js";
 
 export const DEFAULT_TERMINAL_PHASE = 1;

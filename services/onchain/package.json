@@ -1,0 +1,31 @@
+{
+  "name": "@soccit/onchain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Soccit on-chain program bindings: PDA derivation, Match account decoding, and hand-rolled Anchor instruction builders shared by the API and settlement services.",
+  "exports": {
+    "./program": "./src/program.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@solana/spl-token": "^0.4.9",
+    "@solana/web3.js": "^1.98.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "uuid": "^9.0.1"
+    }
+  }
+}

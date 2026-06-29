@@ -20,7 +20,7 @@ import {
  * This pins the hand-rolled builders to the authoritative generated IDL, so
  * discriminator/layout drift fails CI immediately.
  */
-const idlPath = fileURLToPath(new URL("../../../../packages/idl/soccit.json", import.meta.url));
+const idlPath = fileURLToPath(new URL("../../../packages/idl/soccit.json", import.meta.url));
 const idl = JSON.parse(readFileSync(idlPath, "utf8")) as {
   address: string;
   instructions: { name: string; discriminator: number[]; accounts: { name: string; signer?: boolean; writable?: boolean }[] }[];
