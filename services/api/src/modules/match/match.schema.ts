@@ -1,7 +1,27 @@
+import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 
+/**
+ * A match-account PDA: a base58 Solana address. Public endpoints key matches by
+ * this PDA; it is resolved to the internal fixtureId via the Redis reverse
+ * index (see modules/match/pda.ts).
+ */
+export const pdaString = z
+  .string()
+  .min(32)
+  .max(44)
+  .refine((v) => {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(v);
+      return true;
+    } catch {
+      return false;
+    }
+  }, "invalid match account");
+
 export const matchInput = z.object({
-  fixtureId: z.number().int().positive(),
+  pda: pdaString,
 });
 
 export const onchainMatchSchema = z.object({

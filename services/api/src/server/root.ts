@@ -1,6 +1,7 @@
 import { leaderboardOutput } from "@soccit/scoring/leaderboard/schema";
 import { matchInput, matchStateOutput } from "../modules/match/match.schema.js";
 import { getMatchState } from "../modules/match/match.service.js";
+import { resolveFixtureId } from "../modules/match/pda.js";
 import { enrichedLeaderboardOutput } from "../modules/leaderboard/leaderboard.schema.js";
 import {
   enrichLeaderboard,
@@ -45,27 +46,28 @@ const matchRouter = router({
   get: publicProcedure
     .input(matchInput)
     .output(matchStateOutput)
-    .query(({ input }) => getMatchState(input.fixtureId)),
+    .query(async ({ input }) => getMatchState(await resolveFixtureId(input.pda))),
 });
 
 const leaderboardRouter = router({
   get: publicProcedure
     .input(matchInput)
     .output(enrichedLeaderboardOutput)
-    .query(({ input }) => getLeaderboard(input.fixtureId)),
+    .query(async ({ input }) => getLeaderboard(await resolveFixtureId(input.pda))),
 
   stream: publicProcedure.input(matchInput).subscription(async function* ({ input, signal }) {
     const sig = resolveSignal(signal);
-    let index = await loadPlayerIndex(input.fixtureId);
+    const fixtureId = await resolveFixtureId(input.pda);
+    let index = await loadPlayerIndex(fixtureId);
     const emit = async (board: ReturnType<typeof parseLeaderboard>) => {
-      if (index.size === 0) index = await loadPlayerIndex(input.fixtureId);
+      if (index.size === 0) index = await loadPlayerIndex(fixtureId);
       const users = await loadUserProfiles(board.ranking.map((e) => e.owner));
       return enrichLeaderboard(board, index, users);
     };
-    const initial = await getRedis().get(leaderboardKey(input.fixtureId));
+    const initial = await getRedis().get(leaderboardKey(fixtureId));
     if (initial) yield await emit(leaderboardOutput.parse(JSON.parse(initial)));
-    for await (const message of subscribeChannel(leaderboardKey(input.fixtureId), sig)) {
-      yield await emit(parseLeaderboard(message, input.fixtureId));
+    for await (const message of subscribeChannel(leaderboardKey(fixtureId), sig)) {
+      yield await emit(parseLeaderboard(message, fixtureId));
     }
   }),
 });
@@ -73,19 +75,20 @@ const leaderboardRouter = router({
 const eventsRouter = router({
   stream: publicProcedure.input(eventsInput).subscription(async function* ({ input, signal }) {
     const sig = resolveSignal(signal);
-    let index = await loadPlayerIndex(input.fixtureId);
+    const fixtureId = await resolveFixtureId(input.pda);
+    let index = await loadPlayerIndex(fixtureId);
     const reader = newRedisConnection();
     let cursor = input.fromId ?? "0-0";
     try {
-      for (const entry of await backfill(reader, input.fixtureId, cursor)) {
+      for (const entry of await backfill(reader, fixtureId, cursor)) {
         cursor = entry.id;
         yield eventEntrySchema.parse(enrichEntry(entry, index));
       }
     } finally {
       reader.disconnect();
     }
-    for await (const entry of tail(input.fixtureId, cursor, sig)) {
-      if (entry.type === "substitution" && index.size === 0) index = await loadPlayerIndex(input.fixtureId);
+    for await (const entry of tail(fixtureId, cursor, sig)) {
+      if (entry.type === "substitution" && index.size === 0) index = await loadPlayerIndex(fixtureId);
       yield eventEntrySchema.parse(enrichEntry(entry, index));
     }
   }),
@@ -95,7 +98,7 @@ const lineupRouter = router({
   get: publicProcedure
     .input(lineupInput)
     .output(lineupOutput)
-    .query(({ input }) => getLineup(input.fixtureId)),
+    .query(async ({ input }) => getLineup(await resolveFixtureId(input.pda))),
 });
 
 const userRouter = router({

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pdaString } from "../match/match.schema.js";
 import { resolvedPlayerSchema } from "../lineup/lineup.schema.js";
 
 export const eventEntrySchema = z.object({
@@ -14,7 +15,7 @@ export const eventEntrySchema = z.object({
 });
 
 export const eventsInput = z.object({
-  fixtureId: z.number().int().positive(),
+  pda: pdaString,
   fromId: z.string().optional(),
 });
 

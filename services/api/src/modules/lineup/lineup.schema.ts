@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { pdaString } from "../match/match.schema.js";
 
 export const lineupInput = z.object({
-  fixtureId: z.number().int().positive(),
+  pda: pdaString,
 });
 
 const sideSchema = z.union([z.literal(1), z.literal(2)]);

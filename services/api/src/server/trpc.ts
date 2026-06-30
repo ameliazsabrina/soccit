@@ -15,8 +15,8 @@ export interface Context {
 
 const t = initTRPC.context<Context>().create();
 
-function toTRPCError(err: unknown): TRPCError {
-  if (err instanceof TRPCError) return err;
+/** Map a known domain error to its tRPC code, or null if it is not one we own. */
+function mapDomainError(err: unknown): TRPCError | null {
   if (
     err instanceof MatchNotFoundError ||
     err instanceof LeaderboardNotReadyError ||
@@ -31,16 +31,30 @@ function toTRPCError(err: unknown): TRPCError {
   if (err instanceof UsernameTakenError || err instanceof WalletAlreadyRegisteredError) {
     return new TRPCError({ code: "CONFLICT", message: err.message, cause: err });
   }
-  return new TRPCError({
-    code: "INTERNAL_SERVER_ERROR",
-    message: err instanceof Error ? err.message : "Unexpected error",
-    cause: err,
-  });
+  return null;
+}
+
+function toTRPCError(err: unknown): TRPCError {
+  if (err instanceof TRPCError) {
+    // A procedure that threw a domain error surfaces here as a TRPCError whose
+    // `cause` is that domain error — remap it to the right code. Otherwise keep
+    // tRPC's own classification (e.g. BAD_REQUEST from input parsing) intact;
+    // unwrapping the cause here would mislabel Zod failures as 500s.
+    return mapDomainError(err.cause) ?? err;
+  }
+  return (
+    mapDomainError(err) ??
+    new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: err instanceof Error ? err.message : "Unexpected error",
+      cause: err,
+    })
+  );
 }
 
 const errorMapping = t.middleware(async ({ next }) => {
   const result = await next();
-  if (!result.ok) throw toTRPCError(result.error.cause ?? result.error);
+  if (!result.ok) throw toTRPCError(result.error);
   return result;
 });
 

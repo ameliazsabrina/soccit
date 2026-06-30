@@ -28,6 +28,7 @@ const Schema = z.object({
   TXLINE_TX_SIG: z.string().optional(),
   SOLANA_KEYPAIR_PATH: z.string().default("~/.config/solana/soccit-txline.json"),
   SOLANA_CLUSTER: z.enum(["devnet", "mainnet-beta"]).default("devnet"),
+  PROGRAM_ID: z.string().default("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v"),
   SOLANA_RPC_URL: z.preprocess((v) => (v === "" ? undefined : v), z.string().url().optional()),
   HELIUS_API_KEY: z.string().optional(),
   TXLINE_FIXTURE_ID: z.string().optional(),
@@ -62,6 +63,7 @@ export const config = {
     keypairPath: expandHome(env.SOLANA_KEYPAIR_PATH),
     cluster: env.SOLANA_CLUSTER,
     rpcUrl: resolveRpcUrl(),
+    programId: env.PROGRAM_ID,
   },
   terminalActions: new Set(
     env.TERMINAL_ACTIONS.split(",").map((x) => x.trim()).filter(Boolean),
