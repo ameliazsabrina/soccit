@@ -17,34 +17,31 @@ File: `app/page.tsx`
 
 **Implemented:**
 - Atmospheric orbs background
-- Live ticker marquee
-- Masonry grid with portfolio hero tile, nav tiles, demo match tile, and quick PDA loader
+- Live ticker marquee at bottom of screen
+- Fullscreen game-menu layout with no top navbar
+- Inline tabs `[menu] [match] [leaderboard] [profile]` above the grid
+- Profile/Connect button top-right with `ProfileDropdown` and custom `ConnectWalletModal`
+- Masonry grid with portfolio hero tile, Arena, Events Matrix, Data Logs, Global Leaderboard
 - `Enter Arena` gradient CTA
-- Nav tiles with white icon wells + gradient border reveal on hover
-- Demo match entry tile linking to `/matches/demo`
-- Tighter `tracking-tighter` display typography
-- Wallet/profile tile showing username/address when connected, loading + error states
-- Portfolio total points and active positions derived from `GET /api/user/:wallet/matches`
-- Recent matches history panel below the grid (last 6 entries)
-- Quick PDA paste form to jump directly to a match
+- Nav tiles with white icon wells; icon inverts on hover
+- Material Symbols icons loaded globally
+- Generated WebP player silhouette placeholders in `/public/assets/cards/`
+- Diagonal blue shine sweep + oversized corner images that scale on hover
+- Mini-chart decoration on Leaderboard tile
+- Space Grotesk 700 display typography (`unica-one`)
 
 **Remaining gaps:**
-- Nav tiles currently use Lucide icons; reference uses Material Symbols.
-- No "Current Rank" mini-chart decoration on the Leaderboard tile yet.
 - Live ticker still mocked pending market/odds endpoint.
+- Portfolio value, active positions, and rank are static mocks until backend data is available.
+- WebP placeholders are silhouettes; final player photography/illustrations needed.
 
 ## Layout Structure
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Live Ticker Marquee (fixed below header)                     │
-├──────────────────────────────────────────────────────────────┤
-│ Header / Navbar (fixed, glass, logo + wallet + theme)        │
-├──────────────────────────────────────────────────────────────┤
 │ Main container max-w-[1200px] mx-auto px-4 lg:px-8 py-12     │
 │                                                              │
-│  USER DASHBOARD                                              │
-│  START MENU                                                  │
+│  [menu] [match] [leaderboard] [profile]        [CONNECT]     │
 │                                                              │
 │  ┌─────────────────────────────────────┐  ┌───────────────┐ │
 │  │                                     │  │  THE ARENA    │ │
@@ -60,6 +57,8 @@ File: `app/page.tsx`
 │  │               │  │                                     │ │
 │  └───────────────┘  └─────────────────────────────────────┘ │
 │                                                              │
+├──────────────────────────────────────────────────────────────┤
+│ Live Ticker Marquee                                          │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -96,7 +95,7 @@ File: `app/page.tsx`
 
 ## Components Needed
 
-1. **StartMenuShell** — orbs, ticker, grid wrapper.
+1. **StartMenuShell** — orbs, bottom ticker, grid wrapper, inline tabs, profile/connect button.
 2. **LiveTicker** — infinite horizontal marquee of substitute price movements. Each row: `Name - POS: <value> <▲▼▬>`. Green up, rose down, muted flat. Duplicate content for seamless loop.
 3. **PortfolioTile** — hero card showing:
    - label "Total Portfolio Value"
@@ -104,25 +103,26 @@ File: `app/page.tsx`
    - 24h delta with icon
    - "Active Positions" summary
    - `ENTER ARENA` gradient CTA
-   - Hover: simulate rapid value ticks for ~300ms then settle.
+   - Hover: rapid value ticks, blue gradient bg, white text, diagonal shine, corner image scale.
 4. **NavTile** — silver tile with:
    - top row: icon well + arrow outward icon
    - bottom row: title + description
    - optional `extra` node (rank, mini-chart)
-   - hover: white background, gradient border, scale, shadow
-5. **ProfileSummaryTile** *(new)* — wallet-connected state:
-   - avatar + truncated wallet + edit profile link
-   - rank/points if profile exists
-   - prompts registration if connected but no profile
-6. **DemoMatchTile** *(new)* — one-tap entry to `/matches/demo` with "No wallet required" badge.
+   - hover: blue gradient bg, white text/icons, shine sweep, corner image scale
+5. **ProfileDropdown** — top-right wallet menu with Profile link and Disconnect.
+6. **ConnectWalletModal** — custom two-stage modal (notification → wallet selector).
+7. **WebP card assets** — player silhouette placeholders in `/public/assets/cards/`.
 
 ## Interactions & Micro-interactions
 
 | Element | Trigger | Effect | Duration |
 |---------|---------|--------|----------|
 | Portfolio value | Hover | Randomize digits 5× then settle | 50ms per tick |
-| Nav tile | Hover | scale(1.02), white bg, gradient border, float shadow | 150ms |
-| Icon well | Tile hover | bg purple, icon white | 150ms |
+| Portfolio tile | Hover | scale(1.02), blue gradient bg (#034694 → #1e40af), white text/icons, shine sweep | 150ms |
+| Nav tile | Hover | scale(1.02), blue gradient bg, white text/icons, shine sweep, corner image scale | 150ms |
+| Icon well | Tile hover | bg white, icon blue (#034694); Arena accent keeps purple icon | 150ms |
+| Corner image | Tile hover | opacity 0.4 → 0.8, scale 1 → 1.25, origin bottom | 300ms |
+| Shine | Tile hover | diagonal 315° sweep, lighter-blue edges + #034694 core | 450ms |
 | Enter Arena CTA | Hover | gradient position shift, neon shadow | 300ms |
 | Ticker | Always | translateX marquee loop | 25s linear |
 | Tiles on mount | Mount | stagger fade-in + translateY(12px→0) | 300ms |
@@ -140,8 +140,7 @@ File: `app/page.tsx`
 |-------|--------|
 | Loading | Silver pulsing skeleton blocks inside every tile; ticker hidden or static placeholder. |
 | No active positions | Portfolio tile shows `0` and rose text "NO ACTIVE POSITIONS. ENTER THE ARENA." |
-| Wallet not connected | Profile tile prompts "Connect wallet to track rank & history". |
-| No profile (wallet connected) | Profile tile shows "Create profile →" with avatar picker preview. |
+| Wallet not connected | Top-right Connect button opens custom wallet modal. |
 | API error | Top banner rose background, retry button. Skeletons remain until first success. |
 
 ## Data Sources from API
@@ -152,12 +151,12 @@ File: `app/page.tsx`
 | User profile | `GET /api/user/:wallet` | `app/_lib/api.ts#getUser` |
 | Avatars | `GET /api/avatars` | `getAvatars` |
 | User match history / points | `GET /api/user/:wallet/matches` | `getUserMatches` |
-| Portfolio value | **Not yet available from API** — currently mocked. Needs backend endpoint or computed from match history. |
-| Current rank | **Not yet available** — currently mocked. Needs leaderboard aggregation endpoint. |
+| Portfolio value | **Not yet available from API** — currently mocked. |
+| Active positions | **Not yet available from API** — currently mocked. |
+| Current rank | **Not yet available** — currently mocked. |
 | Live ticker values | **Not yet available** — currently mocked. Needs market/odds endpoint. |
 
 ## Open Questions / Blockers
 
-1. What endpoint returns the user's global rank and portfolio value? If none, should we compute rank/points from `GET /api/user/:wallet/matches`?
-2. Should the Start Menu remain the post-login home, or should authenticated users land directly in `/matches` discovery?
-3. Is there a public match listing endpoint for the "Events Matrix" tile to preview live matches?
+1. What endpoint returns the user's global rank, portfolio value, and active positions?
+2. Is there a public match listing endpoint for the "Events Matrix" tile to preview live matches?

@@ -68,6 +68,46 @@ body {
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
 }
 
+.card-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.card-shine::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(
+    315deg,
+    transparent 30%,
+    #bfdbfe 45%,
+    #034694 50%,
+    #bfdbfe 55%,
+    transparent 70%
+  );
+  transform: translateX(120%) skewX(-20deg);
+  filter: blur(16px);
+  opacity: 0.9;
+  transition: none;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.group:hover .card-shine::before {
+  transform: translateX(-120%) skewX(-20deg);
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-image-gray {
+  filter: grayscale(100%) brightness(0.85) contrast(1.1);
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.group:hover .card-image-gray {
+  filter: grayscale(0%) brightness(1) contrast(1);
+}
+
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
   font-weight: normal;

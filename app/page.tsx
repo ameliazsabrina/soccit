@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -119,35 +120,44 @@ export default function StartMenu() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             onMouseEnter={handlePortfolioEnter}
-            className="group relative flex min-h-[360px] flex-col justify-between overflow-hidden bg-surface p-8 lg:col-span-2"
+            className="group relative flex min-h-[380px] flex-col justify-between bg-surface p-8 transition-all hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] lg:col-span-2"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple/10 via-transparent to-cyan/10 opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="card-shine" />
+            <div className="pointer-events-none absolute bottom-0 right-0 z-0 h-80 w-80 origin-bottom transition-transform duration-300 group-hover:scale-150">
+              <Image
+                src="/assets/cards/player-hero.webp?v=2"
+                alt="Portfolio"
+                fill
+                sizes="20rem"
+                className="object-contain object-bottom card-image-gray"
+              />
+            </div>
             <div className="relative z-10 flex items-start justify-between">
               <div>
-                <p className="mb-2 text-sm font-medium uppercase tracking-wider text-muted">
+                <p className="mb-2 text-sm font-medium uppercase tracking-wider text-muted transition-colors group-hover:text-white/70">
                   Total Portfolio Value
                 </p>
                 <div className="flex items-baseline gap-4">
-                  <h2 className="unica-one text-6xl leading-none tracking-tighter text-foreground lg:text-8xl">
+                  <h2 className="unica-one text-6xl leading-none tracking-tighter text-foreground transition-colors group-hover:text-white lg:text-8xl">
                     {portfolioWhole}
-                    <span className="text-3xl text-muted">.{portfolioCents}</span>
+                    <span className="text-3xl text-muted transition-colors group-hover:text-white/60">.{portfolioCents}</span>
                   </h2>
                 </div>
                 <div className="mt-4 flex items-center gap-2 text-sm font-medium">
-                  <span className="material-symbols-outlined text-base text-cyan">
+                  <span className="material-symbols-outlined text-base text-cyan transition-colors group-hover:text-white">
                     trending_up
                   </span>
-                  <span className="text-cyan">+24.5% ($2,850.00)</span>
-                  <span className="ml-2 text-muted">Past 24H</span>
+                  <span className="text-cyan transition-colors group-hover:text-white">+24.5% ($2,850.00)</span>
+                  <span className="ml-2 text-muted transition-colors group-hover:text-white/70">Past 24H</span>
                 </div>
               </div>
             </div>
             <div className="relative z-10 mt-12 flex flex-col justify-between gap-6 border-t border-muted/20 pt-6 sm:flex-row sm:items-end">
               <div className="flex flex-col">
-                <span className="mb-1 text-xs uppercase tracking-wide text-muted">
+                <span className="mb-1 text-xs uppercase tracking-wide text-muted transition-colors group-hover:text-white/70">
                   Active Positions
                 </span>
-                <span className="unica-one text-2xl text-foreground">0</span>
+                <span className="unica-one text-2xl text-foreground transition-colors group-hover:text-white">0</span>
                 <span className="mt-1 text-sm font-medium text-rose">
                   NO ACTIVE POSITIONS.
                 </span>
@@ -169,6 +179,8 @@ export default function StartMenu() {
               title="THE ARENA"
               description="Build predictions & lock lineups."
               accent="purple"
+              image="/assets/cards/player-arena.webp?v=2"
+              imageClassName="h-44 w-36 group-hover:scale-125"
               className="flex-1"
             />
             <NavTile
@@ -176,6 +188,8 @@ export default function StartMenu() {
               icon="electric_bolt"
               title="EVENTS MATRIX"
               description="Live market volatility."
+              image="/assets/cards/player-events.webp?v=2"
+              imageClassName="h-44 w-36 group-hover:scale-125"
               className="flex-1"
             />
           </div>
@@ -185,7 +199,9 @@ export default function StartMenu() {
             icon="terminal"
             title="DATA LOGS"
             description="Immutable transaction history."
-            className="min-h-[200px]"
+              image="/assets/cards/player-logs.webp?v=2"
+              imageClassName="h-44 w-36 group-hover:scale-125"
+              className="min-h-[220px]"
           />
 
           <NavTile
@@ -193,8 +209,10 @@ export default function StartMenu() {
             icon="trophy"
             title="GLOBAL LEADERBOARD"
             description="Tier progression & rankings."
-            rank="#4,092"
-            className="min-h-[200px] lg:col-span-2"
+              rank="#4,092"
+              image="/assets/cards/player-leaderboard.webp?v=2"
+              imageClassName="h-52 w-40 group-hover:scale-125"
+              className="min-h-[220px] lg:col-span-2"
           />
         </div>
       </main>
@@ -243,6 +261,8 @@ function NavTile({
   description,
   accent,
   rank,
+  image,
+  imageClassName,
   className,
 }: {
   href: string;
@@ -251,24 +271,42 @@ function NavTile({
   description: string;
   accent?: "purple";
   rank?: string;
+  image?: string;
+  imageClassName?: string;
   className?: string;
 }) {
   return (
     <Link
       href={href}
       className={cn(
-        "group relative flex min-h-[168px] flex-col justify-between bg-surface p-6 transition-all duration-150 hover:scale-[1.02] hover:bg-surface-elevated hover:shadow-[0_20px_40px_-10px_rgba(15,23,42,0.1)] focus-visible:ring-2 focus-visible:ring-cyan",
+        "group relative flex min-h-[188px] flex-col justify-between bg-surface p-6 transition-all duration-150 hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] hover:shadow-[0_20px_40px_-10px_rgba(3,70,148,0.35)] focus-visible:ring-2 focus-visible:ring-cyan",
         className
       )}
     >
-      <div className="absolute inset-0 border border-transparent transition-colors duration-150 group-hover:border-cyan" />
+      <div className="card-shine" />
+      {image && (
+        <div
+          className={cn(
+            "pointer-events-none absolute bottom-0 right-0 z-0 origin-bottom transition-transform duration-300",
+            imageClassName ?? "h-44 w-36 group-hover:scale-125"
+          )}
+        >
+          <Image
+            src={image}
+            alt={title}
+            fill
+            sizes="15rem"
+            className="object-contain object-bottom card-image-gray"
+          />
+        </div>
+      )}
       <div className="relative z-10 flex items-start justify-between">
         <div
           className={cn(
             "flex h-10 w-10 items-center justify-center bg-surface-elevated shadow-sm transition-colors duration-200",
             accent === "purple"
               ? "text-purple group-hover:bg-purple group-hover:text-white"
-              : "text-foreground group-hover:bg-foreground group-hover:text-background"
+              : "text-foreground group-hover:bg-white group-hover:text-[#034694]"
           )}
         >
           <span className="material-symbols-outlined">{icon}</span>
@@ -276,37 +314,24 @@ function NavTile({
         {rank ? (
           <div className="flex items-center gap-4">
             <div className="hidden text-right sm:block">
-              <p className="text-xs uppercase text-muted">Current Rank</p>
-              <p className="unica-one text-lg text-foreground">{rank}</p>
+              <p className="text-xs uppercase text-muted transition-colors group-hover:text-white/70">Current Rank</p>
+              <p className="unica-one text-lg text-foreground transition-colors group-hover:text-white">{rank}</p>
             </div>
-            <span className="material-symbols-outlined text-muted transition-colors group-hover:text-foreground">
+            <span className="material-symbols-outlined text-muted transition-colors group-hover:text-white">
               arrow_outward
             </span>
           </div>
         ) : (
-          <span className="material-symbols-outlined text-muted transition-colors group-hover:text-foreground">
+          <span className="material-symbols-outlined text-muted transition-colors group-hover:text-white">
             arrow_outward
           </span>
         )}
       </div>
-      <div
-        className={cn(
-          "relative z-10",
-          rank && "mt-8 flex items-end justify-between"
-        )}
-      >
+      <div className="relative z-10 mt-8">
         <div>
-          <h4 className="unica-one text-2xl text-foreground">{title}</h4>
-          <p className="mt-1 text-sm text-muted">{description}</p>
+          <h4 className="unica-one text-2xl text-foreground transition-colors group-hover:text-white">{title}</h4>
+          <p className="mt-1 text-sm text-muted transition-colors group-hover:text-white/70">{description}</p>
         </div>
-        {rank && (
-          <div className="hidden h-12 w-32 items-end gap-1 opacity-50 sm:flex">
-            <div className="h-1/3 w-full bg-muted" />
-            <div className="h-2/3 w-full bg-muted" />
-            <div className="h-1/2 w-full bg-muted" />
-            <div className="h-full w-full bg-cyan" />
-          </div>
-        )}
       </div>
     </Link>
   );
