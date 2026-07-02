@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hyper-Motion Neo Direction - Start Menu</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#743cf6",
+                        "primary-gradient-start": "#8B5CF6",
+                        "primary-gradient-end": "#06B6D4",
+                        "background-light": "#FFFFFF", // Override for this design
+                        "background-dark": "#151022",
+                        "surface-silver": "#F3F4F6",
+                        "text-slate": "#0F172A",
+                        "text-ghost": "#94A3B8",
+                        "accent-rose": "#F43F5E",
+                        "accent-cyan": "#06B6D4",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"], // Using Space Grotesk per instructions, falling back to sans-serif
+                        "tech": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0px", // Brutalist
+                        "sm": "0px",
+                        "lg": "0px", 
+                        "xl": "0px", 
+                        "full": "0px"
+                    },
+                    boxShadow: {
+                        'float': '0 20px 40px -10px rgba(15, 23, 42, 0.1)',
+                        'neon': '0 0 20px rgba(6, 182, 212, 0.4)',
+                        'energy': '0 0 30px rgba(139, 92, 246, 0.6)',
+                    },
+                    animation: {
+                        'marquee': 'marquee 25s linear infinite',
+                        'pulse-gradient': 'pulse-gradient 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        marquee: {
+                            '0%': { transform: 'translateX(0%)' },
+                            '100%': { transform: 'translateX(-100%)' },
+                        },
+                        'pulse-gradient': {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '.7' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom Utilities */
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #FFFFFF;
+            color: #0F172A;
+            overflow-x: hidden;
+        }
+
+        .unica-one {
+            /* Fallback since Unica One isn't explicitly injected, but mimicking the brutalist tracking */
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        /* Iridescent Blur Orb */
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-orb-1 {
+            width: 400px;
+            height: 400px;
+            background: rgba(139, 92, 246, 0.15); /* Purple */
+            top: -100px;
+            left: -100px;
+        }
+
+        .bg-orb-2 {
+            width: 300px;
+            height: 300px;
+            background: rgba(6, 182, 212, 0.15); /* Cyan */
+            bottom: -50px;
+            right: -50px;
+        }
+
+        /* Nav Tile Interactions */
+        .nav-tile {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .nav-tile::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 1px solid transparent;
+            transition: border-color 0.15s ease;
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        .nav-tile:hover {
+            background-color: #FFFFFF;
+            transform: scale(1.02);
+            box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.1);
+        }
+        
+        .nav-tile:hover::before {
+            border-color: #06B6D4;
+        }
+
+        /* Gradient Button */
+        .btn-gradient {
+            background-size: 200% auto;
+            background-image: linear-gradient(to right, #8B5CF6 0%, #06B6D4 50%, #8B5CF6 100%);
+            transition: background-position 0.5s ease, box-shadow 0.3s ease;
+        }
+
+        .btn-gradient:hover {
+            background-position: right center;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+
+        /* Ticker Container */
+        .ticker-wrap {
+            overflow: hidden;
+            white-space: nowrap;
+            box-sizing: border-box;
+            border-bottom: 1px solid #E2E8F0;
+            background: #FFFFFF;
+            position: relative;
+            z-index: 20;
+        }
+        
+        .ticker-content {
+            display: inline-block;
+        }
+
+        /* Hide scrollbar for grid */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen relative flex flex-col">
+<!-- Atmospheric Background -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none">
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+</div>
+<!-- Live Ticker Marquee -->
+<div class="ticker-wrap py-2 text-xs font-medium tracking-wide">
+<div class="ticker-content animate-marquee">
+<span class="inline-block px-8 text-text-slate">J. DOE - ST: <span class="text-accent-cyan">1.4x ▲</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">M. SMITH - CM: <span class="text-accent-rose">0.8x ▼</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">K. JONES - CB: <span class="text-accent-cyan">2.1x ▲</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">A. GOMEZ - GK: <span class="text-text-ghost">1.0x ▬</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">T. SILVA - CDM: <span class="text-accent-cyan">1.2x ▲</span></span>
+<!-- Duplicate for seamless loop -->
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">J. DOE - ST: <span class="text-accent-cyan">1.4x ▲</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">M. SMITH - CM: <span class="text-accent-rose">0.8x ▼</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">K. JONES - CB: <span class="text-accent-cyan">2.1x ▲</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">A. GOMEZ - GK: <span class="text-text-ghost">1.0x ▬</span></span>
+<span class="inline-block px-8 text-text-slate border-l border-surface-silver">T. SILVA - CDM: <span class="text-accent-cyan">1.2x ▲</span></span>
+</div>
+</div>
+<!-- Shared TopNavBar (Included as per Relevance Test - Destination Screen) -->
+<div class="relative flex h-auto w-full flex-col bg-white/80 backdrop-blur-md group/design-root z-40 border-b border-surface-silver">
+<div class="layout-container flex h-full grow flex-col">
+<div class="px-8 lg:px-40 flex flex-1 justify-center py-0">
+<div class="layout-content-container flex flex-col w-full max-w-[1200px] flex-1">
+<header class="flex items-center justify-between whitespace-nowrap px-4 py-4">
+<div class="flex items-center gap-4 text-text-slate">
+<div class="size-6 text-primary">
+<svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M42.4379 44C42.4379 44 36.0744 33.9038 41.1692 24C46.8624 12.9336 42.2078 4 42.2078 4L7.01134 4C7.01134 4 11.6577 12.932 5.96912 23.9969C0.876273 33.9029 7.27094 44 7.27094 44L42.4379 44Z" fill="currentColor"></path>
+</svg>
+</div>
+<h2 class="text-text-slate text-xl font-bold leading-tight tracking-[-0.015em] unica-one">HYPER-MOTION</h2>
+</div>
+<div class="flex items-center gap-6">
+<!-- Shared Nav Links ignored here to focus on dashboard nav below, keeping minimal profile -->
+<div class="w-8 h-8 bg-surface-silver flex items-center justify-center">
+<span class="material-symbols-outlined text-text-slate text-sm">person</span>
+</div>
+</div>
+</header>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Content Area -->
+<main class="flex-1 w-full max-w-[1200px] mx-auto px-4 lg:px-8 py-12 relative z-10 flex flex-col">
+<!-- Header -->
+<div class="mb-12">
+<h1 class="unica-one text-sm text-text-ghost mb-2">USER DASHBOARD</h1>
+<h2 class="unica-one text-4xl text-text-slate tracking-tight">START MENU</h2>
+</div>
+<!-- Asymmetric Masonry Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-min">
+<!-- Hero Portfolio Tile (Spans 2 columns on large screens) -->
+<div class="lg:col-span-2 bg-surface-silver p-8 flex flex-col justify-between min-h-[360px] relative overflow-hidden group">
+<!-- Subtle background animation -->
+<webgl-shader class="absolute inset-0 w-full h-full opacity-20 mix-blend-overlay pointer-events-none" src="{{DATA:ANIMATION:ANIMATION_1}}"></webgl-shader>
+<div class="relative z-10 flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-text-ghost uppercase tracking-wider mb-2">Total Portfolio Value</p>
+<div class="flex items-baseline gap-4">
+<!-- Dynamic Ticker Simulation -->
+<h3 class="unica-one text-6xl lg:text-8xl text-text-slate leading-none tracking-tighter" id="portfolio-value">
+                                $14,093<span class="text-3xl text-text-ghost">.50</span>
+</h3>
+</div>
+<div class="mt-4 flex items-center gap-2 text-sm font-medium">
+<span class="material-symbols-outlined text-accent-cyan text-base">trending_up</span>
+<span class="text-accent-cyan">+24.5% ($2,850.00)</span>
+<span class="text-text-ghost ml-2">Past 24H</span>
+</div>
+</div>
+</div>
+<div class="relative z-10 mt-12 flex justify-between items-end border-t border-text-ghost/20 pt-6">
+<div class="flex flex-col">
+<span class="text-xs text-text-ghost uppercase tracking-wide mb-1">Active Positions</span>
+<span class="unica-one text-2xl text-text-slate">0</span>
+<span class="text-sm text-accent-rose mt-1 font-medium">NO ACTIVE POSITIONS.</span>
+</div>
+<button class="btn-gradient px-8 py-4 text-white unica-one text-xl tracking-[0.1em] flex items-center gap-3">
+                        ENTER ARENA
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Navigation Column -->
+<div class="flex flex-col gap-6 h-full">
+<!-- Arena Link Tile -->
+<a class="nav-tile flex-1 bg-surface-silver p-6 flex flex-col justify-between min-h-[168px] group" href="#">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 bg-white shadow-sm flex items-center justify-center text-primary-gradient-start group-hover:bg-primary group-hover:text-white transition-colors duration-200">
+<span class="material-symbols-outlined">view_in_ar</span>
+</div>
+<span class="material-symbols-outlined text-text-ghost group-hover:text-text-slate transition-colors">arrow_outward</span>
+</div>
+<div>
+<h4 class="unica-one text-2xl text-text-slate">THE ARENA</h4>
+<p class="text-sm text-text-ghost mt-1">Build predictions &amp; lock lineups.</p>
+</div>
+</a>
+<!-- Events Link Tile -->
+<a class="nav-tile flex-1 bg-surface-silver p-6 flex flex-col justify-between min-h-[168px] group" href="#">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 bg-white shadow-sm flex items-center justify-center text-text-slate group-hover:bg-text-slate group-hover:text-white transition-colors duration-200">
+<span class="material-symbols-outlined">electric_bolt</span>
+</div>
+<span class="material-symbols-outlined text-text-ghost group-hover:text-text-slate transition-colors">arrow_outward</span>
+</div>
+<div>
+<h4 class="unica-one text-2xl text-text-slate">EVENTS MATRIX</h4>
+<p class="text-sm text-text-ghost mt-1">Live market volatility.</p>
+</div>
+</a>
+</div>
+<!-- Bottom Row (Logs & Leaderboard) -->
+<a class="nav-tile bg-surface-silver p-6 flex flex-col justify-between min-h-[200px] lg:col-span-1 group" href="#">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 bg-white shadow-sm flex items-center justify-center text-text-slate group-hover:bg-text-slate group-hover:text-white transition-colors duration-200">
+<span class="material-symbols-outlined">terminal</span>
+</div>
+<span class="material-symbols-outlined text-text-ghost group-hover:text-text-slate transition-colors">arrow_outward</span>
+</div>
+<div>
+<h4 class="unica-one text-2xl text-text-slate">DATA LOGS</h4>
+<p class="text-sm text-text-ghost mt-1">Immutable transaction history.</p>
+</div>
+</a>
+<a class="nav-tile bg-surface-silver p-6 flex flex-col justify-between min-h-[200px] lg:col-span-2 group" href="#">
+<div class="flex justify-between items-start">
+<div class="w-10 h-10 bg-white shadow-sm flex items-center justify-center text-text-slate group-hover:bg-text-slate group-hover:text-white transition-colors duration-200">
+<span class="material-symbols-outlined">trophy</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-right hidden sm:block">
+<p class="text-xs text-text-ghost uppercase">Current Rank</p>
+<p class="unica-one text-lg text-text-slate">#4,092</p>
+</div>
+<span class="material-symbols-outlined text-text-ghost group-hover:text-text-slate transition-colors">arrow_outward</span>
+</div>
+</div>
+<div class="mt-8 flex justify-between items-end">
+<div>
+<h4 class="unica-one text-2xl text-text-slate">GLOBAL LEADERBOARD</h4>
+<p class="text-sm text-text-ghost mt-1">Tier progression &amp; rankings.</p>
+</div>
+<!-- Decorative mini-chart placeholder -->
+<div class="h-12 w-32 flex items-end gap-1 opacity-50">
+<div class="w-full h-1/3 bg-text-ghost"></div>
+<div class="w-full h-2/3 bg-text-ghost"></div>
+<div class="w-full h-1/2 bg-text-ghost"></div>
+<div class="w-full h-full bg-accent-cyan"></div>
+</div>
+</div>
+</a>
+</div>
+</main>
+<!-- Micro-interaction Script -->
+<script>
+        // Simple ticking animation for portfolio value
+        document.addEventListener('DOMContentLoaded', () => {
+            const valueElement = document.getElementById('portfolio-value');
+            let isHovering = false;
+
+            valueElement.parentElement.parentElement.addEventListener('mouseenter', () => {
+                if(isHovering) return;
+                isHovering = true;
+                
+                // Simulate a quick recalculation ticker
+                const originalText = "$14,093";
+                let ticks = 0;
+                const interval = setInterval(() => {
+                    const randomVal = 14000 + Math.floor(Math.random() * 100);
+                    valueElement.innerHTML = `$${randomVal}<span class="text-3xl text-text-ghost">.${Math.floor(Math.random()*99)}</span>`;
+                    ticks++;
+                    if(ticks > 5) {
+                        clearInterval(interval);
+                        valueElement.innerHTML = `$14,093<span class="text-3xl text-text-ghost">.50</span>`;
+                        setTimeout(() => isHovering = false, 500);
+                    }
+                }, 50);
+            });
+        });
+    </script>
+</body></html>

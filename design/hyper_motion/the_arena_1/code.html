@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hyper-Motion: The Arena</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=Unica+One&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#743cf6",
+          "background-light": "#f6f5f8",
+          "background-dark": "#151022",
+          "hm-purple": "#8B5CF6",
+          "hm-cyan": "#06B6D4",
+          "hm-white": "#FFFFFF",
+          "hm-silver": "#F3F4F6",
+          "hm-slate": "#0F172A",
+          "hm-ghost": "#94A3B8",
+          "hm-rose": "#F43F5E",
+          "hm-bronze": "#CD7F32",
+          "hm-gold": "#D4AF37",
+        },
+        fontFamily: {
+          "display": ["Unica One", "sans-serif"],
+          "tech": ["Space Grotesk", "sans-serif"],
+          "sans": ["Space Grotesk", "sans-serif"],
+        },
+        borderRadius: {
+          "DEFAULT": "0px",
+          "lg": "0px",
+          "xl": "0px",
+          "full": "0px",
+          "sharp": "0px",
+        },
+        boxShadow: {
+          'float': '0 20px 40px -10px rgba(15, 23, 42, 0.1)',
+          'neon': '0 0 20px rgba(6, 182, 212, 0.4)',
+          'energy': '0 0 30px rgba(139, 92, 246, 0.6)',
+        },
+        backgroundImage: {
+          'hm-gradient': 'linear-gradient(to right, #8B5CF6, #06B6D4)',
+        }
+      },
+    },
+  }
+</script>
+<style>
+  body {
+    background-color: #FFFFFF;
+    color: #0F172A;
+  }
+  .ghost-silhouette {
+    opacity: 0.4;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+  }
+  .slot:hover .ghost-silhouette {
+    opacity: 1;
+  }
+  .slot:hover {
+    background-color: #F8FAFC;
+  }
+  .tcg-card {
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    cursor: grab;
+  }
+  .tcg-card:active {
+    cursor: grabbing;
+    transform: rotate(3deg) scale(1.02);
+    box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.1);
+  }
+  .locked-card {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.6);
+    border: 2px solid transparent;
+    background-image: linear-gradient(white, white), linear-gradient(to right, #8B5CF6, #06B6D4);
+    background-origin: border-box;
+    background-clip: content-box, border-box;
+  }
+</style>
+</head>
+<body class="font-tech flex h-screen overflow-hidden bg-white">
+<!-- Back Navigation Header -->
+<header class="absolute top-0 left-0 w-full flex items-center justify-between px-10 py-4 z-50 pointer-events-none">
+<div class="flex items-center gap-4 text-hm-slate pointer-events-auto cursor-pointer group">
+<span class="material-symbols-outlined text-2xl group-hover:-translate-x-1 transition-transform">arrow_back</span>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em] font-display uppercase">Return to Hub</h2>
+</div>
+</header>
+<!-- Main Container -->
+<div class="flex w-full h-full pt-16">
+<!-- Sidebar: Bench Deck -->
+<aside class="w-80 h-full border-r border-hm-silver flex flex-col bg-white z-10 shadow-float overflow-y-auto">
+<div class="p-6 border-b border-hm-silver">
+<h1 class="font-display text-4xl uppercase text-hm-slate tracking-tight">Bench Deck</h1>
+<p class="text-xs font-tech text-hm-ghost mt-1 uppercase">Available Substitutes</p>
+</div>
+<div class="p-6 flex flex-col gap-6">
+<!-- TCG Card 1: Bronze -->
+<div class="tcg-card w-[160px] h-[240px] mx-auto bg-hm-silver relative group overflow-hidden border border-hm-silver" draggable="true">
+<!-- Background Image (Bronze) -->
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Abstract metallic bronze fluid liquid texture background, highly detailed, sharp edges, metallic sheen, dark bronze color palette, architectural minimalist style, high contrast lighting, premium TCG card background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA5ZzLuVP54RuR7MvCogk0JFGeS8aNA_fc2Lr4_RqrvyyGo4sYN4bXUvnuFbQQ6QlhQcz0ocSUNeAjhlYrK1nu60s4GYeHDcBgzEQOn9_ChKQK1moSimBpl3njb5Auo4LgX1qiPznRfozG5xI9laRQara8XXilcOG5L6eMQKGupsNQnVBgaWYifLkfkOdFF8rpDTgL9pzGLdRA47oGXsPEyFGcc23RMUyXSb4Gvm_u8Tuj8mWlURrBchwOQpTX2VurShw_sn1rR')"></div>
+<!-- Card Anatomy -->
+<div class="absolute inset-0 flex flex-col justify-between p-3">
+<div class="flex justify-between items-start">
+<div class="bg-hm-slate text-white px-2 py-1 font-display text-xl leading-none">ST</div>
+<div class="text-hm-slate font-display text-2xl drop-shadow-md">78</div>
+</div>
+<div class="mt-auto">
+<h3 class="font-display text-xl uppercase text-white drop-shadow-md mb-2">F. Torres</h3>
+<!-- Price Pill -->
+<div class="backdrop-blur-md bg-white/20 border border-white/30 rounded-none px-3 py-1 flex justify-between items-center">
+<span class="font-tech text-xs font-bold text-hm-slate">1.2x</span>
+<span class="font-tech text-xs text-hm-slate">45.00</span>
+</div>
+</div>
+</div>
+</div>
+<!-- TCG Card 2: Gold -->
+<div class="tcg-card w-[160px] h-[240px] mx-auto bg-hm-silver relative group overflow-hidden border border-hm-silver" draggable="true">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Liquid gold abstract flowing texture background, highly detailed, sharp reflections, metallic sheen, bright gold color palette, architectural minimalist style, high key lighting, premium TCG card background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuApOuPDx2QluExuuohyrl5OWnsYzxX9CJIFx-gkMJU9uk2vk-_k-DD52DekY-zJR8Ip8mWs1fULejY_Z5mG4_E2aRmum5aoiS4nEXRT8pdUT8McwmCVpp9RsBRkjxrKt-W-NeZIYcZQ-qoRjm3-66PCRSZP8px9dr9_3zjp3jN9j5yYzL2EC2AhwQlLvXVlMh8c-hBtc3MjBDiRqCglxKK52_pBf4T9T47EaG5v4XApGbRxbjXUg_yRRv2eoF7IY8GntnFM_4vP')"></div>
+<div class="absolute inset-0 flex flex-col justify-between p-3">
+<div class="flex justify-between items-start">
+<div class="bg-hm-slate text-white px-2 py-1 font-display text-xl leading-none">CM</div>
+<div class="text-hm-slate font-display text-2xl drop-shadow-md">84</div>
+</div>
+<div class="mt-auto">
+<h3 class="font-display text-xl uppercase text-white drop-shadow-md mb-2">E. Camavinga</h3>
+<div class="backdrop-blur-md bg-white/20 border border-white/30 rounded-none px-3 py-1 flex justify-between items-center">
+<span class="font-tech text-xs font-bold text-hm-slate">2.5x</span>
+<span class="font-tech text-xs text-hm-slate">120.50</span>
+</div>
+</div>
+</div>
+</div>
+<!-- TCG Card 3: Iridescent -->
+<div class="tcg-card w-[160px] h-[240px] mx-auto bg-hm-silver relative group overflow-hidden border border-hm-silver" draggable="true">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Iridescent holographic fluid mesh gradient background, highly detailed, vibrant purple and cyan colors melting together, sharp geometric cuts, architectural minimalist style, neon lighting, premium special edition TCG card background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBCmehfN3NJZpxbtXHhPUFdynV7bU4TaxidOO-sP5KhcSGrUy1JfEijYMzz09oXhSFZTiH-MFy4YLjuTU-io_afuBsVVyBnnEhg4R3GIzgQ39esKE8JHYx2M5HQ_mteLSPGorNBCzvX3DAiA5CP1xNmkIBKKqYXjcr3EWl0k5pG5_sdWztQCZf5WspJZr6_hKsELkUE1egh_nChVQKGLT7JjmFvqDzMYl19a4YlgVDnKcz22rkJo-AYbrItl7H6bUfnfgwz5QHa')"></div>
+<div class="absolute inset-0 flex flex-col justify-between p-3">
+<div class="flex justify-between items-start">
+<div class="bg-hm-slate text-white px-2 py-1 font-display text-xl leading-none">LW</div>
+<div class="text-hm-slate font-display text-2xl drop-shadow-md text-white">91</div>
+</div>
+<div class="mt-auto">
+<h3 class="font-display text-xl uppercase text-white drop-shadow-md mb-2">A. Garnacho</h3>
+<div class="backdrop-blur-md bg-white/20 border border-white/30 rounded-none px-3 py-1 flex justify-between items-center">
+<span class="font-tech text-xs font-bold text-hm-slate">4.0x</span>
+<span class="font-tech text-xs text-hm-slate">340.00</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Area: The Arena -->
+<main class="flex-1 bg-white relative flex flex-col">
+<!-- Atmospheric Orb -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-hm-purple/10 rounded-full blur-[100px] pointer-events-none"></div>
+<div class="flex-1 flex flex-col items-center justify-center p-8 z-10">
+<h2 class="font-display text-6xl text-hm-slate uppercase tracking-tight mb-12">The Arena</h2>
+<!-- 3x3 Magnetic Grid -->
+<div class="grid grid-cols-3 gap-4 w-[600px] h-[800px]">
+<!-- Slot 1 (Empty) -->
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors">
+<div class="ghost-silhouette flex flex-col items-center">
+<span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span>
+<span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span>
+</div>
+</div>
+<!-- Slot 2 (Empty) -->
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors">
+<div class="ghost-silhouette flex flex-col items-center">
+<span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span>
+<span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span>
+</div>
+</div>
+<!-- Slot 3 (Empty) -->
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors">
+<div class="ghost-silhouette flex flex-col items-center">
+<span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span>
+<span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span>
+</div>
+</div>
+<!-- Slot 4 (Filled & Locked) -->
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center p-2">
+<div class="tcg-card locked-card w-full h-full relative overflow-hidden" draggable="false">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Metallic silver fluid liquid texture background, highly detailed, sharp edges, metallic sheen, monochromatic palette, architectural minimalist style, high contrast lighting, premium TCG card background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB_pMewszM5T3AzkIhHQvmxlTwZR982MFXo-YmWXdU-i5ZHx6AoDgJJGQ3T2RlnloOCzjyszzHRjd4O0tDtSdJZz468nUDFPC2L2iMG0lKz1eEC4pPyjOzg6gGPslsfT65K6YSGZPm1ll2QY5xfwH6MeDrGyGfejgcsGokAx_ds72sIL2CLZIxMr-qOeUwWHJGeSC0ZpCVyihcWoU5qS6DtYlchoCCa9jF0ZGxSYDe7g7sgABuI_LLhdGC6Yvf8Gl8wt3s1qnoz')"></div>
+<div class="absolute inset-0 flex flex-col justify-between p-3">
+<div class="flex justify-between items-start">
+<div class="bg-hm-slate text-white px-2 py-1 font-display text-xl leading-none">CB</div>
+<div class="text-hm-slate font-display text-2xl drop-shadow-md">81</div>
+</div>
+<div class="mt-auto">
+<h3 class="font-display text-xl uppercase text-white drop-shadow-md mb-2">H. Maguire</h3>
+<div class="backdrop-blur-md bg-white/20 border border-white/30 rounded-none px-3 py-1 flex justify-between items-center">
+<span class="font-tech text-xs font-bold text-hm-slate">1.1x</span>
+<span class="font-tech text-xs text-hm-slate">22.00</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Slots 5-9 (Empty) -->
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors"><div class="ghost-silhouette flex flex-col items-center"><span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span><span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span></div></div>
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors"><div class="ghost-silhouette flex flex-col items-center"><span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span><span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span></div></div>
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors"><div class="ghost-silhouette flex flex-col items-center"><span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span><span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span></div></div>
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors"><div class="ghost-silhouette flex flex-col items-center"><span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span><span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span></div></div>
+<div class="slot border border-[#E2E8F0] w-full h-full flex items-center justify-center transition-colors"><div class="ghost-silhouette flex flex-col items-center"><span class="material-symbols-outlined text-hm-ghost text-4xl mb-2">person_outline</span><span class="font-display text-hm-ghost text-lg uppercase tracking-wider">Drop</span></div></div>
+</div>
+</div>
+<!-- Lock Predictions Action Bar -->
+<div class="absolute bottom-10 right-10 flex flex-col items-end gap-2 z-20">
+<span class="font-tech text-xs text-hm-ghost uppercase font-medium">1/9 Slots Filled</span>
+<button class="bg-hm-gradient text-white font-display text-lg uppercase tracking-[0.1em] px-10 py-4 shadow-neon hover:scale-105 transition-transform duration-200">
+                Lock Predictions
+            </button>
+</div>
+</main>
+</div>
+</body></html>

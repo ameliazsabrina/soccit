@@ -1,0 +1,256 @@
+# Pitch-Side Immersive Direction
+
+## Product Overview
+
+**The Pitch:** Predict the super-subs. Draft benched player cards before they hit the pitch and earn multipliers based on their real-time impact and game-changing moments.
+
+**For:** Hardcore football fans and fantasy managers who want high-stakes, live match-day engagement during the critical second half.
+
+**Device:** desktop
+
+**Design Direction:** An organic, stadium-side experience using deep turf greens, stadium-light golds, and frosted glass UI panels over blurred, dynamic stadium backgrounds. Premium sports game feel (FC26 style) with heavy focus on high-fidelity TCG card assets.
+
+**Inspired by:** EA Sports FC Ultimate Team, Sorare
+
+---
+
+## Screens
+
+- **Landing Page:** High-impact broadcast intro selling the fantasy format
+- **Start Menu (Locker Room):** Player dashboard, match selection, and live status
+- **The Arena:** 3D perspective pitch for drag-and-drop sub lineup building using a Deck interface
+- **Match Logs:** Live broadcast-style timeline of sub actions and point tallies
+- **Leaderboards:** Stadium jumbotron-style global and private league rankings
+
+---
+
+## Key Flows
+
+**Drafting a Super-Sub:** Player assigns a benched real-world player to their prediction slot.
+
+1. User is on The Arena -> sees 3D pitch with empty Card Slots and a side panel Deck of benched player cards
+2. User drags a high-fidelity player card from the "Deck" side panel -> drops onto a glowing "Card Slot" on the 3D pitch
+3. Card snaps into place with a heavy thud sound, slot erupts with a high-impact energy glow matching the card's rarity, points multiplier locks in
+
+---
+
+<details>
+<summary>Design System</summary>
+
+## Color Palette
+
+- **Primary:** `#FACC15` - Stadium Light Gold (Buttons, active states, highlights)
+- **Background:** `#0B1F15` - Stadium Night (Deep dark green page background)
+- **Surface:** `#183626` - Turf Surface (Cards, modals, slightly lighter green)
+- **Text:** `#F8FAFC` - Chalk White (Main body text, headings)
+- **Muted:** `#94A3B8` - Ash Grey (Secondary text, inactive elements)
+- **Accent:** `#EF4444` - Card Red (Negative points, alerts, removals)
+- **TCG Rarities:** 
+  - **Bronze:** `#CD7F32`
+  - **Gold:** `#FFD700`
+  - **Special Edition:** `#8A2BE2` (Deep neon purple)
+
+## Typography
+
+- **Headings:** Oswald, 700, 24-64px (Condensed, athletic, bold)
+- **Body:** Barlow, 400, 16px (Clean, engineered, broadcast readability)
+- **Small text:** Barlow, 500, 12px (All-caps, wide tracking for labels)
+- **Buttons:** Oswald, 600, 18px (All-caps, commanding)
+
+**Style notes:** Heavy use of `backdrop-filter: blur(12px)` for glass panels over the blurred stadium background. Subtle noise textures on surfaces. Heavy drop shadows (`0 20px 25px -5px rgba(0, 0, 0, 0.8)`) on floating elements to enhance the 3D depth. High-impact glow effects for TCG card interactions.
+
+## Design Tokens
+
+```css
+:root {
+  --color-primary: #FACC15;
+  --color-background: #0B1F15;
+  --color-surface: #183626;
+  --color-surface-glass: rgba(24, 54, 38, 0.7);
+  --color-text: #F8FAFC;
+  --color-muted: #94A3B8;
+  --color-accent: #EF4444;
+  --color-bronze: #CD7F32;
+  --color-gold: #FFD700;
+  --color-special: #8A2BE2;
+  --font-heading: 'Oswald', sans-serif;
+  --font-body: 'Barlow', sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+  --glow-gold: 0 0 15px rgba(250, 204, 21, 0.5);
+  --glow-energy: 0 0 30px rgba(255, 215, 0, 0.8);
+}
+```
+
+</details>
+
+---
+
+<details>
+<summary>Screen Specifications</summary>
+
+### Landing Page
+
+**Purpose:** Convert visitors by showcasing the adrenaline of live sub predictions.
+
+**Layout:** Full-screen blurred stadium video background. Heavy typography centered. Call to action glowing.
+
+**Key Elements:**
+- **Hero Headline:** 64px `Oswald`, chalk white, text shadow
+- **CTA Button:** `#FACC15` background, black text, 8px radius, heavy hover glow
+- **Live Match Ticker:** Scrolling bottom bar, broadcast style, 14px `Barlow`, dark green background
+
+**States:**
+- **Empty/Loading:** Black screen fading into blurred stadium lights
+- **Error:** N/A
+
+**Components:**
+- **CTA:** 240x56px, `#FACC15`, "ENTER THE ARENA"
+- **Ticker:** 100% width, 40px height, `#0B1F15`, live score data
+
+**Interactions:**
+- **Hover CTA:** Triggers `--glow-gold` box-shadow, scales 1.05x
+- **Click CTA:** Transitions to Locker Room with swoosh animation
+
+**Responsive:**
+- **Desktop:** Centered layout, scrolling ticker at bottom
+- **Tablet:** Smaller headline typography (48px)
+- **Mobile:** Stacked layout, ticker hidden
+
+### Start Menu (Locker Room)
+
+**Purpose:** Hub for selecting upcoming matches and viewing current player stats.
+
+**Layout:** Left sidebar navigation, sprawling grid of upcoming matches in the main view.
+
+**Key Elements:**
+- **User Stats Card:** Top left, shows global rank and total points
+- **Match Cards:** Grid of upcoming games. Teams, countdown timer, "Draft Subs" button
+- **Live Indicator:** Blinking red dot for matches currently in second half
+
+**States:**
+- **Empty:** "No upcoming matches" placeholder in muted grey
+- **Loading:** Shimmering dark green skeleton blocks
+- **Error:** Red alert banner at top
+
+**Components:**
+- **Match Card:** 320x180px, `--color-surface-glass`, white text, 8px radius
+- **Timer Badge:** 80x24px, `#0B1F15` background, gold text, 12px `Barlow`
+
+**Interactions:**
+- **Hover Match Card:** Border turns `#FACC15`, background opacity increases
+- **Click "Draft Subs":** Loads "The Arena" view
+
+**Responsive:**
+- **Desktop:** 3-column grid for matches
+- **Tablet:** 2-column grid
+- **Mobile:** 1-column grid, sidebar becomes bottom nav
+
+### The Arena
+
+**Purpose:** Core drag-and-drop lineup builder on a 3D pitch using premium TCG assets.
+
+**Layout:** 70% left width 3D perspective pitch. 30% right width vertical Card Pack/Deck interface of available benched players.
+
+**Key Elements:**
+- **3D Pitch:** Angled trapezoid div, CSS transformed, white chalk lines, subtle grass texture
+- **Card Slots:** 3 glowing card-shaped outlines on the pitch (Defensive, Midfield, Attacking sub)
+- **Deck Interface:** Right panel, draggable high-fidelity TCG-style player cards showing rarity backgrounds, position badges, and live stats
+
+**States:**
+- **Empty:** Slots pulsate slowly
+- **Loading:** Spinner overlay
+- **Error:** Shake animation on invalid drop
+
+**Components:**
+- **Player Card (TCG Style):** 180x252px, draggable, distinct card shape with angled top corners. Features rarity-based background (Bronze, Gold, Special Edition), prominent position badge (ST, CM, CB, etc.), and dynamic data slots for Player Name, Overall Rating, and Live Market Price/Multiplier.
+- **Card Slot:** 180x252px card-shaped container, dashed white border, turns solid gold on hover/fill
+
+**Interactions:**
+- **Drag Card:** Card scales up slightly, opacity 0.95, heavy `--shadow-float`
+- **Hover Slot while Dragging:** Slot border glows gold, pulses
+- **Drop Card:** Snaps to center of slot, triggers a high-impact `--glow-energy` effect based on card rarity, dynamic data locks in over the slot
+
+**Responsive:**
+- **Desktop:** Side-by-side pitch and deck
+- **Tablet:** Pitch on top, horizontal scrollable deck below
+- **Mobile:** 2D pitch view, modal drawer for card pack
+
+### Match Logs
+
+**Purpose:** Real-time feed of events and point updates during the game.
+
+**Layout:** Split screen: Left side shows live video stream or text commentary. Right side shows chronological timeline.
+
+**Key Elements:**
+- **Timeline:** Vertical line with nodes for events (Subbed on, Goal, Yellow Card)
+- **Points Pop-ups:** Floating green `+10` or red `-5` indicators next to events
+- **Impact Meter:** Circular gauge showing how much the sub changed the game state
+
+**States:**
+- **Empty:** "Awaiting kick-off..." message
+- **Loading:** Skeleton nodes on timeline
+- **Error:** "Connection lost. Reconnecting..." banner
+
+**Components:**
+- **Timeline Node:** 48x48px circle, icon center, connecting vertical grey line
+- **Impact Meter:** 120x120px SVG donut chart, fills with `--color-primary`
+
+**Interactions:**
+- **Hover Node:** Expands to show deep stats (passes, tackles)
+- **New Event:** Slides down from top with gold flash
+
+**Responsive:**
+- **Desktop:** Split view
+- **Tablet:** Timeline below video
+- **Mobile:** Timeline only, video minimized to PiP
+
+### Leaderboards
+
+**Purpose:** Global and private league rankings.
+
+**Layout:** Jumbotron aesthetic. Centered, heavy tabular data with large typography.
+
+**Key Elements:**
+- **Top 3 Podium:** 3D styled blocks showing top 3 users with avatars
+- **Rankings Table:** Clean rows with Rank, User, Points, and Trend (up/down arrow)
+- **Toggle:** Switch between "Global" and "My Leagues"
+
+**States:**
+- **Empty:** "No data available"
+- **Loading:** Shimmering rows
+- **Error:** standard error banner
+
+**Components:**
+- **Table Row:** 100% width, 64px height, `--color-surface`, alternating background opacity
+- **Trend Arrow:** 16x16px SVG, green up or red down
+
+**Interactions:**
+- **Click Row:** Expands to show user's best pick of the week
+- **Hover Toggle:** Background highlights gold
+
+**Responsive:**
+- **Desktop:** Full width podium and table
+- **Tablet:** Podium scales down
+- **Mobile:** Podium hidden, condensed table
+
+</details>
+
+---
+
+<details>
+<summary>Build Guide</summary>
+
+**Stack:** HTML + Tailwind CSS v3
+
+**Build Order:**
+1. **Design System Setup:** Tailwind config (fonts, custom colors, TCG rarities, gradients, blur utilities).
+2. **Landing Page:** Establishes the core visual language, background blur, and typography.
+3. **Start Menu:** Implements card structures and grid layouts.
+4. **The Arena:** The most complex UI. Build 3D pitch using CSS transforms (`transform: perspective(1000px) rotateX(60deg)`), style the TCG player cards, then implement Drag and Drop logic with energy glow effects.
+5. **Match Logs:** Focus on scrolling mechanics and timeline layout.
+6. **Leaderboards:** Standardizes table layouts and complex state toggles.
+
+</details>

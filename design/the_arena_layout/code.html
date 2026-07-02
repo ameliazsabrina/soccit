@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MANAGER WANNABE - Arena HUD</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #0f0d15;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .perspective-pitch {
+            perspective: 1200px;
+            transform-style: preserve-3d;
+        }
+
+        .pitch-surface {
+            transform: rotateX(45deg) scale(1.1);
+            background: linear-gradient(to bottom, #122B1E, #081A12);
+            box-shadow: 0 0 100px rgba(76, 215, 246, 0.1);
+            position: relative;
+        }
+
+        .pitch-line {
+            position: absolute;
+            border: 2px solid rgba(248, 250, 252, 0.4);
+            box-shadow: 0 0 8px rgba(248, 250, 252, 0.2);
+        }
+
+        .glass-panel {
+            background: rgba(33, 30, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(149, 142, 160, 0.2);
+        }
+
+        .iridescent-border {
+            border: 1px solid transparent;
+            background-image: linear-gradient(#211e27, #211e27), linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+        }
+
+        .magnetic-glow {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+            animation: pulse-glow 3s infinite ease-in-out;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .player-card {
+            clip-path: polygon(10% 0, 90% 0, 100% 10%, 100% 90%, 90% 100%, 10% 100%, 0 90%, 0 10%);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .player-card:hover {
+            transform: translateY(-10px) scale(1.05);
+            filter: brightness(1.2);
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#ca801e",
+                        "on-primary-container": "#340080",
+                        "inverse-surface": "#e7e0ed",
+                        "surface-container-low": "#1d1a23",
+                        "surface-container-lowest": "#0f0d15",
+                        "tertiary-fixed-dim": "#ffb869",
+                        "on-primary-fixed-variant": "#5516be",
+                        "status-critical": "#F43F5E",
+                        "iridescent-glow": "linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%)",
+                        "tertiary-fixed": "#ffdcbb",
+                        "error-container": "#93000a",
+                        "outline-variant": "#494454",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#001f26",
+                        "secondary-container": "#03b5d3",
+                        "magnetic-field": "rgba(6, 182, 212, 0.15)",
+                        "pitch-line-white": "#F8FAFC",
+                        "surface-container-highest": "#37333d",
+                        "primary-container": "#a078ff",
+                        "on-surface-variant": "#cbc3d7",
+                        "background": "#15121b",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-secondary-container": "#00424e",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "pitch-turf-surface": "#122B1E",
+                        "on-tertiary-fixed": "#2c1700",
+                        "surface-variant": "#37333d",
+                        "primary-fixed": "#e9ddff",
+                        "primary": "#d0bcff",
+                        "on-tertiary-fixed-variant": "#673d00",
+                        "stadium-light": "#E2E8F0",
+                        "inverse-on-surface": "#322f39",
+                        "on-surface": "#e7e0ed",
+                        "surface-container": "#211e27",
+                        "on-error-container": "#ffdad6",
+                        "on-background": "#e7e0ed",
+                        "on-tertiary": "#482900",
+                        "pitch-turf-deep": "#081A12",
+                        "surface": "#15121b",
+                        "on-secondary": "#003640",
+                        "surface-bright": "#3b3742",
+                        "inverse-primary": "#6d3bd7",
+                        "on-primary-fixed": "#23005c",
+                        "secondary": "#4cd7f6",
+                        "tertiary": "#ffb869",
+                        "surface-tint": "#d0bcff",
+                        "on-primary": "#3c0091",
+                        "surface-dim": "#15121b",
+                        "primary-fixed-dim": "#d0bcff",
+                        "secondary-fixed": "#acedff",
+                        "error": "#ffb4ab",
+                        "on-tertiary-container": "#3f2300",
+                        "outline": "#958ea0",
+                        "surface-container-high": "#2c2832"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stadium-grid-gap": "32px",
+                        "magnetic-padding": "24px",
+                        "gutter-md": "16px",
+                        "field-margin": "64px"
+                    },
+                    "fontFamily": {
+                        "display-xl": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "label-caps": ["Space Grotesk"],
+                        "body-sm": ["Space Grotesk"],
+                        "heading-md": ["Space Grotesk"],
+                        "ticker-mono": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "display-xl": ["84px", {"lineHeight": "90px", "letterSpacing": "-0.04em", "fontWeight": "700"}],
+                        "headline-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "heading-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "ticker-mono": ["12px", {"lineHeight": "16px", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="flex flex-col h-screen relative selection:bg-secondary selection:text-on-secondary">
+<!-- Top AppBar (JSON Content & Style Commands) -->
+<header class="flex justify-between items-center w-full px-gutter-md py-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b-2 border-outline-variant z-50">
+<div class="flex items-center gap-8">
+<h1 class="font-display-xl text-[32px] font-bold uppercase tracking-tighter text-on-surface dark:text-on-surface">MANAGER WANNABE</h1>
+<nav class="hidden md:flex gap-6">
+<a class="text-primary border-b-2 border-primary font-bold font-label-caps text-label-caps py-2" href="#">TACTICS</a>
+<a class="text-on-surface-variant font-medium font-label-caps text-label-caps py-2 hover:text-primary transition-colors duration-200" href="#">PREDICTIONS</a>
+<a class="text-on-surface-variant font-medium font-label-caps text-label-caps py-2 hover:text-primary transition-colors duration-200" href="#">MARKET</a>
+<a class="text-on-surface-variant font-medium font-label-caps text-label-caps py-2 hover:text-primary transition-colors duration-200" href="#">LEADERBOARD</a>
+<a class="text-on-surface-variant font-medium font-label-caps text-label-caps py-2 hover:text-primary transition-colors duration-200" href="#">REWARDS</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center bg-surface-container-high px-4 py-2 rounded-lg border border-outline-variant">
+<div class="mr-6">
+<p class="text-[10px] text-outline uppercase font-bold tracking-widest">Rank</p>
+<p class="text-on-surface font-bold">#12,458</p>
+</div>
+<div class="mr-6">
+<p class="text-[10px] text-outline uppercase font-bold tracking-widest">Points</p>
+<p class="text-on-surface font-bold">2,350</p>
+</div>
+<div>
+<p class="text-[10px] text-outline uppercase font-bold tracking-widest">Wallet</p>
+<p class="text-on-surface font-mono text-sm">0x7A3...9F2B</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors scale-95 active:scale-90 duration-200">
+<span class="material-symbols-outlined">bar_chart</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors scale-95 active:scale-90 duration-200">
+<span class="material-symbols-outlined">emoji_events</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors scale-95 active:scale-90 duration-200 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors scale-95 active:scale-90 duration-200">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary cursor-pointer hover:border-secondary transition-colors">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up of a futuristic profile avatar placeholder, featuring a glowing holographic figure with deep purple and cyan iridescent highlights. The background is a dark, cinematic sports stadium atmosphere with soft bokeh stadium lights and atmospheric tech HUD elements." src="https://lh3.googleusercontent.com/aida-public/AB6AXuATqjumIvT7ip3dSdCPJqUHi0xPn7ucWpOVBf18sVs5RY-WeSnusTVyzhepdt99a_jDGN-O4nq7qN15G9TWZwR4S2-SrmvJ3de164206aC53XpUA5fAceCSDib554Hprkcr3Ouj7tZJsIOZKRv3kr8jcvDqZIj20r09qRNPRo4Fzv_NVoruwWqkx7wZSEK1u7QR2Rm-YWMv0nc1rGLYcFqfMZnpgiWftd7JaixKFOnP32LpQJjHeZu6I5zrZ5C59epFGJKrKMiU"/>
+</div>
+</div>
+</header>
+<!-- Main Arena View -->
+<main class="flex-1 flex relative overflow-hidden bg-background">
+<!-- Scoreboard Overlay -->
+<div class="absolute top-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-6 glass-panel px-12 py-4 rounded-2xl border-2 border-outline-variant">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface-container-highest iridescent-border">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">hexagon</span>
+</div>
+<div class="flex gap-1">
+<div class="w-1.5 h-6 bg-primary rounded-full"></div>
+<div class="w-1.5 h-6 bg-outline-variant rounded-full"></div>
+</div>
+</div>
+<div class="text-center">
+<p class="font-ticker-mono text-[10px] text-secondary tracking-[0.2em] uppercase font-bold mb-1">Prediction Round <span class="animate-pulse">LIVE</span></p>
+<div class="flex items-center gap-4">
+<span class="font-display-xl text-[48px] text-on-surface leading-none">0</span>
+<span class="text-outline text-2xl font-bold">-</span>
+<span class="font-display-xl text-[48px] text-on-surface leading-none">0</span>
+</div>
+<p class="font-ticker-mono text-xs text-outline-variant font-bold mt-1">23:18</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex gap-1">
+<div class="w-1.5 h-6 bg-outline-variant rounded-full"></div>
+<div class="w-1.5 h-6 bg-secondary rounded-full"></div>
+</div>
+<div class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface-container-highest iridescent-border">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">pentagon</span>
+</div>
+</div>
+</div>
+<!-- Left Controls -->
+<div class="absolute top-24 left-8 z-30 flex flex-col gap-6 w-64">
+<div class="glass-panel p-6 rounded-xl border border-outline-variant">
+<label class="font-label-caps text-[10px] text-outline uppercase tracking-widest block mb-3">Formation</label>
+<select class="w-full bg-surface-container-highest border-none text-on-surface rounded-lg font-bold">
+<option>4-3-3</option>
+<option>4-4-2</option>
+<option>3-5-2</option>
+</select>
+<div class="mt-4 grid grid-cols-5 gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<!-- Mini field visual -->
+</div>
+</div>
+<div class="glass-panel p-6 rounded-xl border border-outline-variant">
+<label class="font-label-caps text-[10px] text-outline uppercase tracking-widest block mb-3">Team Chemistry</label>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-display-xl text-[32px] font-bold text-on-surface">92</span>
+<span class="text-outline font-bold">/ 100</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary w-[92%]"></div>
+</div>
+</div>
+</div>
+<!-- The Pitch (The Arena) -->
+<div class="flex-1 perspective-pitch flex items-center justify-center">
+<div class="pitch-surface w-[1200px] h-[800px] rounded-[100px] border-[10px] border-pitch-turf-deep relative overflow-hidden">
+<!-- Atmospheric Shader background for turf -->
+
+<!-- Field Markings -->
+<div class="pitch-line inset-4 rounded-[80px]"></div>
+<div class="pitch-line left-1/2 top-4 bottom-4 -translate-x-1/2 w-0.5"></div>
+<div class="pitch-line left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full"></div>
+<!-- Ghost Slots Grid (4-3-3 Visualization) -->
+<div class="absolute inset-0 grid grid-cols-11 grid-rows-6 p-24">
+<!-- Forward Line -->
+<div class="col-start-3 row-start-2 flex justify-center items-center">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<div class="col-start-6 row-start-1 flex justify-center items-center">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<div class="col-start-9 row-start-2 flex justify-center items-center">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<!-- Midfield -->
+<div class="col-start-4 row-start-3 flex justify-center items-center translate-y-8">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<div class="col-start-6 row-start-3 flex justify-center items-center translate-y-12">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<div class="col-start-8 row-start-3 flex justify-center items-center translate-y-8">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<!-- Defense -->
+<div class="col-start-2 row-start-4 flex justify-center items-center">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<div class="col-start-5 row-start-4 flex justify-center items-center translate-y-4">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<div class="col-start-7 row-start-4 flex justify-center items-center translate-y-4">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<div class="col-start-10 row-start-4 flex justify-center items-center">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+<!-- Keeper -->
+<div class="col-start-6 row-start-6 flex justify-center items-center -translate-y-12">
+<div class="w-24 h-36 border-2 border-dashed border-secondary/40 rounded-xl magnetic-glow flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary/30 text-4xl">add</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- SideNavBar (JSON Content) -->
+<aside class="fixed right-0 top-0 h-screen z-40 flex flex-col p-4 bg-surface-container dark:bg-surface-container-high/80 backdrop-blur-xl border-l border-outline-variant shadow-2xl w-[320px] rounded-l-xl">
+<div class="pt-20 pb-6 border-b border-outline-variant">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary">sports_soccer</span>
+<h2 class="font-heading-md text-heading-md text-on-surface">LIVE MATCH FEED</h2>
+</div>
+<p class="font-ticker-mono text-ticker-mono text-secondary tracking-widest uppercase">PREDICTION ROUND LIVE</p>
+</div>
+<!-- Sidebar Navigation Tabs -->
+<div class="flex mt-4 mb-6 gap-2">
+<button class="flex-1 py-2 font-ticker-mono text-ticker-mono text-primary font-bold border-b-2 border-primary">Match Events</button>
+<button class="flex-1 py-2 font-ticker-mono text-ticker-mono text-on-surface-variant hover:bg-surface-bright/20 transition-all">User Logs</button>
+<button class="flex-1 py-2 font-ticker-mono text-ticker-mono text-on-surface-variant hover:bg-surface-bright/20 transition-all">Leaderboard</button>
+</div>
+<!-- Timeline -->
+<div class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+<!-- Goal Event -->
+<div class="flex gap-4 p-3 rounded-lg bg-surface-container-highest/40 border border-outline-variant relative overflow-hidden group hover:bg-surface-bright/20 transition-all cursor-pointer">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-secondary"></div>
+<span class="font-ticker-mono text-secondary">21:45</span>
+<div>
+<p class="text-on-surface font-bold text-sm">Over 1.5 Goals</p>
+<p class="text-outline text-[10px] uppercase font-bold">Odds Boosted</p>
+</div>
+<div class="ml-auto text-secondary font-bold">1.72 ↑</div>
+</div>
+<!-- Incident Event -->
+<div class="flex gap-4 p-3 rounded-lg border border-outline-variant group hover:bg-surface-bright/20 transition-all cursor-pointer">
+<span class="font-ticker-mono text-on-surface-variant">18:32</span>
+<div>
+<p class="text-on-surface font-bold text-sm">Midfielder</p>
+<p class="text-outline text-[10px] uppercase font-bold">Injury Concern</p>
+</div>
+<div class="ml-auto text-on-surface-variant">--</div>
+</div>
+<!-- Shot on Target -->
+<div class="flex gap-4 p-3 rounded-lg border border-outline-variant group hover:bg-surface-bright/20 transition-all cursor-pointer">
+<span class="font-ticker-mono text-on-surface-variant">15:10</span>
+<div>
+<p class="text-on-surface font-bold text-sm">Shot on Target</p>
+<p class="text-outline text-[10px] uppercase font-bold">Home Team</p>
+</div>
+<div class="ml-auto text-on-surface-variant font-bold">2.15</div>
+</div>
+<!-- Yellow Card -->
+<div class="flex gap-4 p-3 rounded-lg bg-status-critical/10 border border-status-critical/30 group hover:bg-status-critical/20 transition-all cursor-pointer">
+<span class="font-ticker-mono text-status-critical">08:47</span>
+<div>
+<p class="text-on-surface font-bold text-sm">Yellow Card</p>
+<p class="text-outline text-[10px] uppercase font-bold">Away Team</p>
+</div>
+<div class="ml-auto text-status-critical font-bold">3.40</div>
+</div>
+</div>
+<!-- Sidebar CTA -->
+<button class="mt-6 w-full py-4 bg-primary text-on-primary-container font-bold font-label-caps text-label-caps rounded-xl active:scale-95 transition-transform">
+                VIEW FULL MATCH STATS
+            </button>
+</aside>
+<!-- Bottom Bench Area -->
+<div class="absolute bottom-0 left-0 right-[320px] z-30 p-8 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-widest">Subs</span>
+<span class="font-display-xl text-[24px] font-bold text-on-surface">7/7</span>
+</div>
+<div class="flex gap-4">
+<div class="glass-panel px-6 py-2 rounded-full border border-outline-variant flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">target</span>
+</div>
+<!-- Prediction Button -->
+<button class="bg-gradient-to-r from-primary to-secondary px-10 py-3 rounded-xl font-display-xl text-[18px] text-on-primary-container font-bold flex items-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-secondary/20">
+<span class="material-symbols-outlined">lock</span>
+                        LOCK PREDICTIONS
+                        <span class="ml-4 font-mono text-sm opacity-80">00:36:42</span>
+</button>
+</div>
+</div>
+<!-- Horizontal Bench -->
+<div class="flex gap-4 overflow-x-auto pb-4 scroll-smooth no-scrollbar">
+<!-- Card 1 -->
+<div class="player-card flex-shrink-0 w-32 h-48 bg-gradient-to-br from-[#8B5CF6]/40 to-[#06B6D4]/40 border border-secondary/30 relative flex flex-col items-center justify-end p-3 glass-panel">
+<div class="absolute top-2 left-2 text-on-surface">
+<p class="font-bold text-xs">GK</p>
+<p class="font-display-xl text-[20px] leading-none">82</p>
+</div>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="A stylized TCG player card silhouette of a football goalkeeper, glowing with a golden iridescent finish. The style is neon-futuristic with sharp chamfered edges and tech-hud overlays. Dark sports stadium night lighting background with cyan and purple flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpjfBiuzZ1m9GXO4GC5R9f89H87e1v6bupRWPkW5lWIiWBlnuZPm5zma7t6wTylZCpKAx8NxRsJoVHGP6b78MZUr9gVavstv8CROZ0fSiEC46DpnLZpAK5kfficL_WgnL1T-OU0a_IWm8fDmxlpN1EPB0X9sL59FBGNvJwWGE3qVCrBLuFTzdMtIxLTc4o1Zf0zBf5YOSy17vGTITT6P_SXhk0SzeA0mRIs0SNWp1OIvqTK0hxx8BZJKQaOaGkMyckCkXqZAEg"/>
+<p class="font-bold text-xs text-on-surface relative z-10 uppercase tracking-tight">Handanovic</p>
+</div>
+<!-- Card 2 -->
+<div class="player-card flex-shrink-0 w-32 h-48 bg-gradient-to-br from-[#8B5CF6]/40 to-[#06B6D4]/40 border border-secondary/30 relative flex flex-col items-center justify-end p-3 glass-panel">
+<div class="absolute top-2 left-2 text-on-surface">
+<p class="font-bold text-xs">CB</p>
+<p class="font-display-xl text-[20px] leading-none">83</p>
+</div>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="A stylized TCG player card silhouette of a football center back, glowing with a deep purple iridescent finish. The style is neon-futuristic with sharp chamfered edges and tech-hud overlays. Dark sports stadium night lighting background with cyan and purple flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzzo_7HHwOM2gXifniqV2NlraK5I-CidGk-aN2uVyYTtaOgNlB3GY3EVejEhi8o-DARiRVn94p6lhF5zLSU-5zG_epQGNvVe7W0MxGOnab7Ezcx_7CwJ55kb_gtz4RyyhX2l_OuSI7d1fe0QopoGF8B_qeR-KyI-rwC4PAS935chH4hFnW39__nWwBCXk6FGWJeVFUr0aUIycvRnJ5JeinXE1g0s_4-Zm0IBFDKsnYq8mh6XXxb3A4RS_Bnsv5BT5S8wOeaXat"/>
+<p class="font-bold text-xs text-on-surface relative z-10 uppercase tracking-tight">Bastoni</p>
+</div>
+<!-- Card 3 -->
+<div class="player-card flex-shrink-0 w-32 h-48 bg-gradient-to-br from-[#8B5CF6]/40 to-[#06B6D4]/40 border border-secondary/30 relative flex flex-col items-center justify-end p-3 glass-panel">
+<div class="absolute top-2 left-2 text-on-surface">
+<p class="font-bold text-xs">CM</p>
+<p class="font-display-xl text-[20px] leading-none">84</p>
+</div>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="A stylized TCG player card silhouette of a football midfielder, glowing with a cyan iridescent finish. The style is neon-futuristic with sharp chamfered edges and tech-hud overlays. Dark sports stadium night lighting background with cyan and purple flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6K0HZ1yEvjPDpmmChQpP67O7ktSRw3uY2Au5V_kIaoXFCUU8C5MKp1Zku9S_x9V_HIK9pCJamoMQDVI1Z0xjYzxMf4YR4abgAOvvbquWCQFzuST6EbG3FriANazgQOjUbwICsPbmNo3-lgZyEK_1KznD5AXbLhgBfIbSUHweRovXOV2VXUNGLBfs9IRD3vT2PyzJDidzKlEv2lLhGz80Aakbdwx8RpY7f-VdI0tbTG9_jHfKXZD0-j9HOMpnOPaH1z_3roQCi"/>
+<p class="font-bold text-xs text-on-surface relative z-10 uppercase tracking-tight">Barella</p>
+</div>
+<!-- Card 4 -->
+<div class="player-card flex-shrink-0 w-32 h-48 bg-gradient-to-br from-[#8B5CF6]/40 to-[#06B6D4]/40 border border-secondary/30 relative flex flex-col items-center justify-end p-3 glass-panel">
+<div class="absolute top-2 left-2 text-on-surface">
+<p class="font-bold text-xs">LM</p>
+<p class="font-display-xl text-[20px] leading-none">83</p>
+</div>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="A stylized TCG player card silhouette of a football winger, glowing with a purple iridescent finish. The style is neon-futuristic with sharp chamfered edges and tech-hud overlays. Dark sports stadium night lighting background with cyan and purple flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsi3vgtJXnRJrwfkQnOcq5rcivjAdcqwkSxSunkJeDSkSxZ02GccSj7baF-aEOYm-nONQV2okVmEDDC2By5KwartPHb-GBRVFwpZIsZomMEafxOKZeDLrzbL-lFMQSBnIFkaMWYfvczE5GdZp2N8BgJWVsuHIj_izL4-bhoyiG4kYJFGOX4S2mT3hwBxB6KZ-zT6o7fONinpFliBwcjlHjlDVaanVhg-Jou-xdgK8ccnpMAGcSun89AjO89CBuw3lc2SA9M8Px"/>
+<p class="font-bold text-xs text-on-surface relative z-10 uppercase tracking-tight">Dimarco</p>
+</div>
+<!-- Card 5 -->
+<div class="player-card flex-shrink-0 w-32 h-48 bg-gradient-to-br from-[#8B5CF6]/40 to-[#06B6D4]/40 border border-secondary/30 relative flex flex-col items-center justify-end p-3 glass-panel">
+<div class="absolute top-2 left-2 text-on-surface">
+<p class="font-bold text-xs">RM</p>
+<p class="font-display-xl text-[20px] leading-none">84</p>
+</div>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="A stylized TCG player card silhouette of a football midfielder, glowing with a teal iridescent finish. The style is neon-futuristic with sharp chamfered edges and tech-hud overlays. Dark sports stadium night lighting background with cyan and purple flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuANrP3NExmYDj70uF_jV5FPeGCOrh84ulwM5cprtEly2-J_5tgmx93shmpkb1V0olD48E5Rdn6brmdrJTvydTxBBZUBIarNJJiKVifiGWmf-fhN8QyH_RrvWPqoNDdBqK8CepkKNMbN3NOIQHm7gaNbP_b6HAoXXVIdTQ8IJmeI8ZffB9cpeJHaQh17hcvaUwVqvJXXTceK6qLAvKKE0joP5gLZBe2h7-nGQkY6aqKeC8hhdkHO76Sb8oPr0M7NRoM_fySlX6oa"/>
+<p class="font-bold text-xs text-on-surface relative z-10 uppercase tracking-tight">Dumfries</p>
+</div>
+<!-- Card 6 -->
+<div class="player-card flex-shrink-0 w-32 h-48 bg-gradient-to-br from-[#8B5CF6]/40 to-[#06B6D4]/40 border border-secondary/30 relative flex flex-col items-center justify-end p-3 glass-panel">
+<div class="absolute top-2 left-2 text-on-surface">
+<p class="font-bold text-xs">ST</p>
+<p class="font-display-xl text-[20px] leading-none">85</p>
+</div>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="A stylized TCG player card silhouette of a football striker, glowing with a rose iridescent finish. The style is neon-futuristic with sharp chamfered edges and tech-hud overlays. Dark sports stadium night lighting background with cyan and purple flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYVN8dvdjwbPCQDPQhycS47S5OCEdkM-HwbkLzWn_4f3kLwlcXFK_12YFd8DhvJWtmsAWw8x3BnGoIFaRcrBj43WEuNWw9NiPbY7lbHHeaAHpWsp29fl-DLehW-mxd8ZjzatPKuS89ehIyMWbWxAW1OtCfTMBxqmz5Lv1ol1lYddQOikvZKZx-_Y3vc5r0Z71nCeGVvpQAy8Oh_etYkylYuDnZTrQmKjqKNFCjFMKKaeA2uONOzJOlNhl12zzcATmV5GCeFHNt"/>
+<p class="font-bold text-xs text-on-surface relative z-10 uppercase tracking-tight">Lautaro</p>
+</div>
+<!-- Card 7 -->
+<div class="player-card flex-shrink-0 w-32 h-48 bg-gradient-to-br from-[#8B5CF6]/40 to-[#06B6D4]/40 border border-secondary/30 relative flex flex-col items-center justify-end p-3 glass-panel">
+<div class="absolute top-2 left-2 text-on-surface">
+<p class="font-bold text-xs">ST</p>
+<p class="font-display-xl text-[20px] leading-none">85</p>
+</div>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60" data-alt="A stylized TCG player card silhouette of a football forward, glowing with a blue iridescent finish. The style is neon-futuristic with sharp chamfered edges and tech-hud overlays. Dark sports stadium night lighting background with cyan and purple flares." src="https://lh3.googleusercontent.com/aida-public/AB6AXuArjgTIAyIdA9F-jHzv5fwpYaQkCpF8xnJE1EszrjZhSNLtxe0PGUE4o4AeVSu3UD_5aPhN44sLHkdJSMG-1ifOF9cAY5pTWkvZRhnyOpYhh35nWe-UUxglx4TPNyG8fpHpYGF17qsYUF7zRrGwynnDedrB9MMg0EIOFbupSKo406zOX4G1fBUR3sh9jxFSCdU3hZLSwZgrgX8AK5DQ3vg5ST3qmwgNg2uDBsiw2iguOYcYqnA6al-BUrBrakzpV_h-_p6IWppT"/>
+<p class="font-bold text-xs text-on-surface relative z-10 uppercase tracking-tight">Thuram</p>
+</div>
+<!-- Drop Target -->
+<div class="flex-shrink-0 w-32 h-48 border-2 border-dashed border-outline-variant/40 rounded-xl flex flex-col items-center justify-center gap-2 group cursor-pointer hover:border-secondary/60 hover:bg-secondary/5 transition-all">
+<span class="material-symbols-outlined text-outline group-hover:text-secondary transition-colors">add</span>
+<p class="text-[10px] text-outline font-bold uppercase text-center px-4">Drag &amp; Drop To Swap</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer (JSON Content) -->
+<footer class="flex justify-between items-center w-full px-8 py-4 mt-auto bg-pitch-turf-deep dark:bg-pitch-turf-deep border-t border-outline-variant bg-surface-container-lowest z-50">
+<p class="font-body-sm text-body-sm text-on-surface-variant">© 2024 MANAGER WANNABE - LIVE STADIUM HUD</p>
+<div class="flex gap-8">
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-opacity opacity-80 hover:opacity-100" href="#">Terms of Play</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-opacity opacity-80 hover:opacity-100" href="#">Market Rules</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-opacity opacity-80 hover:opacity-100" href="#">Support</a>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps text-primary">CONNECTED</span>
+<div class="w-2 h-2 rounded-full bg-secondary animate-pulse"></div>
+</div>
+</footer>
+<script>
+        // Micro-interactions for magnetic zones
+        document.querySelectorAll('.magnetic-glow').forEach(zone => {
+            zone.addEventListener('mouseenter', () => {
+                zone.style.transform = 'scale(1.1) translateZ(20px)';
+                zone.style.borderColor = '#03b5d3';
+                zone.style.boxShadow = '0 0 30px rgba(3, 181, 211, 0.6)';
+            });
+            zone.addEventListener('mouseleave', () => {
+                zone.style.transform = 'scale(1) translateZ(0)';
+                zone.style.borderColor = 'rgba(6, 182, 212, 0.4)';
+                zone.style.boxShadow = '0 0 15px rgba(6, 182, 212, 0.3)';
+            });
+        });
+
+        // Simple ticker scroll simulation
+        const scrollContainer = document.querySelector('.overflow-x-auto');
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        scrollContainer.addEventListener('mousedown', (e) => {
+            isDown = true;
+            startX = e.pageX - scrollContainer.offsetLeft;
+            scrollLeft = scrollContainer.scrollLeft;
+        });
+        scrollContainer.addEventListener('mouseleave', () => {
+            isDown = false;
+        });
+        scrollContainer.addEventListener('mouseup', () => {
+            isDown = false;
+        });
+        scrollContainer.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - scrollContainer.offsetLeft;
+            const walk = (x - startX) * 2;
+            scrollContainer.scrollLeft = scrollLeft - walk;
+        });
+    </script>
+</body></html>

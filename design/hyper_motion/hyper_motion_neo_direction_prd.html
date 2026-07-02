@@ -1,0 +1,244 @@
+# Hyper-Motion Neo Direction
+
+## Product Overview
+
+**The Pitch:** A high-octane prediction market exclusively for substitute players. Trade shares on bench-warmers before they break out, utilizing a gamified, high-fluidity trading arena.
+
+**For:** Degenerate sports fans, fantasy sports enthusiasts, and predictive traders who seek high-volatility micro-markets.
+
+**Device:** desktop
+
+**Design Direction:** A hyper-clean, futuristic 'flow state' interface. Brilliant white and liquid silver bases interrupted by iridescent purple and cyan energy bursts. Ultra-fluid navigation, magnetic interactions, holographic ghost silhouettes, and high-fidelity TCG (Trading Card Game) player cards.
+
+**Inspired by:** Mirror's Edge catalyst UI, Nike SNKRS app, EA Sports FC Ultimate Team, futuristic HUDs.
+
+---
+
+## Screens
+
+- **Landing Page:** High-impact immersive entry point explaining the substitute market mechanic.
+- **Start Menu:** User hub and portfolio overview with dynamic status tiles.
+- **The Arena:** Core lineup building and prediction interface utilizing a magnetic grid, holographic card slots, and a TCG-style deck.
+- **Events Matrix:** Active prediction markets with live volatility tracking.
+- **Data Logs:** Immutable transaction and prediction history in a terminal-inspired list.
+- **Leaderboard:** Global rankings featuring liquid gradient tiers.
+
+---
+
+## Key Flows
+
+**Building a Substitute Lineup:** Assemble a prediction roster for the upcoming match day.
+
+1. User is on **Start Menu** -> sees `ENTER ARENA` pulsing gradient button.
+2. User clicks `ENTER ARENA` -> fluid 300ms wipe transition to **The Arena**.
+3. User drags a substitute from the `Bench Deck` -> snaps magnetically to a holographic `Card Slot`.
+4. User clicks `LOCK PREDICTIONS` -> UI flashes cyan, stakes are committed.
+
+---
+
+<details>
+<summary>Design System</summary>
+
+## Color Palette
+
+- **Primary:** `#8B5CF6` (Neon Purple) to `#06B6D4` (Cyan) - Gradients for active states and primary CTAs
+- **Background:** `#FFFFFF` (Pure White) - Main environment
+- **Surface:** `#F3F4F6` (Liquid Silver) - Cards, drop zones, inactive tiles
+- **Text:** `#0F172A` (Deep Slate) - Primary legibility
+- **Muted:** `#94A3B8` (Ghost Gray) - Silhouettes, secondary text, grid lines
+- **Accent:** `#F43F5E` (Hyper Rose) - Market drops, errors, aggressive actions
+- **Rarity Tiers:** `#CD7F32` (Metallic Bronze), `#D4AF37` (Liquid Gold), and Iridescent Prism (Special Edition)
+
+## Typography
+
+- **Headings:** `Unica One`, 400, 32-64px - Uppercase, tight tracking, brutalist futuristic
+- **Body:** `Space Grotesk`, 400, 16px - High legibility, technical geometric
+- **Small text:** `Space Grotesk`, 500, 12px - Monospaced feel for stats and tickers
+- **Buttons:** `Unica One`, 400, 18px - Uppercase, generous letter-spacing (`0.1em`)
+
+**Style notes:** 
+Extreme minimalism on borders (0px radius for a sharp, architectural feel). Heavy use of blurred, iridescent background orbs (`filter: blur(100px)`) behind crisp white glassmorphic panels. Hover states trigger microscopic scale jumps (`scale: 1.02`) and gradient border reveals.
+
+## Design Tokens
+
+```css
+:root {
+  --color-purple: #8B5CF6;
+  --color-cyan: #06B6D4;
+  --color-white: #FFFFFF;
+  --color-silver: #F3F4F6;
+  --color-slate: #0F172A;
+  --color-ghost: #94A3B8;
+  --color-rose: #F43F5E;
+  
+  --color-bronze: #CD7F32;
+  --color-gold: #D4AF37;
+  
+  --font-display: 'Unica One', sans-serif;
+  --font-tech: 'Space Grotesk', sans-serif;
+  
+  --radius-sharp: 0px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 32px;
+  --spacing-xl: 64px;
+  
+  --shadow-float: 0 20px 40px -10px rgba(15, 23, 42, 0.1);
+  --shadow-neon: 0 0 20px rgba(6, 182, 212, 0.4);
+  --shadow-energy: 0 0 30px rgba(139, 92, 246, 0.6);
+}
+```
+
+</details>
+
+---
+
+<details>
+<summary>Screen Specifications</summary>
+
+### Landing Page
+
+**Purpose:** Convert visitors through high-motion visual storytelling.
+
+**Layout:** Split-screen. Left: Typography and CTA. Right: Abstract 3D floating bench.
+
+**Key Elements:**
+- **Hero Title:** `Unica One`, 84px, `#0F172A`. Text: "THE BENCH IS ALIVE."
+- **Subtitle:** `Space Grotesk`, 18px, `#94A3B8`. Text: "Trade substitute futures. Predict the breakout. Cash the upside."
+- **Launch Button:** 240px wide, 56px high. Pure white text on a flowing `#8B5CF6` to `#06B6D4` gradient background. Sharp corners.
+
+**States:**
+- **Loading:** Entire screen fades in from white; 3D elements drop in from top.
+
+**Interactions:**
+- **Hover Button:** Gradient background shifts position (`background-position: 100%`), shadow expands to `--shadow-neon`.
+
+**Responsive:**
+- **Desktop:** 50/50 split layout.
+
+### Start Menu
+
+**Purpose:** Command center for user portfolio and quick navigation.
+
+**Layout:** Asymmetric masonry grid of dashboard tiles.
+
+**Key Elements:**
+- **Portfolio Value:** Massive `Unica One` text (`64px`), dynamic ticker animation on value change.
+- **Nav Tiles:** Silver (`#F3F4F6`) backgrounds, sharp corners, hover-revealed gradient borders.
+- **Live Ticker:** Horizontal scrolling marquee of substitute price movements (`Space Grotesk`, 12px).
+
+**States:**
+- **Empty:** "NO ACTIVE POSITIONS. ENTER THE ARENA." prompt inside main portfolio tile.
+- **Loading:** Skeleton pulses in liquid silver (`#F3F4F6`).
+
+**Interactions:**
+- **Hover Nav Tile:** Tile background turns pure white (`#FFFFFF`), drops `--shadow-float`, border strokes 1px cyan.
+
+**Responsive:**
+- **Desktop:** 3-column irregular grid.
+
+### The Arena
+
+**Purpose:** Drag-and-drop lineup builder for substitute predictions styled as a premium TCG experience.
+
+**Layout:** Left sidebar (Bench Deck Interface), Right large area (Magnetic Card Slots).
+
+**Key Elements:**
+- **Magnetic Card Slots:** 3x3 layout. 1px solid `#E2E8F0` borders. 
+- **Ghost Silhouettes:** Inside empty slot cells. `#94A3B8` player outlines, 40% opacity.
+- **TCG Player Cards:** High-fidelity 160x240px draggables with sharp, distinct chamfered shapes. 
+- **Card Anatomy:** 
+  - **Backgrounds:** Rarity-based designs (Liquid Gold, Metallic Bronze, or Iridescent Special Edition).
+  - **Top Left:** Prominent position badge (ST, CM, CB, etc.) and Overall Rating number.
+  - **Center:** Dynamic Player Name rendering.
+  - **Bottom Panel:** Glassmorphic pill displaying Live Market Price and Multiplier.
+- **Lock CTA:** Fixed bottom right. Inactive: `#94A3B8`, Active: Purple/Cyan gradient.
+
+**States:**
+- **Hovering Drop Zone:** Ghost silhouette opacity pulses to 100%, cell background tints `#F8FAFC`.
+- **Selected/Locked Card:** Features a high-impact purple and cyan 'energy' effect wrapping the card's outer shape.
+
+**Interactions:**
+- **Drag Card:** Card rotates 3 degrees, drops `--shadow-float`.
+- **Snap:** 150ms spring animation to center of slot, ghost silhouette crossfades out, emitting a burst of `--shadow-energy` upon successfully dropping or locking a prediction.
+
+**Responsive:**
+- **Desktop:** Fixed sidebar deck, 800x1000px main slot grid.
+
+### Events Matrix
+
+**Purpose:** Browse and filter active matchday prediction markets.
+
+**Layout:** Top filter bar, vertically scrolling list of expansive match cards.
+
+**Key Elements:**
+- **Filter Tabs:** `Space Grotesk`, 14px, uppercase. Active tab has 2px bottom border (`#06B6D4`).
+- **Match Card:** Full width, white base. Left: Team A vs Team B. Right: Top substituted players odds.
+- **Odds Badges:** 48x24px, silver base. Green text if rising, Rose text if falling.
+
+**States:**
+- **Empty:** "NO MARKETS ACTIVE" centered, ghost text.
+
+**Interactions:**
+- **Click Odds Badge:** Opens slide-out panel from right to execute trade.
+
+**Responsive:**
+- **Desktop:** 800px max-width container, centered.
+
+### Data Logs
+
+**Purpose:** Technical ledger of user actions and market resolutions.
+
+**Layout:** Monospaced data table disguised as a sleek terminal feed.
+
+**Key Elements:**
+- **Log Row:** Single line, flexbox. Date (Ghost), Action (Slate), Asset (Purple), Result (Rose/Cyan).
+- **Pagination:** Minimalist `[ < ]` `[ > ]` buttons at bottom right.
+
+**States:**
+- **Loading:** Rows type-on one by one left to right.
+
+**Interactions:**
+- **Hover Row:** Row background flashes `#F8FAFC` for 50ms.
+
+**Responsive:**
+- **Desktop:** Full-width list, heavy right/left padding (120px).
+
+### Leaderboard
+
+**Purpose:** Global bragging rights and tier progression.
+
+**Layout:** Podium top section, dense list below.
+
+**Key Elements:**
+- **Top 3 Podium:** 3D-styled pillars. 1st place glows with `--shadow-neon`.
+- **Rank Row:** User avatar (sharp square), Username (`Unica One`), PnL value.
+- **Current User Highlight:** Row is locked to bottom of screen if user is outside top 10, bordered in Cyan.
+
+**States:**
+- **Loading:** Ranks shuffle and slot into place.
+
+**Interactions:**
+- **Hover Row:** Reveals user's best trade of the week via a tool-tip attached to the mouse.
+
+**Responsive:**
+- **Desktop:** Max width 600px, centered.
+
+</details>
+
+---
+
+<details>
+<summary>Build Guide</summary>
+
+**Stack:** HTML + Tailwind CSS v3
+
+**Build Order:**
+1. **Design System & Base Layout:** Setup fonts (Unica One, Space Grotesk) and custom Tailwind config for colors/shadows.
+2. **Start Menu:** Establishes the grid, tile hover states, and typography hierarchy.
+3. **The Arena:** Most complex interaction. Build card slots, TCG player card anatomy/rarity variants, drag-and-drop state classes, and energy glow effects.
+4. **Events Matrix:** Establishes data-heavy card layouts and typography scaling.
+5. **Leaderboard & Logs:** Reuses list row components, styling terminal outputs.
+6. **Landing Page:** Final polish, animations, and high-impact gradients.
+
+</details>
