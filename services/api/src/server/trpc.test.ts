@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { publicProcedure, router } from "./trpc.js";
 import { MatchNotFoundError } from "../modules/match/match.errors.js";
+import { MatchNotOpenError } from "../modules/prediction/prediction.errors.js";
 import {
   InvalidSignatureError,
   UsernameTakenError,
@@ -22,6 +23,9 @@ const testRouter = router({
   }),
   conflict: publicProcedure.query(() => {
     throw new UsernameTakenError("alice");
+  }),
+  notOpen: publicProcedure.query(() => {
+    throw new MatchNotOpenError(1, "SETTLED");
   }),
   internal: publicProcedure.query(() => {
     throw new Error("boom");
@@ -54,6 +58,10 @@ describe("trpc errorMapping", () => {
 
   it("maps duplicate errors to CONFLICT", async () => {
     expect(await codeOf(caller.conflict())).toBe("CONFLICT");
+  });
+
+  it("maps a not-open match to CONFLICT (parity with REST 409)", async () => {
+    expect(await codeOf(caller.notOpen())).toBe("CONFLICT");
   });
 
   it("falls back to INTERNAL_SERVER_ERROR for unknown errors", async () => {

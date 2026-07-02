@@ -54,10 +54,12 @@ address.
 
 - **What it looks like:** a base58 Solana address, 32–44 chars (the same shape as a wallet
   address), e.g. `CJJfxXRnagAc35PCVcnqYeU34VysGx4u93Hd75dGHFyq`.
-- **Where to get it:** the PDA is returned as `matchAccount` by `POST /api/prediction/prepare`,
-  and it is the canonical identifier the frontend should route on (e.g. `/matches/[pda]`). The
-  numeric `fixtureId` is still present in every response body (`MatchState.fixtureId`,
-  `Leaderboard.fixtureId`, …) for display, but is no longer accepted as a path param.
+- **Where to get it:** call **`GET /api/matches`** (endpoint #2) — the match-discovery list. Every
+  row carries its `pda` (route on it, e.g. `/matches/[pda]`) and `fixtureId`. The PDA is also
+  returned as `matchAccount` by `POST /api/prediction/prepare`. **Do not hardcode a PDA** — read it
+  from the list. The numeric `fixtureId` is still present in every response body
+  (`MatchState.fixtureId`, `Leaderboard.fixtureId`, …) for display, but is no longer accepted as a
+  path param.
 - **How resolution works:** the server keeps a Redis reverse index (`matchpda:<pda>` →
   `fixtureId`) populated during ingestion, so PDA→fixtureId resolution is a cheap lookup with **no
   RPC call**. An unknown PDA returns a clean `404`; a malformed (non-base58) value returns `400`.
@@ -189,7 +191,91 @@ $ curl https://13.213.196.237.sslip.io/healthz
 
 ---
 
-### 2. `GET /api/match/:pda`
+### 2. `GET /api/matches`
+
+The **match-discovery list**: every match that exists on-chain, newest and most active first. This
+is how the frontend finds matches to display and bet on — **route on the `pda` from each row instead
+of hardcoding one**.
+
+- **Path params:** none
+- **Query params:** none
+- **Request body:** none
+- **Success:** `200` → `MatchSummary[]`
+
+```ts
+type MatchSummary = {
+  pda: string; // match-account address — use for /api/match, /lineup, /events, /leaderboard
+  fixtureId: number; // use for POST /api/prediction/prepare
+  onchain: {
+    // always present — this list is sourced from on-chain accounts
+    status: number;
+    statusLabel: "OPEN" | "RESOLVED" | "SETTLED" | "UNKNOWN";
+    settled: boolean;
+    entryFee: string; // stringified integer, USDC base units (6 dp → "5000000" = 5 USDC)
+    poolTotal: string; // stringified integer, USDC base units
+    participantCount: number;
+    team1Id: number;
+    team2Id: number;
+    usdcMint: string; // the mint the entry fee must be paid in
+    winners: [string | null, string | null, string | null];
+  };
+  live: null | {
+    // present once the feed has ingested this fixture; null otherwise
+    statusId: number | null;
+    minute: number | null;
+    goals: { team1: number; team2: number };
+    ts: number | null;
+  };
+  teamNames: null | {
+    // display names from the ingested lineup; null until lineups are ingested
+    team1: string | null;
+    team2: string | null;
+  };
+};
+```
+
+**Ordering:** `OPEN` first, then `RESOLVED`, then `SETTLED`; within each status the newest
+`fixtureId` (highest) first.
+
+**Notes:**
+
+- `onchain` is **never null** here (unlike `GET /api/match/:pda`, whose `onchain` can be null): the
+  list is built by scanning on-chain Match accounts, so an entry only exists if the account does.
+- `live` and `teamNames` are `null` until the worker has ingested that fixture from the live feed.
+  Fall back to `team1Id`/`team2Id` for labelling until `teamNames` is populated.
+- This endpoint reads on-chain state over Solana RPC (`getProgramAccounts`). Treat `5xx` as
+  **retryable**; the shape is always a JSON array on success (possibly empty `[]`).
+
+**Success shape example:**
+
+```json
+[
+  {
+    "pda": "AH9SCugMfwgFYAxBLMBuSmjvrKnSbLxbHAtDhM5k4gQ7",
+    "fixtureId": 18172379,
+    "onchain": {
+      "status": 0,
+      "statusLabel": "OPEN",
+      "settled": false,
+      "entryFee": "5000000",
+      "poolTotal": "0",
+      "participantCount": 0,
+      "team1Id": 3220,
+      "team2Id": 1619,
+      "usdcMint": "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+      "winners": [null, null, null]
+    },
+    "live": { "statusId": 4, "minute": 90, "goals": { "team1": 2, "team2": 0 }, "ts": 1782958444741 },
+    "teamNames": { "team1": "USA", "team2": "Bosnia & Herzegovina" }
+  }
+]
+```
+
+**tRPC equivalent:** `match.list` (query, no input).
+
+---
+
+### 3. `GET /api/match/:pda`
 
 Returns the combined on-chain + live state for a fixture.
 
@@ -281,7 +367,117 @@ _(schema example — not fetched from production)_
 
 ---
 
-### 3. `GET /api/leaderboard/:pda`
+### 4. `POST /api/prediction/prepare`
+
+Builds the **on-chain "place a prediction" transaction** for a wallet — the core betting action.
+The API is **non-custodial**: it returns an **unsigned** transaction whose fee payer is the user's
+wallet. The frontend deserializes it, has the wallet sign it, and submits it to Solana itself
+(`sendRawTransaction`). **The API never signs and never holds a key**, and there is no
+`/submit` endpoint — submission is entirely client-side.
+
+- **Path params:** none
+- **Request body:** `PreparePredictionInput`
+
+```ts
+type PreparePredictionInput = {
+  wallet: string; // 32–44 char base58 wallet; becomes the tx fee payer + signer
+  fixtureId: number; // positive int (from GET /api/matches → row.fixtureId)
+  side: 1 | 2; // team 1 (home) or team 2 (away)
+  kind: 0 | 1 | 2; // 0 = OUT, 1 = IN, 2 = COMBO (see Shared Types)
+  outPlayerId: number; // uint32; player predicted to be subbed OUT (0 when unused)
+  inPlayerId: number; // uint32; player predicted to be subbed IN (0 when unused)
+  lockMinute: number; // uint16; match minute the prediction locks at
+  slotIndex: number; // uint8; the user's prediction slot for this match (0, 1, 2… — lets one wallet place several)
+};
+```
+
+- **Success:** `200` → `PreparePredictionOutput`
+
+```ts
+type PreparePredictionOutput = {
+  transaction: string; // base64 unsigned legacy tx — deserialize, sign with wallet, submit
+  fixtureId: number;
+  prediction: string; // the Prediction account PDA this will create
+  matchAccount: string; // the match PDA (same value used by the read endpoints)
+  userUsdcAta: string; // the wallet's USDC associated-token account (created idempotently by the tx)
+  usdcMint: string; // the mint the entry fee is charged in
+  entryFee: string; // stringified integer, USDC base units (e.g. "5000000" = 5 USDC)
+  blockhash: string; // recent blockhash baked into the tx
+  lastValidBlockHeight: number; // submit before this height or the blockhash expires
+};
+```
+
+**Behavior notes:**
+
+- The transaction contains **two instructions**: an *idempotent* create-associated-token-account
+  (so a first-time user with no USDC account doesn't fail — a no-op if it already exists), then the
+  `place_prediction` program instruction that transfers the `entryFee` from `userUsdcAta` into the
+  match vault.
+- The wallet **must already hold at least `entryFee` of `usdcMint`**, plus a little SOL for network
+  fees, or submission will fail on-chain. `usdcMint` is whatever mint the match was created with —
+  read it from the response (do not assume mainnet USDC).
+- To place multiple predictions on the same match from one wallet, increment `slotIndex` (each slot
+  is a distinct Prediction PDA).
+- The returned `blockhash`/`lastValidBlockHeight` bound the tx's lifetime — sign and submit
+  promptly; if it expires, call `prepare` again for a fresh blockhash.
+
+**Error statuses:**
+
+| Status | Body                                                                     | When                                             |
+| ------ | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| `400`  | `{ "error": "invalid body" }`                                           | Body fails schema validation (bad wallet/fields).|
+| `404`  | `{ "error": "No match found for fixture <id>" }`                        | No on-chain Match account for that `fixtureId`.  |
+| `409`  | `{ "error": "Match <id> is not open for predictions (status: <label>)" }` | Match exists but status is not `OPEN`.         |
+| `500`  | `Internal Server Error` (plain text)                                    | Solana RPC failed (fetching match / blockhash).  |
+
+**Verified live (validation + open match):**
+
+```bash
+# missing/invalid body → 400
+$ curl -i -X POST https://13.213.196.237.sslip.io/api/prediction/prepare \
+    -H "content-type: application/json" -d '{}'
+HTTP/2 400
+{"error":"invalid body"}
+
+# valid input against an OPEN match → 200 with a base64 tx
+$ curl -s -X POST https://13.213.196.237.sslip.io/api/prediction/prepare \
+    -H "content-type: application/json" \
+    -d '{"wallet":"G6vSMwTKg9ZvF1dP8T5tN2jEZkvzaErw8SkEqcBAdu9R","fixtureId":18172379,
+         "side":1,"kind":0,"outPlayerId":0,"inPlayerId":0,"lockMinute":45,"slotIndex":0}'
+{"transaction":"AQAAAAAAAA…","fixtureId":18172379,"prediction":"…","matchAccount":"AH9SCug…",
+ "userUsdcAta":"…","usdcMint":"2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac","entryFee":"5000000",
+ "blockhash":"…","lastValidBlockHeight":…}
+```
+
+**Frontend flow (submit is client-side):**
+
+```ts
+import { Connection, Transaction } from "@solana/web3.js";
+
+const prep = await apiJson<PreparePredictionOutput>("/api/prediction/prepare", {
+  method: "POST",
+  body: JSON.stringify({
+    wallet, fixtureId, side, kind,
+    outPlayerId, inPlayerId, lockMinute, slotIndex,
+  }),
+});
+
+const tx = Transaction.from(Buffer.from(prep.transaction, "base64"));
+const signed = await wallet.signTransaction(tx); // wallet adapter
+const connection = new Connection(DEVNET_RPC_URL, "confirmed");
+const sig = await connection.sendRawTransaction(signed.serialize());
+await connection.confirmTransaction(
+  { signature: sig, blockhash: prep.blockhash, lastValidBlockHeight: prep.lastValidBlockHeight },
+  "confirmed",
+);
+// The Prediction account (prep.prediction) now exists; the leaderboard will pick it up.
+```
+
+**tRPC equivalent:** `prediction.prepare` (mutation).
+
+---
+
+### 5. `GET /api/leaderboard/:pda`
 
 Returns the enriched leaderboard (rankings + per-owner predictions + resolved player and user
 profile data) for a fixture.
@@ -390,7 +586,7 @@ _(schema example — not fetched from production)_
 
 ---
 
-### 4. `GET /api/leaderboard/:pda/stream`
+### 6. `GET /api/leaderboard/:pda/stream`
 
 Server-Sent Events stream of leaderboard updates for a fixture. The current leaderboard (if any)
 is emitted immediately on connect, then every subsequent recomputation is pushed.
@@ -455,7 +651,7 @@ cache-control: no-cache
 
 ---
 
-### 5. `GET /api/lineup/:pda`
+### 7. `GET /api/lineup/:pda`
 
 Returns the resolved team lineups for a fixture.
 
@@ -557,7 +753,7 @@ _(schema example — not fetched from production)_
 
 ---
 
-### 6. `GET /api/events/:pda`
+### 8. `GET /api/events/:pda`
 
 Server-Sent Events stream of match events (goals, substitutions, etc.) for a fixture. On connect
 the server backfills historical events from the cursor, then tails live events.
@@ -650,7 +846,7 @@ _(schema example — not fetched from production)_
 
 ---
 
-### 7. `GET /api/avatars`
+### 9. `GET /api/avatars`
 
 Returns the list of available avatars and their image sources.
 
@@ -682,7 +878,7 @@ $ curl https://13.213.196.237.sslip.io/api/avatars
 
 ---
 
-### 8. `POST /api/user`
+### 10. `POST /api/user`
 
 Registers a user profile. The request must be signed by the wallet.
 
@@ -760,7 +956,7 @@ HTTP/2 400
 
 ---
 
-### 9. `GET /api/user/:wallet`
+### 11. `GET /api/user/:wallet`
 
 Returns a user profile by wallet.
 
@@ -789,7 +985,7 @@ HTTP/2 404
 
 ---
 
-### 10. `PATCH /api/user/:wallet/avatar`
+### 12. `PATCH /api/user/:wallet/avatar`
 
 Updates a user's avatar. The request must be signed by the wallet.
 
@@ -839,7 +1035,7 @@ HTTP/2 400
 
 ---
 
-### 11. `GET /api/user/:wallet/matches`
+### 13. `GET /api/user/:wallet/matches`
 
 Returns all known match-participation records for a wallet. The array may be empty.
 
@@ -899,7 +1095,9 @@ envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes
 
 | tRPC procedure       | REST equivalent                          | Type         |
 | -------------------- | ---------------------------------------- | ------------ |
+| `match.list`         | `GET /api/matches`                        | query        |
 | `match.get`          | `GET /api/match/:pda`                     | query        |
+| `prediction.prepare` | `POST /api/prediction/prepare`            | mutation     |
 | `leaderboard.get`    | `GET /api/leaderboard/:pda`               | query        |
 | `leaderboard.stream` | `GET /api/leaderboard/:pda/stream`        | subscription |
 | `events.stream`      | `GET /api/events/:pda`                    | subscription |
@@ -912,20 +1110,32 @@ envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes
 
 > Subscriptions (`leaderboard.stream`, `events.stream`) require a tRPC client transport that
 > supports streaming (e.g. `httpSubscriptionLink` / SSE link). If you are not already using a
-> tRPC client, the REST SSE endpoints (#4 and #6) are the simpler path.
+> tRPC client, the REST SSE endpoints (#6 and #8) are the simpler path.
 
 ### Procedures
+
+#### `match.list`
+
+- **Input:** none
+- **Output:** `MatchSummary[]` (same shape as REST #2)
+- **Errors:** none expected (empty list when no matches exist)
 
 #### `match.get`
 
 - **Input:** `{ pda: string }` (base58 match-account address)
-- **Output:** `MatchState` (same shape as REST #2)
+- **Output:** `MatchState` (same shape as REST #3)
 - **Errors:** `MatchNotFoundError → NOT_FOUND`
+
+#### `prediction.prepare`
+
+- **Input:** `PreparePredictionInput` (same shape as REST #4 body)
+- **Output:** `PreparePredictionOutput` (same shape as REST #4)
+- **Errors:** `MatchNotFoundError → NOT_FOUND`; `MatchNotOpenError → CONFLICT`
 
 #### `leaderboard.get`
 
 - **Input:** `{ pda: string }` (base58 match-account address)
-- **Output:** `Leaderboard` (same shape as REST #3)
+- **Output:** `Leaderboard` (same shape as REST #5)
 - **Errors:** `MatchNotFoundError → NOT_FOUND` (unknown PDA); `LeaderboardNotReadyError → NOT_FOUND`
 
 #### `leaderboard.stream`
@@ -943,12 +1153,12 @@ envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes
 #### `lineup.get`
 
 - **Input:** `{ pda: string }` (base58 match-account address)
-- **Output:** `Lineup` (same shape as REST #5)
+- **Output:** `Lineup` (same shape as REST #7)
 - **Errors:** `MatchNotFoundError → NOT_FOUND` (unknown PDA); `LineupNotReadyError → NOT_FOUND`
 
 #### `user.register`
 
-- **Input:** `RegisterUserInput` (same shape as REST #8 body)
+- **Input:** `RegisterUserInput` (same shape as REST #10 body)
 - **Output:** `UserProfile`
 - **Errors:** `InvalidSignatureError → UNAUTHORIZED`;
   `UsernameTakenError → CONFLICT`; `WalletAlreadyRegisteredError → CONFLICT`
@@ -985,7 +1195,7 @@ The backend maps domain errors to tRPC codes (`services/api/src/server/trpc.ts`)
 | ------------------------------------------------------------------------------------- | ----------------------- | ----------- |
 | `MatchNotFoundError`, `LeaderboardNotReadyError`, `LineupNotReadyError`, `UserNotFoundError` | `NOT_FOUND`        | 404         |
 | `InvalidSignatureError`                                                               | `UNAUTHORIZED`          | 401         |
-| `UsernameTakenError`, `WalletAlreadyRegisteredError`                                   | `CONFLICT`              | 409         |
+| `UsernameTakenError`, `WalletAlreadyRegisteredError`, `MatchNotOpenError`              | `CONFLICT`              | 409         |
 | anything else                                                                         | `INTERNAL_SERVER_ERROR` | 500         |
 
 Input validation failures (malformed PDA / wallet) produce tRPC `BAD_REQUEST` (400) from Zod.
@@ -1023,7 +1233,8 @@ Use the `apiJson` helper from Quick Start. General rules:
   body). Fix client-side validation; do not retry blindly.
 - **`401`** means **wallet signature verification failed**. Re-prompt the user to sign the
   message with the correct wallet.
-- **`409`** means a **duplicate username or wallet** on registration. Surface the specific
+- **`409`** means a **state conflict**: a duplicate username or wallet on registration, or a
+  **match not open** for predictions on `POST /api/prediction/prepare`. Surface the specific
   message to the user.
 - **`5xx`** should be treated as **retryable / server failure** with backoff.
 
@@ -1053,10 +1264,17 @@ Use the `apiJson` helper from Quick Start. General rules:
 | Endpoint                         | Method | Status | Meaning                                  | Response shape                                                  |
 | -------------------------------- | ------ | ------ | ---------------------------------------- | -------------------------------------------------------------- |
 | `/healthz`                       | GET    | 200    | Service alive                            | `{ "ok": true }`                                               |
+| `/api/matches`                   | GET    | 200    | Match-discovery list (possibly empty)    | `MatchSummary[]`                                              |
+| `/api/matches`                   | GET    | 500    | RPC lookup failed scanning chain state   | `Internal Server Error` (plain text)                          |
 | `/api/match/:pda`                 | GET    | 200    | Match state returned                     | `MatchState`                                                   |
 | `/api/match/:pda`                 | GET    | 400    | Invalid match address                    | `{ "error": "invalid match address" }`                        |
 | `/api/match/:pda`                 | GET    | 404    | Unknown PDA / no match state             | `{ "error": "No match found for match account <pda>" }`       |
 | `/api/match/:pda`                 | GET    | 500    | RPC lookup failed fetching chain state   | `Internal Server Error` (plain text)                          |
+| `/api/prediction/prepare`        | POST   | 200    | Unsigned tx built                        | `PreparePredictionOutput`                                     |
+| `/api/prediction/prepare`        | POST   | 400    | Invalid body                             | `{ "error": "invalid body" }`                                |
+| `/api/prediction/prepare`        | POST   | 404    | No on-chain match for fixtureId          | `{ "error": "No match found for fixture <id>" }`             |
+| `/api/prediction/prepare`        | POST   | 409    | Match not open for predictions           | `{ "error": "Match <id> is not open for predictions (status: <label>)" }` |
+| `/api/prediction/prepare`        | POST   | 500    | RPC failed (match / blockhash fetch)     | `Internal Server Error` (plain text)                         |
 | `/api/leaderboard/:pda`           | GET    | 200    | Leaderboard returned                     | `Leaderboard`                                                 |
 | `/api/leaderboard/:pda`           | GET    | 400    | Invalid match address                    | `{ "error": "invalid match address" }`                        |
 | `/api/leaderboard/:pda`           | GET    | 404    | Unknown PDA, or not computed yet         | `{ "error": "No match found for match account <pda>" }` / `"No leaderboard available yet for fixture <id>"` |
@@ -1094,9 +1312,14 @@ Use the `apiJson` helper from Quick Start. General rules:
 - [ ] **Implement the JSON helper** — use `apiJson<T>()` so every error surfaces `body.error`.
 - [ ] **Implement an `EventSource` wrapper** — for the leaderboard and events streams; ignore
       `:` comment/keepalive lines; clean up (`source.close()`) on unmount.
-- [ ] **Route on the match PDA** — read `matchAccount` from `POST /api/prediction/prepare` and
-      use it as the path param for `match`, `leaderboard`, `lineup`, and `events`. See
-      [Match addressing](#match-addressing).
+- [ ] **Discover matches, don't hardcode** — call `GET /api/matches` (#2) to list matches; route on
+      each row's `pda` for `match`, `leaderboard`, `lineup`, and `events`, and use its `fixtureId`
+      for `POST /api/prediction/prepare`. (The PDA is also on the prepare response as `matchAccount`.)
+      See [Match addressing](#match-addressing).
+- [ ] **Place predictions client-side** — `POST /api/prediction/prepare` (#4) returns an *unsigned*
+      base64 tx; deserialize it, have the wallet sign, and submit with `sendRawTransaction`. The API
+      never signs and there is no `/submit`. Ensure the wallet holds `entryFee` of the returned
+      `usdcMint` (+ SOL for fees). Handle `409` ("not open") and expired-blockhash by re-preparing.
 - [ ] **Handle 404 "not ready" states** — for `match`, `lineup`, and `leaderboard`, render a
       "not available yet" UI rather than an error. A `404` here can mean either an unknown PDA or
       data not computed yet (`match` may still `500` if Solana RPC is down — treat `5xx` as retry).
@@ -1112,8 +1335,16 @@ Use the `apiJson` helper from Quick Start. General rules:
 ---
 
 _Source of truth: `services/api/src/index.ts`, `services/api/src/server/root.ts`,
-`services/api/src/server/trpc.ts`, `services/api/src/modules/match/pda.ts`, the module
-`*.schema.ts` / `*.errors.ts` files, `Caddyfile`, and `docker-compose.yml`. Live verification of
-the REST/SSE surface was performed against `https://13.213.196.237.sslip.io` on 2026-06-29;
-examples for the PDA-keyed fixture endpoints (`match`, `leaderboard`, `lineup`, `events`) were
-updated for the fixtureId→PDA migration on 2026-06-30 and are illustrative pending re-verification._
+`services/api/src/server/trpc.ts`, `services/api/src/modules/match/pda.ts`,
+`services/api/src/modules/match/match.service.ts`, `services/api/src/onchain/program.ts`,
+`services/api/src/modules/prediction/prediction.service.ts`, the module `*.schema.ts` /
+`*.errors.ts` files, `Caddyfile`, and `docker-compose.yml`. Live
+verification of the REST/SSE surface was performed against `https://13.213.196.237.sslip.io` on
+2026-06-29; examples for the PDA-keyed fixture endpoints (`match`, `leaderboard`, `lineup`,
+`events`) were updated for the fixtureId→PDA migration on 2026-06-30 and are illustrative pending
+re-verification. The `GET /api/matches` discovery endpoint (#2) was added on 2026-07-02 and its
+success shape verified against devnet + a local API instance; deploy the `api` service to expose it
+on the staging URL. The `POST /api/prediction/prepare` endpoint (#4) was documented on 2026-07-02
+(verified live: `400` validation + `200` unsigned tx against OPEN match `18172379`); the same change
+mapped `MatchNotOpenError` to tRPC `CONFLICT` so `prediction.prepare` matches the REST `409` — redeploy
+`api` for that parity._

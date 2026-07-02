@@ -93,11 +93,15 @@ describe("listMatches", () => {
     ]);
     vi.mocked(loadTeamNames).mockResolvedValue({ team1: "USA", team2: "Bosnia" });
 
-    const [row] = await listMatches();
-    expect(row.pda).toBe("PdaOpen");
-    expect(row.fixtureId).toBe(100);
-    expect(row.onchain.statusLabel).toBe("OPEN");
-    expect(row.teamNames).toEqual({ team1: "USA", team2: "Bosnia" });
+    const rows = await listMatches();
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
+    expect(row).toMatchObject({
+      pda: "PdaOpen",
+      fixtureId: 100,
+      teamNames: { team1: "USA", team2: "Bosnia" },
+    });
+    expect(row?.onchain.statusLabel).toBe("OPEN");
   });
 
   it("orders OPEN before RESOLVED before SETTLED, newest fixture first", async () => {
