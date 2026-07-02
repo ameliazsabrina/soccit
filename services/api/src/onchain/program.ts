@@ -1,5 +1,10 @@
 import { Connection, PublicKey } from "@solana/web3.js";
-import { type DecodedMatch, decodeMatch, matchPda } from "@soccit/onchain/program";
+import {
+  type DecodedMatch,
+  MATCH_ACCOUNT_LEN,
+  decodeMatch,
+  matchPda,
+} from "@soccit/onchain/program";
 import { config } from "../config.js";
 
 // Re-export the shared on-chain bindings so existing API imports
@@ -42,4 +47,27 @@ export async function fetchMatch(fixtureId: number): Promise<DecodedMatch | null
   const info = await getConnection().getAccountInfo(pda);
   if (!info) return null;
   return decodeMatch(info.data);
+}
+
+/**
+ * Every Match account owned by the program, paired with its on-chain address
+ * (the PDA public endpoints key by). Filtered to Match-sized accounts; the
+ * discriminator is re-checked in `decodeMatch`, so any same-sized non-Match
+ * account is skipped rather than throwing.
+ */
+export async function fetchAllMatches(): Promise<
+  { pda: string; match: DecodedMatch }[]
+> {
+  const accounts = await getConnection().getProgramAccounts(getProgramId(), {
+    filters: [{ dataSize: MATCH_ACCOUNT_LEN }],
+  });
+  const out: { pda: string; match: DecodedMatch }[] = [];
+  for (const { pubkey, account } of accounts) {
+    try {
+      out.push({ pda: pubkey.toBase58(), match: decodeMatch(account.data) });
+    } catch {
+      // not a Match account (discriminator mismatch) — skip
+    }
+  }
+  return out;
 }

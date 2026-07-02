@@ -6,7 +6,7 @@ import { streamSSE } from "hono/streaming";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { appRouter } from "./server/root.js";
-import { getMatchState } from "./modules/match/match.service.js";
+import { getMatchState, listMatches } from "./modules/match/match.service.js";
 import { MatchNotFoundError } from "./modules/match/match.errors.js";
 import { isValidPda, resolveFixtureId } from "./modules/match/pda.js";
 import { leaderboardOutput } from "@soccit/scoring/leaderboard/schema";
@@ -63,6 +63,8 @@ app.all("/trpc/*", (c) =>
     createContext: () => ({ signal: c.req.raw.signal }),
   }),
 );
+
+app.get("/api/matches", async (c) => c.json(await listMatches()));
 
 app.get("/api/match/:pda", async (c) => {
   const pda = c.req.param("pda");

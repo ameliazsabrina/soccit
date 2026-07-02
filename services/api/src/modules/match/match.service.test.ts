@@ -1,8 +1,25 @@
 import { PublicKey } from "@solana/web3.js";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DecodedMatch } from "../../onchain/program.js";
 import { MatchNotFoundError } from "./match.errors.js";
-import { assembleMatchState, toLiveMatch, toOnchainMatch } from "./match.service.js";
+import {
+  assembleMatchState,
+  listMatches,
+  toLiveMatch,
+  toOnchainMatch,
+} from "./match.service.js";
+import { fetchAllMatches } from "../../onchain/program.js";
+import { loadTeamNames } from "../lineup/lineup.service.js";
+import { getRedis } from "../../redis.js";
+
+vi.mock("../../onchain/program.js", async (orig) => ({
+  ...(await orig<typeof import("../../onchain/program.js")>()),
+  fetchAllMatches: vi.fn(),
+}));
+vi.mock("../lineup/lineup.service.js", () => ({ loadTeamNames: vi.fn() }));
+vi.mock("../../redis.js", () => ({
+  getRedis: vi.fn(() => ({ hgetall: vi.fn().mockResolvedValue({}) })),
+}));
 
 const DEFAULT = PublicKey.default;
 const DEVNET_USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
@@ -59,6 +76,40 @@ describe("toLiveMatch", () => {
   it("parses numeric fields and defaults missing goals to 0", () => {
     const live = toLiveMatch({ statusId: "4", minute: "67", goals1: "2", ts: "1700" });
     expect(live).toEqual({ statusId: 4, minute: 67, goals: { team1: 2, team2: 0 }, ts: 1700 });
+  });
+});
+
+describe("listMatches", () => {
+  beforeEach(() => {
+    vi.mocked(getRedis).mockReturnValue({
+      hgetall: vi.fn().mockResolvedValue({}),
+    } as never);
+    vi.mocked(loadTeamNames).mockResolvedValue(null);
+  });
+
+  it("maps each on-chain account to a summary with its PDA and fixtureId", async () => {
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "PdaOpen", match: fakeMatch({ matchId: 100n, status: 0 }) },
+    ]);
+    vi.mocked(loadTeamNames).mockResolvedValue({ team1: "USA", team2: "Bosnia" });
+
+    const [row] = await listMatches();
+    expect(row.pda).toBe("PdaOpen");
+    expect(row.fixtureId).toBe(100);
+    expect(row.onchain.statusLabel).toBe("OPEN");
+    expect(row.teamNames).toEqual({ team1: "USA", team2: "Bosnia" });
+  });
+
+  it("orders OPEN before RESOLVED before SETTLED, newest fixture first", async () => {
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "s", match: fakeMatch({ matchId: 5n, status: 2 }) },
+      { pda: "o1", match: fakeMatch({ matchId: 10n, status: 0 }) },
+      { pda: "r", match: fakeMatch({ matchId: 8n, status: 1 }) },
+      { pda: "o2", match: fakeMatch({ matchId: 20n, status: 0 }) },
+    ]);
+
+    const order = (await listMatches()).map((m) => m.pda);
+    expect(order).toEqual(["o2", "o1", "r", "s"]);
   });
 });
 

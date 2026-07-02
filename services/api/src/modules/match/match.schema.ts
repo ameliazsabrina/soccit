@@ -34,7 +34,11 @@ export const onchainMatchSchema = z.object({
   team1Id: z.number().int(),
   team2Id: z.number().int(),
   usdcMint: z.string(),
-  winners: z.tuple([z.string().nullable(), z.string().nullable(), z.string().nullable()]),
+  winners: z.tuple([
+    z.string().nullable(),
+    z.string().nullable(),
+    z.string().nullable(),
+  ]),
 });
 
 export const liveMatchSchema = z.object({
@@ -51,7 +55,20 @@ export const matchStateOutput = z.object({
   updatedAt: z.number().int(),
 });
 
+export const matchSummarySchema = z.object({
+  pda: z.string(),
+  fixtureId: z.number().int(),
+  onchain: onchainMatchSchema,
+  live: liveMatchSchema.nullable(),
+  teamNames: z
+    .object({ team1: z.string().nullable(), team2: z.string().nullable() })
+    .nullable(),
+});
+
+export const matchListOutput = z.array(matchSummarySchema);
+
 export type MatchInput = z.infer<typeof matchInput>;
 export type OnchainMatch = z.infer<typeof onchainMatchSchema>;
 export type LiveMatch = z.infer<typeof liveMatchSchema>;
 export type MatchState = z.infer<typeof matchStateOutput>;
+export type MatchSummary = z.infer<typeof matchSummarySchema>;

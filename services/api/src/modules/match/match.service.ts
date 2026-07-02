@@ -4,12 +4,15 @@ import {
   STATUS_OPEN,
   STATUS_RESOLVED,
   STATUS_SETTLED,
+  fetchAllMatches,
   fetchMatch,
 } from "../../onchain/program.js";
+import { loadTeamNames } from "../lineup/lineup.service.js";
 import { MatchNotFoundError } from "./match.errors.js";
 import {
   type LiveMatch,
   type MatchState,
+  type MatchSummary,
   type OnchainMatch,
   matchStateOutput,
 } from "./match.schema.js";
@@ -84,4 +87,43 @@ export async function getMatchState(fixtureId: number): Promise<MatchState> {
     fetchMatch(fixtureId),
   ]);
   return assembleMatchState(fixtureId, hash, onchain);
+}
+
+// Sort order for the discovery list: OPEN first, then RESOLVED, then SETTLED,
+// and within a status the newest fixture (highest id) first.
+const STATUS_RANK: Record<number, number> = {
+  [STATUS_OPEN]: 0,
+  [STATUS_RESOLVED]: 1,
+  [STATUS_SETTLED]: 2,
+};
+
+/**
+ * All matches created on-chain, each with the PDA the read endpoints key by,
+ * enriched with live score + team names from the feed when available. This is
+ * the discovery endpoint the frontend uses instead of hardcoding a PDA.
+ */
+export async function listMatches(): Promise<MatchSummary[]> {
+  const matches = await fetchAllMatches();
+  const redis = getRedis();
+  const summaries = await Promise.all(
+    matches.map(async ({ pda, match }): Promise<MatchSummary> => {
+      const fixtureId = Number(match.matchId);
+      const [hash, teamNames] = await Promise.all([
+        redis.hgetall(`fixture:${fixtureId}`),
+        loadTeamNames(fixtureId),
+      ]);
+      return {
+        pda,
+        fixtureId,
+        onchain: toOnchainMatch(match),
+        live: toLiveMatch(hash),
+        teamNames,
+      };
+    }),
+  );
+  return summaries.sort(
+    (a, b) =>
+      (STATUS_RANK[a.onchain.status] ?? 9) - (STATUS_RANK[b.onchain.status] ?? 9) ||
+      b.fixtureId - a.fixtureId,
+  );
 }

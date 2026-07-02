@@ -1,6 +1,10 @@
 import { leaderboardOutput } from "@soccit/scoring/leaderboard/schema";
-import { matchInput, matchStateOutput } from "../modules/match/match.schema.js";
-import { getMatchState } from "../modules/match/match.service.js";
+import {
+  matchInput,
+  matchListOutput,
+  matchStateOutput,
+} from "../modules/match/match.schema.js";
+import { getMatchState, listMatches } from "../modules/match/match.service.js";
 import { resolveFixtureId } from "../modules/match/pda.js";
 import { enrichedLeaderboardOutput } from "../modules/leaderboard/leaderboard.schema.js";
 import {
@@ -43,6 +47,8 @@ function resolveSignal(signal: AbortSignal | undefined): AbortSignal {
 }
 
 const matchRouter = router({
+  list: publicProcedure.output(matchListOutput).query(() => listMatches()),
+
   get: publicProcedure
     .input(matchInput)
     .output(matchStateOutput)
