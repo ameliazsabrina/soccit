@@ -15,7 +15,10 @@ import {
   Sparkles,
   ScrollText,
   Zap,
+  ArrowLeft,
 } from "lucide-react";
+import { PageShell } from "../../_components/page-shell";
+import { ConnectWalletModal } from "../../_components/connect-wallet-modal";
 import { TeamPickerModal } from "../../_components/team-picker-modal";
 import { LiveMatchFeed } from "../../_components/live-match-feed";
 import {
@@ -97,7 +100,7 @@ const DEMO_LINEUP: Lineup = {
         { id: 1011, name: "K. Forward", number: "11", starter: true, positionId: 4, position: "Forward", onPitch: true },
         { id: 1101, name: "Sub A", number: "12", starter: false, positionId: 1, position: "Goalkeeper", onPitch: false },
         { id: 1102, name: "Sub B", number: "13", starter: false, positionId: 2, position: "Defender", onPitch: false },
-        { id: 1103, name: "Sub C", number: "14", starter: false, positionId: 2, position: "Defender", onPitch: false },
+        { id: 1103, name: "Sub C", number: "14", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
         { id: 1104, name: "Sub D", number: "15", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
         { id: 1105, name: "Sub E", number: "16", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
         { id: 1106, name: "Sub F", number: "17", starter: false, positionId: 4, position: "Forward", onPitch: false },
@@ -154,6 +157,7 @@ export default function MatchDetails() {
   const [loading, setLoading] = useState(!isDemo && !isSeed);
   const [error, setError] = useState<string | null>(isDemo ? null : null);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   useEffect(() => {
     if (isDemo || isSeed) return;
@@ -181,7 +185,10 @@ export default function MatchDetails() {
   }
 
   function handleSelectSubstituteModel() {
-    if (!isDemo && !isSeed && !connected) return;
+    if (!isDemo && !isSeed && !connected) {
+      setShowWalletModal(true);
+      return;
+    }
     setShowTeamPicker(true);
   }
 
@@ -194,17 +201,17 @@ export default function MatchDetails() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <PageShell>
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="animate-spin text-purple" size={32} />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   if (error || !match || !lineup) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <PageShell>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
           <h2 className="font-display text-2xl text-foreground">Match Not Available</h2>
@@ -216,7 +223,7 @@ export default function MatchDetails() {
             <RefreshCw size={16} /> Retry
           </button>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -228,128 +235,140 @@ export default function MatchDetails() {
   const status = match.onchain?.statusLabel ?? "UNKNOWN";
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-      <main className="relative z-10 mx-auto w-full max-w-[1200px] flex-1 px-4 py-12 lg:px-8">
-        <div className="mb-8">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Match Details</p>
-          <h1 className="font-display text-4xl tracking-tight text-foreground">Prediction Models</h1>
-        </div>
-
-        {/* Glass scoreboard HUD */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mb-10 flex flex-col items-center justify-center gap-6 glass border border-surface p-8 md:flex-row"
-        >
-          <TeamBadge name={team1?.teamName ?? "Team 1"} color="purple" />
-          <div className="text-center">
-            <div className="mb-2 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
-              {isLive && <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />}
-              <span>{isLive ? `${minute}' LIVE` : formatStatus(status)}</span>
-            </div>
-            <div className="flex items-center gap-4 font-display text-6xl text-foreground">
-              <span>{score.team1}</span>
-              <span className="text-muted">-</span>
-              <span>{score.team2}</span>
-            </div>
-            {!isLive && match.live?.statusId !== null && (
-              <p className="mt-2 text-xs text-muted">
-                {match.live?.statusId === 0 ? "Not started" : `Status: ${match.live?.statusId}`}
-              </p>
-            )}
-          </div>
-          <TeamBadge name={team2?.teamName ?? "Team 2"} color="cyan" />
-        </motion.div>
-
-        {/* Pool info HUD */}
-        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <HudStat label="Entry Fee" value={`$${match.onchain ? formatUsdc(match.onchain.entryFee) : "--"}`} />
-          <HudStat label="Pool Total" value={`$${match.onchain ? formatUsdc(match.onchain.poolTotal) : "--"}`} />
-          <HudStat label="Participants" value={`${match.onchain?.participantCount ?? 0}`} />
-        </div>
-
-        {/* Wallet gate for real matches */}
-        {!isDemo && !connected && (
-          <div className="mb-8 flex items-center gap-3 border border-gold/30 bg-gold/5 p-4 text-gold">
-            <Wallet size={20} />
-            <p className="text-sm font-medium">
-              Connect your wallet to enter real prediction markets. Demo match is free.
-            </p>
-          </div>
-        )}
-
-        {/* Seed (live Devnet) match banner */}
-        {isSeed && !isDemo && (
-          <div className="mb-8 flex items-start gap-3 border border-cyan/30 bg-cyan/5 p-4 text-cyan">
-            <Zap size={20} className="mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <p className="font-bold uppercase tracking-wider">Live Devnet Seed Match</p>
-              <p className="mt-1 text-muted">
-                This is the only fixture the backend currently accepts for{" "}
-                <span className="font-mono">/api/prediction/prepare</span>. The
-                read endpoints (score, lineup, events, leaderboard) return 404
-                because nothing has been ingested yet — so we render a placeholder
-                lineup. Lock a prediction to submit a real transaction on Devnet
-                (wallet needs the Soccit mock USDC to pay the ${formatUsdc(match.onchain?.entryFee ?? "0")} entry fee).
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Prediction model cards */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <ModelCard
-            icon={<Target size={28} />}
-            title="Substitute Prediction"
-            description="Predict which bench player will sub in and where."
-            status="active"
-            onClick={handleSelectSubstituteModel}
-            disabled={!isDemo && !isSeed && !connected}
-          />
-          <ModelCard
-            icon={<BarChart3 size={28} />}
-            title="Guess the Score"
-            description="Predict the final scoreline."
-            status="coming-soon"
-          />
-          <ModelCard
-            icon={<Users size={28} />}
-            title="First Goalscorer"
-            description="Pick the player who opens the scoring."
-            status="coming-soon"
-          />
-        </div>
-
-        {isDemo && (
-          <div className="mt-8 flex items-center justify-center gap-2 text-gold">
-            <Sparkles size={16} />
-            <span className="text-sm font-bold uppercase tracking-wider">Demo Mode — No wallet required</span>
-          </div>
-        )}
-
-        {/* Live feed */}
-        <div className="mt-12">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Real-Time Data</p>
-              <h2 className="font-display text-2xl text-foreground">Match Stream</h2>
-            </div>
+    <PageShell>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Back link + header */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
             <Link
-              href={`/matches/${pda}/logs`}
-              className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan transition-colors hover:text-foreground"
+              href="/matches"
+              className="mb-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground"
             >
-              <ScrollText size={16} />
-              Full Logs
+              <ArrowLeft size={14} />
+              Back to Matches
             </Link>
+            <h1 className="font-display text-3xl tracking-tight text-foreground lg:text-4xl">
+              Prediction Models
+            </h1>
           </div>
-          <LiveMatchFeed
-            pda={pda}
-            isDemo={isDemo}
-            showViewLogsLink
-            className="min-h-[420px]"
-          />
+          {isDemo && (
+            <div className="flex items-center gap-2 text-gold">
+              <Sparkles size={16} />
+              <span className="text-xs font-bold uppercase tracking-wider">Demo Mode</span>
+            </div>
+          )}
         </div>
-      </main>
+
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto pr-1">
+          {/* Glass scoreboard HUD */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center gap-6 glass border border-surface p-6 md:flex-row md:p-8"
+          >
+            <TeamBadge name={team1?.teamName ?? "Team 1"} color="purple" />
+            <div className="text-center">
+              <div className="mb-2 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
+                {isLive && <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />}
+                <span>{isLive ? `${minute}' LIVE` : formatStatus(status)}</span>
+              </div>
+              <div className="flex items-center gap-4 font-display text-5xl text-foreground md:text-6xl">
+                <span>{score.team1}</span>
+                <span className="text-muted">-</span>
+                <span>{score.team2}</span>
+              </div>
+              {!isLive && match.live?.statusId !== null && (
+                <p className="mt-2 text-xs text-muted">
+                  {match.live?.statusId === 0 ? "Not started" : `Status: ${match.live?.statusId}`}
+                </p>
+              )}
+            </div>
+            <TeamBadge name={team2?.teamName ?? "Team 2"} color="cyan" />
+          </motion.div>
+
+          {/* Pool info HUD */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <HudStat label="Entry Fee" value={`$${match.onchain ? formatUsdc(match.onchain.entryFee) : "--"}`} />
+            <HudStat label="Pool Total" value={`$${match.onchain ? formatUsdc(match.onchain.poolTotal) : "--"}`} />
+            <HudStat label="Participants" value={`${match.onchain?.participantCount ?? 0}`} />
+          </div>
+
+          {/* Wallet gate for real matches */}
+          {!isDemo && !connected && (
+            <div className="flex items-center gap-3 border border-gold/30 bg-gold/5 p-4 text-gold">
+              <Wallet size={20} />
+              <p className="text-sm font-medium">
+                Connect your wallet to enter real prediction markets. Demo match is free.
+              </p>
+            </div>
+          )}
+
+          {/* Seed (live Devnet) match banner */}
+          {isSeed && !isDemo && (
+            <div className="flex items-start gap-3 border border-cyan/30 bg-cyan/5 p-4 text-cyan">
+              <Zap size={20} className="mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-bold uppercase tracking-wider">Live Devnet Seed Match</p>
+                <p className="mt-1 text-muted">
+                  This is the only fixture the backend currently accepts for{" "}
+                  <span className="font-mono">/api/prediction/prepare</span>. The
+                  read endpoints (score, lineup, events, leaderboard) return 404
+                  because nothing has been ingested yet — so we render a placeholder
+                  lineup. Lock a prediction to submit a real transaction on Devnet
+                  (wallet needs the Soccit mock USDC to pay the ${formatUsdc(match.onchain?.entryFee ?? "0")} entry fee).
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Prediction model cards */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <ModelCard
+              icon={<Target size={28} />}
+              title="Substitute Prediction"
+              description="Predict which bench player will sub in and where."
+              status="active"
+              onClick={handleSelectSubstituteModel}
+              disabled={!isDemo && !isSeed && !connected}
+            />
+            <ModelCard
+              icon={<BarChart3 size={28} />}
+              title="Guess the Score"
+              description="Predict the final scoreline."
+              status="coming-soon"
+            />
+            <ModelCard
+              icon={<Users size={28} />}
+              title="First Goalscorer"
+              description="Pick the player who opens the scoring."
+              status="coming-soon"
+            />
+          </div>
+
+          {/* Live feed */}
+          <div className="mt-2">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Real-Time Data</p>
+                <h2 className="font-display text-2xl text-foreground">Match Stream</h2>
+              </div>
+              <Link
+                href={`/matches/${pda}/logs`}
+                className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan transition-colors hover:text-foreground"
+              >
+                <ScrollText size={16} />
+                Full Logs
+              </Link>
+            </div>
+            <LiveMatchFeed
+              pda={pda}
+              isDemo={isDemo}
+              showViewLogsLink
+              className="min-h-[320px]"
+            />
+          </div>
+        </div>
+      </div>
 
       <AnimatePresence>
         {showTeamPicker && (
@@ -361,7 +380,12 @@ export default function MatchDetails() {
           />
         )}
       </AnimatePresence>
-    </div>
+
+      <ConnectWalletModal
+        open={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+      />
+    </PageShell>
   );
 }
 

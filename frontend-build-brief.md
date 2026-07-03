@@ -42,13 +42,13 @@ The API is PDA-first. The frontend should route match pages as:
 /matches/[pda]
 ```
 
-The home screen should support one of these MVP entry paths:
+Match discovery is done through **`GET /api/matches`**. The `/matches` page should:
 
-- Paste or type a match PDA.
-- Open a known seeded/demo match PDA from config.
-- Later, browse live/upcoming matches once a match discovery endpoint exists.
-
-Important limitation: `frontend-integration.md` references `POST /api/prediction/prepare` as the source of `matchAccount`, but does not document a match-listing endpoint. Until one exists, the frontend cannot independently discover matches from this API reference alone.
+- Call `GET /api/matches` on load and display the returned list.
+- Route each row to `/matches/[pda]` using the row's `pda`.
+- Use `row.fixtureId` as the input for `POST /api/prediction/prepare`.
+- Keep a fallback "Paste match PDA" tile for direct entry and local testing.
+- Surface retryable errors cleanly and show an empty state when no matches exist on-chain.
 
 ### 2. Live Match Room
 
@@ -143,6 +143,8 @@ Keep the initial app small. The match room should get the most craft because it 
 - `useEventSource()` wrapper with cleanup on unmount
 - `useLeaderboardStream(matchPda)`
 - `useMatchEvents(matchPda, fromId?)`
+- `getMatches()` and `MatchSummary` type
+- `MatchList` / `MatchCard` for discovery
 - `MatchStatusHeader`
 - `ScoreStrip`
 - `OnchainPoolSummary`
@@ -238,29 +240,28 @@ Because no `brand.md` exists yet, use neutral Tailwind/shadcn-style tokens until
 ## MVP Build Order
 
 1. API client module: base URL, `apiJson<T>()`, validators, error normalization.
-2. Match PDA entry screen.
-3. `/matches/[pda]` shell with match header and loading/error/not-ready states.
-4. Lineup and leaderboard snapshots.
-5. SSE wrappers for leaderboard and event timeline.
-6. Wallet connect integration.
-7. Profile registration and avatar selection.
-8. User profile and match history.
-9. Prediction UI only after the prepare/submit prediction APIs are fully documented.
+2. Match discovery via `GET /api/matches` and match-list screen (`/matches`).
+3. Match PDA entry fallback tile for direct access.
+4. `/matches/[pda]` shell with match header and loading/error/not-ready states.
+5. Lineup and leaderboard snapshots.
+6. SSE wrappers for leaderboard and event timeline.
+7. Wallet connect integration.
+8. Profile registration and avatar selection.
+9. User profile and match history.
+10. Prediction preparation and client-side submission via `POST /api/prediction/prepare`.
 
 ## Backend/API Questions Before Full Product Build
 
-- What endpoint lists upcoming/live matches?
-- Is `POST /api/prediction/prepare` available to this frontend, and what is its full request/response shape?
-- What endpoint actually submits a prediction or on-chain transaction result?
+- ~~What endpoint lists upcoming/live matches?~~ Answered: `GET /api/matches`.
+- Are team crests/logos available, or should the frontend continue using `flagcdn.com` for country fixtures?
 - Should `GET /api/user/:wallet/matches` return `matchAccount` so the frontend can link to `/matches/[pda]`?
-- Are team names available from `GET /api/match/:pda`, or only from lineup?
 - What exact signed message should be used for avatar updates?
 - Where should official avatar image files come from?
 
 ## Definition of Done
 
-- A user can open the app, enter a match PDA, and see match state.
-- The match room handles not-ready, empty, and retryable states without crashing.
+- A user can open the app, see a list of on-chain matches from `GET /api/matches`, and enter a match room.
+- The match list and match room handle not-ready, empty, and retryable states without crashing.
 - Leaderboard and events update live over SSE.
 - A connected wallet can register a profile with username and avatar.
 - Existing profiles can be loaded and avatar edits can be submitted with signature verification.

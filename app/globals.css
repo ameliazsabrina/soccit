@@ -2,19 +2,28 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #0f172a;
-  --surface: #f3f4f6;
+  --foreground: #0a1628;
+  --surface: #e8eaed;
   --surface-elevated: #ffffff;
-  --muted: #94a3b8;
-  --purple: #8b5cf6;
-  --cyan: #06b6d4;
-  --rose: #f43f5e;
-  --bronze: #cd7f32;
-  --gold: #d4af37;
+  --muted: #8a8d90;
+  --purple: #034694;
+  --cyan: #dba111;
+  --rose: #ed1c24;
+  --bronze: #dba111;
+  --gold: #dba111;
   --pitch-turf: #122b1e;
   --pitch-deep: #081a12;
   --pitch-line: rgba(248, 250, 252, 0.45);
   --radius: 0px;
+
+  /* Event campaign palette */
+  --wc-blue: #034694;
+  --wc-cyan: #dba111;
+  --wc-yellow: #dba111;
+  --wc-lime: #dba111;
+  --wc-red: #ed1c24;
+  --wc-orange: #ed1c24;
+  --wc-purple: #034694;
 }
 
 .dark {
@@ -41,8 +50,33 @@
   --color-pitch-turf: var(--pitch-turf);
   --color-pitch-deep: var(--pitch-deep);
   --color-pitch-line: var(--pitch-line);
+
+  /* World Cup 2026 theme tokens */
+  --color-wc-blue: var(--wc-blue);
+  --color-wc-cyan: var(--wc-cyan);
+  --color-wc-yellow: var(--wc-yellow);
+  --color-wc-lime: var(--wc-lime);
+  --color-wc-red: var(--wc-red);
+  --color-wc-orange: var(--wc-orange);
+  --color-wc-purple: var(--wc-purple);
+
   --font-sans: var(--font-space-grotesk);
   --font-display: var(--font-unica-one);
+  --font-body: var(--font-inter);
+  --font-wc: var(--font-fwc2026);
+  --font-wc-support: var(--font-noto-sans);
+}
+
+@font-face {
+  font-family: "FWC2026";
+  src: url("/fonts/fwc2026/FWC2026-Normal-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-fwc2026: "FWC2026", var(--font-space-grotesk), system-ui, sans-serif;
 }
 
 html {
@@ -66,6 +100,31 @@ body {
 
 .font-tech {
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.font-wc {
+  font-family: var(--font-fwc2026);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-weight: 900;
+}
+
+.font-wc-support {
+  font-family: var(--font-noto-sans), system-ui, sans-serif;
+}
+
+@keyframes wc-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes tile-flip {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
 }
 
 .card-shine {

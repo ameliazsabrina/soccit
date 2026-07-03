@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Unica_One } from "next/font/google";
+import { Space_Grotesk, Unica_One, Inter, Noto_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./_components/providers";
 
@@ -9,10 +9,22 @@ const spaceGrotesk = Space_Grotesk({
   weight: ["400", "500", "600", "700"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
 const unicaOne = Unica_One({
   variable: "--font-unica-one",
   subsets: ["latin"],
   weight: ["400"],
+});
+
+const notoSans = Noto_Sans({
+  variable: "--font-noto-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +41,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${spaceGrotesk.variable} ${unicaOne.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${unicaOne.variable} ${notoSans.variable} h-full antialiased`}
     >
       <head>
         <link

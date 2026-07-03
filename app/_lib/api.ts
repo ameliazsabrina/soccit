@@ -1,12 +1,9 @@
 export const SOCCIT_API_BASE_URL = "https://13.213.196.237.sslip.io";
 
-// The only fixture seeded in the backend that `POST /api/prediction/prepare`
-// accepts (discovered by live probing, 2026-07-02). Its match-account PDA is
-// deterministic via findProgramAddress(["match", u64_le(900001)], programId).
-// NOTE: the backend *read* endpoints (/api/match, /api/lineup, /api/leaderboard,
-// /api/events) return 404 for this PDA because **nothing has been ingested** —
-// see frontend-integration.md. The prepare→submit flow is the only real
-// integration that currently produces an on-chain transaction on Devnet.
+// Fallback/demo fixture for local testing. In production the frontend should
+// discover matches via `GET /api/matches` and use each row's `pda` and
+// `fixtureId`. These constants remain only for the demo path and hardcoded
+// reference examples.
 export const SOCCIT_SEED_FIXTURE_ID = 900001;
 export const SOCCIT_SEED_MATCH_PDA = "CJJfxXRnagAc35PCVcnqYeU34VysGx4u93Hd75dGHFyq";
 export const SOCCIT_PROGRAM_ID = "TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v";
@@ -34,6 +31,30 @@ export type ResolvedPlayer = {
   positionId: number | null;
   position: string | null;
   side: 1 | 2;
+};
+
+export type MatchSummary = {
+  pda: string;
+  fixtureId: number;
+  onchain: {
+    status: number;
+    statusLabel: "OPEN" | "RESOLVED" | "SETTLED" | "UNKNOWN";
+    settled: boolean;
+    entryFee: string;
+    poolTotal: string;
+    participantCount: number;
+    team1Id: number;
+    team2Id: number;
+    usdcMint: string;
+    winners: [string | null, string | null, string | null];
+  };
+  live: null | {
+    statusId: number | null;
+    minute: number | null;
+    goals: { team1: number; team2: number };
+    ts: number | null;
+  };
+  teamNames: null | { team1: string | null; team2: string | null };
 };
 
 export type MatchState = {
@@ -154,6 +175,10 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+export function getMatches() {
+  return apiJson<MatchSummary[]>("/api/matches");
+}
+
 export function getMatch(pda: string) {
   return apiJson<MatchState>(`/api/match/${pda}`);
 }
@@ -178,6 +203,44 @@ export function getAvatars() {
   return apiJson<AvatarDescriptor[]>("/api/avatars");
 }
 
+// ---- World Cup 2026 bracket ------------------------------------------------
+
+export type WorldCupMatch = {
+  id: string;
+  round: "group" | "round_of_16" | "quarter" | "semi" | "third_place" | "final";
+  homeTeam: string | null;
+  awayTeam: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  date: string | null;
+  venue: string | null;
+  winner: "home" | "away" | "draw" | null;
+};
+
+export type WorldCupGroup = {
+  name: string;
+  teams: Array<{
+    name: string;
+    played: number;
+    won: number;
+    drawn: number;
+    lost: number;
+    gf: number;
+    ga: number;
+    points: number;
+  }>;
+};
+
+export type WorldCupBracket = {
+  updatedAt: number;
+  groups: WorldCupGroup[];
+  knockout: WorldCupMatch[];
+};
+
+export function getWorldCupBracket() {
+  return apiJson<WorldCupBracket>("/api/events/bracket");
+}
+
 export function createUserProfile(input: {
   wallet: string;
   username: string;
@@ -191,35 +254,32 @@ export function createUserProfile(input: {
   });
 }
 
-// ---- Prediction prepare (Devnet submission) -------------------------------
-// Schema reverse-engineered from the backend's tRPC `prediction.prepare` Zod
-// error envelope (live probe 2026-07-02). The REST endpoint
-// `POST /api/prediction/prepare` is undocumented in frontend-integration.md
-// but accepts this exact body and returns an unsigned base64 Solana transaction
-// that the wallet must sign and submit to Devnet via `sendRawTransaction`.
-// There is NO `/api/prediction/submit` — submission is purely client-side.
+// ---- Prediction prepare (on-chain submission) ----------------------------
+// Builds the unsigned "place a prediction" transaction. The frontend deserializes
+// the base64 tx, signs it with the wallet adapter, and submits it client-side
+// via `connection.sendRawTransaction`. There is no `/submit` endpoint.
 
 export type PredictionKind = 0 | 1 | 2; // 0=OUT, 1=IN, 2=COMBO(out+in)
 
 export type PreparePredictionInput = {
-  wallet: string;        // base58 signer wallet
-  fixtureId: number;     // use SOCCIT_SEED_FIXTURE_ID for the live seed match
-  outPlayerId: number;   // starter going out (0 for kind=1)
-  inPlayerId: number;    // sub coming in (0 for kind=0)
-  lockMinute: number;     // minute the prediction is locked (game clock)
-  slotIndex: number;     // formation slot index
+  wallet: string;        // base58 signer wallet; becomes tx fee payer
+  fixtureId: number;     // from GET /api/matches row.fixtureId
+  outPlayerId: number;   // starter going out (0 when unused)
+  inPlayerId: number;    // sub coming in (0 when unused)
+  lockMinute: number;    // match minute the prediction locks at
+  slotIndex: number;     // per-wallet prediction slot (0, 1, 2…)
   side: 1 | 2;           // 1=home, 2=away
   kind: PredictionKind;  // 0=OUT, 1=IN, 2=COMBO
 };
 
 export type PreparePredictionOutput = {
-  transaction: string;          // base64 serialized unsigned Solana tx (VersionedTransaction)
+  transaction: string;          // base64 serialized unsigned legacy Solana tx
   fixtureId: number;
   prediction: string;           // prediction-account PDA (base58)
   matchAccount: string;         // match-account PDA (base58) — canonical route id
-  userUsdcAta: string;          // user's USDC ATA for SOCCIT_USDC_MINT
+  userUsdcAta: string;          // user's USDC ATA (created idempotently by tx)
   usdcMint: string;
-  entryFee: string;            // stringified integer lamports/base units
+  entryFee: string;             // USDC base units (6 dp)
   blockhash: string;
   lastValidBlockHeight: number;
 };

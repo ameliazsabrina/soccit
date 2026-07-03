@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ExternalLink,
 } from "lucide-react";
+import { PageShell } from "../../../_components/page-shell";
 import { PitchArena, type SubstitutionPrediction } from "../../../_components/pitch-arena";
 import {
   getMatch,
@@ -82,49 +83,49 @@ const DEMO_LINEUP: Lineup = {
     {
       side: 1,
       teamId: 101,
-      teamName: "Demo United",
+      teamName: "Portugal",
       players: [
-        { id: 1001, name: "A. Keeper", number: "1", starter: true, positionId: 1, position: "Goalkeeper", onPitch: true },
-        { id: 1002, name: "B. Right Back", number: "2", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 1003, name: "C. Center Back", number: "4", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 1004, name: "D. Center Back", number: "5", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 1005, name: "E. Left Back", number: "3", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 1006, name: "F. CDM", number: "6", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
-        { id: 1007, name: "G. Right Mid", number: "7", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
-        { id: 1008, name: "H. Left Mid", number: "8", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
-        { id: 1009, name: "I. Forward", number: "9", starter: true, positionId: 4, position: "Forward", onPitch: true },
-        { id: 1010, name: "J. Forward", number: "10", starter: true, positionId: 4, position: "Forward", onPitch: true },
-        { id: 1011, name: "K. Forward", number: "11", starter: true, positionId: 4, position: "Forward", onPitch: true },
-        { id: 1101, name: "Sub A", number: "12", starter: false, positionId: 1, position: "Goalkeeper", onPitch: false },
-        { id: 1102, name: "Sub B", number: "13", starter: false, positionId: 2, position: "Defender", onPitch: false },
-        { id: 1103, name: "Sub C", number: "14", starter: false, positionId: 2, position: "Defender", onPitch: false },
-        { id: 1104, name: "Sub D", number: "15", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
-        { id: 1105, name: "Sub E", number: "16", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
-        { id: 1106, name: "Sub F", number: "17", starter: false, positionId: 4, position: "Forward", onPitch: false },
+        { id: 1001, name: "Diogo Costa", number: "22", starter: true, positionId: 1, position: "Goalkeeper", onPitch: true },
+        { id: 1002, name: "João Cancelo", number: "2", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 1003, name: "Rúben Dias", number: "4", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 1004, name: "Gonçalo Inácio", number: "14", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 1005, name: "Nuno Mendes", number: "3", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 1006, name: "João Neves", number: "6", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
+        { id: 1007, name: "Bruno Fernandes", number: "8", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
+        { id: 1008, name: "Vitinha", number: "23", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
+        { id: 1009, name: "Bernardo Silva", number: "10", starter: true, positionId: 4, position: "Forward", onPitch: true },
+        { id: 1010, name: "Cristiano Ronaldo", number: "7", starter: true, positionId: 4, position: "Forward", onPitch: true },
+        { id: 1011, name: "Rafael Leão", number: "17", starter: true, positionId: 4, position: "Forward", onPitch: true },
+        { id: 1101, name: "Rui Patrício", number: "1", starter: false, positionId: 1, position: "Goalkeeper", onPitch: false },
+        { id: 1102, name: "Pepe", number: "5", starter: false, positionId: 2, position: "Defender", onPitch: false },
+        { id: 1103, name: "Danilo Pereira", number: "13", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
+        { id: 1104, name: "Rúben Neves", number: "18", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
+        { id: 1105, name: "Otávio", number: "15", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
+        { id: 1106, name: "Gonçalo Ramos", number: "9", starter: false, positionId: 4, position: "Forward", onPitch: false },
       ],
     },
     {
       side: 2,
       teamId: 202,
-      teamName: "Mock City",
+      teamName: "Argentina",
       players: [
-        { id: 2001, name: "M. Keeper", number: "1", starter: true, positionId: 1, position: "Goalkeeper", onPitch: true },
-        { id: 2002, name: "N. Right Back", number: "2", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 2003, name: "O. Center Back", number: "4", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 2004, name: "P. Center Back", number: "5", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 2005, name: "Q. Left Back", number: "3", starter: true, positionId: 2, position: "Defender", onPitch: true },
-        { id: 2006, name: "R. CDM", number: "6", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
-        { id: 2007, name: "S. Right Mid", number: "7", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
-        { id: 2008, name: "T. Left Mid", number: "8", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
-        { id: 2009, name: "U. Forward", number: "9", starter: true, positionId: 4, position: "Forward", onPitch: true },
-        { id: 2010, name: "V. Forward", number: "10", starter: true, positionId: 4, position: "Forward", onPitch: true },
-        { id: 2011, name: "W. Forward", number: "11", starter: true, positionId: 4, position: "Forward", onPitch: true },
-        { id: 2101, name: "Sub G", number: "12", starter: false, positionId: 1, position: "Goalkeeper", onPitch: false },
-        { id: 2102, name: "Sub H", number: "13", starter: false, positionId: 2, position: "Defender", onPitch: false },
-        { id: 2103, name: "Sub I", number: "14", starter: false, positionId: 2, position: "Defender", onPitch: false },
-        { id: 2104, name: "Sub J", number: "15", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
-        { id: 2105, name: "Sub K", number: "16", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
-        { id: 2106, name: "Sub L", number: "17", starter: false, positionId: 4, position: "Forward", onPitch: false },
+        { id: 2001, name: "Emiliano Martínez", number: "23", starter: true, positionId: 1, position: "Goalkeeper", onPitch: true },
+        { id: 2002, name: "Nahuel Molina", number: "4", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 2003, name: "Cristian Romero", number: "13", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 2004, name: "Nicolás Otamendi", number: "19", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 2005, name: "Nicolás Tagliafico", number: "3", starter: true, positionId: 2, position: "Defender", onPitch: true },
+        { id: 2006, name: "Rodrigo De Paul", number: "7", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
+        { id: 2007, name: "Enzo Fernández", number: "24", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
+        { id: 2008, name: "Alexis Mac Allister", number: "20", starter: true, positionId: 3, position: "Midfielder", onPitch: true },
+        { id: 2009, name: "Lionel Messi", number: "10", starter: true, positionId: 4, position: "Forward", onPitch: true },
+        { id: 2010, name: "Julián Álvarez", number: "9", starter: true, positionId: 4, position: "Forward", onPitch: true },
+        { id: 2011, name: "Ángel Di María", number: "11", starter: true, positionId: 4, position: "Forward", onPitch: true },
+        { id: 2101, name: "Franco Armani", number: "1", starter: false, positionId: 1, position: "Goalkeeper", onPitch: false },
+        { id: 2102, name: "Lisandro Martínez", number: "25", starter: false, positionId: 2, position: "Defender", onPitch: false },
+        { id: 2103, name: "Leandro Paredes", number: "5", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
+        { id: 2104, name: "Giovani Lo Celso", number: "16", starter: false, positionId: 3, position: "Midfielder", onPitch: false },
+        { id: 2105, name: "Lautaro Martínez", number: "22", starter: false, positionId: 4, position: "Forward", onPitch: false },
+        { id: 2106, name: "Paulo Dybala", number: "21", starter: false, positionId: 4, position: "Forward", onPitch: false },
       ],
     },
   ],
@@ -278,17 +279,17 @@ export default function ArenaPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <PageShell>
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="animate-spin text-purple" size={32} />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   if (error || !match || !lineup) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <PageShell>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
           <h2 className="font-display text-2xl text-foreground">Arena Unavailable</h2>
@@ -300,20 +301,20 @@ export default function ArenaPage() {
             <RefreshCw size={16} /> Retry
           </button>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   const team = lineup.teams.find((t) => t.side === side);
   if (!team) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <PageShell>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
           <h2 className="font-display text-2xl text-foreground">Team Not Found</h2>
           <p className="mt-2 text-muted">Selected side has no lineup data.</p>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -340,90 +341,95 @@ export default function ArenaPage() {
     }));
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <div className="flex items-center justify-between border-b border-surface bg-surface/20 px-4 py-3 lg:px-8">
-        <button
-          onClick={() => router.push(`/matches/${pda}`)}
-          className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground"
-        >
-          <ArrowLeft size={18} /> Back
-        </button>
-        {isDemo ? (
-          <span className="text-xs font-bold uppercase tracking-wider text-gold">Demo Mode</span>
-        ) : isSeed ? (
-          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-cyan" />
-            Live Seed · Devnet · Fixture {fixtureId}
-          </span>
-        ) : null}
-      </div>
-
-      {/* Seed submit requires a wallet holding Soccit mock USDC. */}
-      {isSeed && !isDemo && !connected && (
-        <div className="mx-auto mt-4 max-w-2xl border border-gold/30 bg-gold/5 px-4 py-3 text-center text-sm text-gold">
-          Connect your Devnet wallet to submit a real on-chain prediction. The
-          wallet must hold the Soccit mock USDC (mint{" "}
-          <span className="font-mono">{SOCCIT_USDC_MINT.slice(0, 6)}…</span>)
-          to pay the ${formatUsdc(match.onchain?.entryFee ?? "0")} entry fee.
+    <PageShell>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Arena header */}
+        <div className="mb-3 flex items-center justify-between">
+          <button
+            onClick={() => router.push(`/matches/${pda}`)}
+            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground"
+          >
+            <ArrowLeft size={14} />
+            Back to Match
+          </button>
+          {isDemo ? (
+            <span className="text-xs font-bold uppercase tracking-wider text-gold">Demo Mode</span>
+          ) : isSeed ? (
+            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan" />
+              Live Seed · Devnet · Fixture {fixtureId}
+            </span>
+          ) : null}
         </div>
-      )}
 
-      {lockError && (
-        <div className="mx-auto mt-4 max-w-2xl flex items-start gap-2 border border-rose/30 bg-rose/5 px-4 py-3 text-sm text-rose">
-          <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-          <span>{lockError}</span>
-        </div>
-      )}
-
-      {submitting && (
-        <div className="mx-auto mt-4 max-w-2xl flex items-center justify-center gap-2 border border-cyan/30 bg-cyan/5 px-4 py-3 text-sm text-cyan">
-          <Loader2 size={16} className="animate-spin" />
-          {lockMessage ?? "Submitting…"}
-        </div>
-      )}
-
-      {!submitting && signatures.length > 0 && (
-        <div className="mx-auto mt-4 max-w-2xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
-          <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600">
-            <CheckCircle2 size={16} />
-            {lockMessage ?? `${signatures.length} prediction(s) locked on Devnet`}
+        {/* Seed submit requires a wallet holding Soccit mock USDC. */}
+        {isSeed && !isDemo && !connected && (
+          <div className="mb-3 border border-gold/30 bg-gold/5 px-4 py-3 text-center text-sm text-gold">
+            Connect your Devnet wallet to submit a real on-chain prediction. The
+            wallet must hold the Soccit mock USDC (mint{" "}
+            <span className="font-mono">{SOCCIT_USDC_MINT.slice(0, 6)}…</span>)
+            to pay the ${formatUsdc(match.onchain?.entryFee ?? "0")} entry fee.
           </div>
-          <ul className="mt-2 space-y-1">
-            {signatures.map((sig) => (
-              <li key={sig} className="flex items-center gap-2">
-                <span className="truncate font-mono text-xs text-foreground">{sig}</span>
-                <a
-                  href={`${DEVNET_EXPLORER}/${sig}?cluster=devnet`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-cyan hover:underline"
-                >
-                  View <ExternalLink size={10} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        )}
 
-      {!submitting && isDemo && lockMessage && signatures.length === 0 && (
-        <div className="mx-auto mt-4 max-w-2xl border border-cyan/30 bg-cyan/5 px-4 py-2 text-center text-sm text-cyan">
-          {lockMessage}
-        </div>
-      )}
+        {lockError && (
+          <div className="mb-3 flex items-start gap-2 border border-rose/30 bg-rose/5 px-4 py-3 text-sm text-rose">
+            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+            <span>{lockError}</span>
+          </div>
+        )}
 
-      <PitchArena
-        matchPda={pda}
-        teamName={team.teamName ?? `Team ${side}`}
-        side={side}
-        score={match.live?.goals ?? { team1: 0, team2: 0 }}
-        minute={match.live?.minute ?? 0}
-        isLive={match.live?.statusId === 1}
-        starters={starters}
-        substitutes={substitutes}
-        onLock={handleLock}
-        locked={locked}
-      />
-    </div>
+        {submitting && (
+          <div className="mb-3 flex items-center justify-center gap-2 border border-cyan/30 bg-cyan/5 px-4 py-3 text-sm text-cyan">
+            <Loader2 size={16} className="animate-spin" />
+            {lockMessage ?? "Submitting…"}
+          </div>
+        )}
+
+        {!submitting && signatures.length > 0 && (
+          <div className="mb-3 border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600">
+              <CheckCircle2 size={16} />
+              {lockMessage ?? `${signatures.length} prediction(s) locked on Devnet`}
+            </div>
+            <ul className="mt-2 space-y-1">
+              {signatures.map((sig) => (
+                <li key={sig} className="flex items-center gap-2">
+                  <span className="truncate font-mono text-xs text-foreground">{sig}</span>
+                  <a
+                    href={`${DEVNET_EXPLORER}/${sig}?cluster=devnet`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-cyan hover:underline"
+                  >
+                    View <ExternalLink size={10} />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!submitting && isDemo && lockMessage && signatures.length === 0 && (
+          <div className="mb-3 border border-cyan/30 bg-cyan/5 px-4 py-2 text-center text-sm text-cyan">
+            {lockMessage}
+          </div>
+        )}
+
+        <PitchArena
+          matchPda={pda}
+          teamName={team.teamName ?? `Team ${side}`}
+          side={side}
+          score={match.live?.goals ?? { team1: 0, team2: 0 }}
+          minute={match.live?.minute ?? 0}
+          isLive={match.live?.statusId === 1}
+          starters={starters}
+          substitutes={substitutes}
+          onLock={handleLock}
+          locked={locked}
+          className="min-h-0"
+        />
+      </div>
+    </PageShell>
   );
 }

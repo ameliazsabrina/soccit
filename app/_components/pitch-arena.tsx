@@ -27,6 +27,7 @@ interface PitchArenaProps {
   substitutes: PlayerCardData[];
   onLock: (predictions: SubstitutionPrediction[]) => void;
   locked?: boolean;
+  className?: string;
 }
 
 const FORMATION_SLOTS = [
@@ -54,6 +55,7 @@ export function PitchArena({
   substitutes,
   onLock,
   locked,
+  className,
 }: PitchArenaProps) {
   const [predictions, setPredictions] = useState<Record<string, SubstitutionPrediction>>({});
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
@@ -139,7 +141,7 @@ export function PitchArena({
   const filledCount = predictionList.length;
 
   return (
-    <div className="flex h-[calc(100vh-128px)] flex-col overflow-hidden lg:flex-row">
+    <div className={cn("flex flex-1 flex-col overflow-hidden lg:flex-row", className)}>
       {/* Left: Bench Deck */}
       <aside className="hidden w-72 flex-col border-r border-surface bg-surface/20 p-4 lg:flex">
         <div className="mb-4 border-b border-surface pb-3">
