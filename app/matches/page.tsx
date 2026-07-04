@@ -14,12 +14,12 @@ import { EnterButton } from "../_components/enter-button";
 import {
   getMatches,
   formatUsdc,
+  SOCCIT_SEED_MATCH_PDA,
   type MatchSummary,
 } from "../_lib/api";
 import { cn } from "../_lib/utils";
 
 const FWC_BANNER_BG = "/assets/events/fwc-banner-bg.webp";
-const FWC_LOGO_BLACK = "/assets/events/fwc-logo-black.svg";
 const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
 const UCL_BANNER_BG = "/assets/events/ucl-banner-bg.webp";
 const UCL_LOGO_WHITE = "/assets/events/ucl-logo-white.svg";
@@ -31,6 +31,47 @@ const FILTERS = [
   { key: "RESOLVED", label: "Resolved" },
   { key: "SETTLED", label: "Settled" },
 ] as const;
+
+const DEMO_PDA = "demo";
+
+const DEMO_MATCHES: MatchSummary[] = [
+  {
+    pda: SOCCIT_SEED_MATCH_PDA,
+    fixtureId: 900001,
+    onchain: {
+      status: 0,
+      statusLabel: "OPEN",
+      settled: false,
+      entryFee: "5000000",
+      poolTotal: "5000000",
+      participantCount: 1,
+      team1Id: 101,
+      team2Id: 202,
+      usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+      winners: [null, null, null],
+    },
+    live: { statusId: 1, minute: 34, goals: { team1: 1, team2: 0 }, ts: Date.now() },
+    teamNames: { team1: "Soccit FC", team2: "Devnet United" },
+  },
+  {
+    pda: DEMO_PDA,
+    fixtureId: 999999,
+    onchain: {
+      status: 0,
+      statusLabel: "OPEN",
+      settled: false,
+      entryFee: "1000000",
+      poolTotal: "2500000",
+      participantCount: 2,
+      team1Id: 1,
+      team2Id: 2,
+      usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+      winners: [null, null, null],
+    },
+    live: null,
+    teamNames: { team1: "Demo City", team2: "Practice Town" },
+  },
+];
 
 type FilterKey = (typeof FILTERS)[number]["key"];
 
@@ -67,7 +108,7 @@ function getCountryCode(name: string): string | null {
 }
 
 const MAGNETIC_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
-const TRANSITION_DURATION = 0.7;
+const TRANSITION_DURATION = 0.5;
 
 export default function MatchEvents() {
   const [matches, setMatches] = useState<MatchSummary[] | null>(null);
@@ -95,6 +136,11 @@ export default function MatchEvents() {
     }
   }
 
+  function loadDemoMatches() {
+    setError(null);
+    setMatches(DEMO_MATCHES);
+  }
+
   useEffect(() => {
     loadMatches();
   }, []);
@@ -109,7 +155,7 @@ export default function MatchEvents() {
   }, [matches, filter]);
 
   const totalMatchPages = useMemo(
-    () => Math.max(1, Math.ceil(filteredMatches.length / 3)),
+    () => Math.max(1, filteredMatches.length - 3),
     [filteredMatches]
   );
 
@@ -175,8 +221,8 @@ export default function MatchEvents() {
   }
 
   const currentMatches = useMemo(() => {
-    const start = pageIndex * 3;
-    return filteredMatches.slice(start, start + 3);
+    const start = pageIndex;
+    return filteredMatches.slice(start, start + 4);
   }, [filteredMatches, pageIndex]);
 
   const previewMatch = filteredMatches[0];
@@ -188,17 +234,22 @@ export default function MatchEvents() {
       </Suspense>
     <PageShell>
       <div
-        className="relative flex-1 overflow-hidden"
+        className="relative -mt-6 flex-1 overflow-hidden"
         onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {loading ? (
-          <LoadingState />
+          <LoadingSpinner />
         ) : error ? (
-          <ErrorState error={error} onRetry={loadMatches} loading={loading} />
+          <ErrorState error={error} onRetry={loadMatches} onDemo={loadDemoMatches} loading={loading} />
         ) : (
-          <>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: MAGNETIC_EASE }}
+            className="h-full"
+          >
             {/* Featured banner */}
             <motion.div
               animate={{
@@ -213,26 +264,26 @@ export default function MatchEvents() {
 
             {/* Filter tabs */}
             <motion.div
+              initial={false}
               animate={{
-                y: mode === "featured" ? 320 : 0,
+                y: mode === "featured" ? 292 : 0,
               }}
               transition={{ duration: TRANSITION_DURATION, ease: MAGNETIC_EASE }}
-              className="absolute inset-x-0 top-[72px] z-20 px-8 lg:px-8"
+              className="absolute inset-x-0 top-[8px] z-20 border-b border-surface"
             >
-              <div className="flex flex-wrap gap-2 border-b border-surface pb-4">
+              <div className="flex flex-nowrap gap-2 overflow-x-auto px-6 pb-3 lg:px-6">
                 {FILTERS.map((f) => (
                   <button
                     key={f.key}
                     onClick={() => {
                       setFilter(f.key);
-                      setMode("featured");
                       setPageIndex(0);
                     }}
                     className={cn(
-                      "px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all",
+                      "flex-1 whitespace-nowrap px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all sm:text-xs",
                       filter === f.key
-                        ? "border border-cyan bg-cyan/5 text-cyan"
-                        : "border border-transparent text-muted hover:border-surface hover:text-foreground"
+                        ? "border border-purple bg-purple text-white"
+                        : "border border-transparent text-muted hover:border-purple hover:bg-purple hover:text-white"
                     )}
                   >
                     {f.label}
@@ -241,69 +292,77 @@ export default function MatchEvents() {
               </div>
             </motion.div>
 
-            {/* Featured mode content: preview match + grid line */}
+            {/* Featured mode content: preview match */}
             <AnimatePresence initial={false} mode="wait">
-              {mode === "featured" && (
+              {mode === "featured" && previewMatch && (
                 <motion.div
                   key="featured-content"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 40 }}
                   transition={{ duration: 0.4, ease: MAGNETIC_EASE }}
-                  className="absolute inset-x-0 top-[400px] px-8 lg:px-8"
+                  className="absolute inset-x-0 top-[370px]"
                 >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="font-display text-xl tracking-wide text-foreground">All Matches</h2>
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted">
-                      {filteredMatches.length} result{filteredMatches.length !== 1 ? "s" : ""}
-                    </span>
+                  <div className="px-6 lg:px-6">
+                    <MatchCard match={previewMatch} />
                   </div>
-                  {previewMatch ? (
-                    <>
-                      <MatchCard match={previewMatch} />
-                      <div className="mt-6 h-px w-full bg-surface" />
-                    </>
-                  ) : (
-                    <EmptyMarketState filter={filter} />
-                  )}
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Matches mode content: 3 matches per page */}
-            <AnimatePresence initial={false} mode="wait">
-              {mode === "matches" && (
+            {/* Matches mode content: 4 visible cards, scroll shifts by 1 */}
+            <AnimatePresence initial={false} mode="popLayout">
+              {mode === "matches" && currentMatches.length > 0 && (
                 <motion.div
-                  key={`matches-${pageIndex}`}
-                  initial={{ opacity: 0, y: direction > 0 ? 80 : -80 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: direction > 0 ? -80 : 80 }}
+                  key="matches-list"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   transition={{ duration: TRANSITION_DURATION, ease: MAGNETIC_EASE }}
-                  className="absolute inset-x-0 top-[140px] px-8 lg:px-8"
+                  className="absolute inset-x-0 top-[80px]"
                 >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="font-display text-xl tracking-wide text-foreground">All Matches</h2>
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted">
-                      Page {pageIndex + 1} / {totalMatchPages}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3 px-6 lg:px-6">
                     {currentMatches.map((match) => (
-                      <MatchCard key={match.pda} match={match} />
+                      <motion.div
+                        key={match.pda}
+                        layout
+                        layoutId={match.pda}
+                        initial={{
+                          opacity: 0,
+                          y: direction > 0 ? 60 : -60,
+                        }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{
+                          opacity: 0,
+                          y: direction > 0 ? -60 : 60,
+                        }}
+                        transition={{ duration: 0.35, ease: MAGNETIC_EASE }}
+                      >
+                        <MatchCard match={match} />
+                      </motion.div>
                     ))}
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
+            {/* Empty market state: visible in both modes when no matches */}
+            {!previewMatch && (
+              <div className="absolute inset-x-0 top-[100px]">
+                <div className="px-6 lg:px-6">
+                  <EmptyMarketState filter={filter} />
+                </div>
+              </div>
+            )}
+
             {/* Scroll hint */}
             <motion.div
               animate={{ opacity: mode === "featured" && filteredMatches.length > 1 ? 1 : 0 }}
               className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 text-center text-[10px] font-bold uppercase tracking-widest text-muted"
             >
-              Scroll to explore matches
+              Scroll to explore match
             </motion.div>
-          </>
+          </motion.div>
         )}
       </div>
     </PageShell>
@@ -315,43 +374,46 @@ const EVENTS = [
   {
     id: "fwc2026",
     label: "Predict World Cup 2026 Bracket",
-    href: "/matches/events",
+    href: "/matches/events/worldcup",
     bg: FWC_BANNER_BG,
-    logoBlack: FWC_LOGO_BLACK,
-    logoWhite: FWC_LOGO_WHITE,
+    logo: FWC_LOGO_WHITE,
   },
   {
     id: "ucl",
     label: "UEFA Champions League",
-    href: "/matches/events",
+    href: "/matches/events/ucl",
     bg: UCL_BANNER_BG,
-    logoWhite: UCL_LOGO_WHITE,
+    logo: UCL_LOGO_WHITE,
   },
 ];
 
 function FeaturedBanner() {
   const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
+    if (paused) return;
     const timer = setInterval(() => {
       setActive((prev) => (prev + 1) % EVENTS.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, []);
+  }, [paused]);
 
   const event = EVENTS[active];
 
   return (
     <Link
       href={event.href}
-      className="group relative flex min-h-[280px] flex-col items-center justify-center overflow-hidden border-b border-surface p-6 text-center transition-all hover:opacity-95 sm:min-h-[320px]"
+      className="group relative flex min-h-[260px] flex-col items-center justify-center overflow-hidden border-b border-surface p-6 text-center transition-all sm:min-h-[300px]"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
     >
       {/* Background */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-700 group-hover:scale-105"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700 group-hover:scale-105 group-hover:brightness-110"
         style={{ backgroundImage: `url('${event.bg}')` }}
       />
-      <div className="absolute inset-0 bg-slate-950/60 transition-colors duration-500 group-hover:bg-slate-950/50" />
+      <div className="absolute inset-0 bg-slate-950/50 transition-colors duration-500 group-hover:bg-slate-950/40" />
 
       {/* EVENTS flag */}
       <div className="absolute left-6 top-6 z-20">
@@ -362,33 +424,16 @@ function FeaturedBanner() {
 
       {/* Logo */}
       <div className="relative z-10 mb-5 h-20 w-20 sm:h-24 sm:w-24">
-        {event.logoBlack ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={event.logoBlack}
-              alt={event.label}
-              className="absolute inset-0 h-full w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={event.logoWhite}
-              alt={event.label}
-              className="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-            />
-          </>
-        ) : (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={event.logoWhite}
-            alt={event.label}
-            className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
-          />
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={event.logo}
+          alt={event.label}
+          className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
+        />
       </div>
 
       {/* Title */}
-      <h2 className="font-wc relative z-10 max-w-2xl text-2xl text-white transition-all duration-500 group-hover:scale-105 sm:text-3xl md:text-4xl">
+      <h2 className="font-wc relative z-10 max-w-2xl text-2xl text-white transition-transform duration-500 group-hover:scale-105 sm:text-3xl md:text-4xl">
         {event.label}
       </h2>
 
@@ -421,24 +466,18 @@ function FeaturedBanner() {
   );
 }
 
-function LoadingState() {
+function LoadingSpinner() {
   return (
-    <div className="flex h-full w-full animate-pulse flex-col items-center justify-center border border-surface bg-surface/30 p-6">
-      <div className="mb-1 h-8 w-64 bg-surface" />
-      <div className="mb-8 h-3 w-40 bg-surface" />
-      <div className="mb-8 grid w-full max-w-2xl grid-cols-[1fr_auto_1fr] items-center gap-4">
-        <div className="flex items-center justify-end gap-3">
-          <div className="h-4 w-20 bg-surface" />
-          <div className="h-14 w-14 bg-surface sm:h-16 sm:w-16" />
-        </div>
-        <div className="h-10 w-12 bg-surface" />
-        <div className="flex items-center justify-start gap-3">
-          <div className="h-14 w-14 bg-surface sm:h-16 sm:w-16" />
-          <div className="h-4 w-20 bg-surface" />
-        </div>
+    <div className="flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
+      <div className="font-tech text-xs font-bold uppercase tracking-[0.2em] text-muted">
+        Loading Markets
       </div>
-      <div className="mb-5 h-3 w-60 bg-surface" />
-      <div className="h-12 w-40 bg-surface" />
+      <div className="relative h-3 w-full max-w-xs overflow-hidden border border-surface bg-surface/30">
+        <div className="loading-bar-fill absolute inset-y-0 left-0 bg-purple" />
+      </div>
+      <div className="font-tech text-[10px] uppercase tracking-widest text-muted/60">
+        Please wait
+      </div>
     </div>
   );
 }
@@ -446,10 +485,12 @@ function LoadingState() {
 function ErrorState({
   error,
   onRetry,
+  onDemo,
   loading,
 }: {
   error: string;
   onRetry: () => void;
+  onDemo: () => void;
   loading: boolean;
 }) {
   return (
@@ -457,13 +498,21 @@ function ErrorState({
       <AlertCircle size={36} className="mb-4" />
       <p className="font-bold uppercase tracking-wider">Market data unavailable</p>
       <p className="mt-2 text-sm">{error}</p>
-      <button
-        onClick={onRetry}
-        className="mt-6 flex items-center gap-2 border border-rose/30 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-rose/10"
-      >
-        <Loader2 size={14} className={cn(loading && "animate-spin")} />
-        Retry
-      </button>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <button
+          onClick={onRetry}
+          className="flex items-center gap-2 border border-rose/30 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-rose/10"
+        >
+          <Loader2 size={14} className={cn(loading && "animate-spin")} />
+          Retry
+        </button>
+        <button
+          onClick={onDemo}
+          className="flex items-center gap-2 border border-cyan/30 px-6 py-3 text-xs font-bold uppercase tracking-wider text-cyan transition-colors hover:bg-cyan/10"
+        >
+          Load Demo Markets
+        </button>
+      </div>
     </div>
   );
 }
@@ -479,77 +528,66 @@ function MatchCard({ match }: { match: MatchSummary }) {
   return (
     <Link
       href={`/matches/${match.pda}`}
-      className="group relative flex flex-col gap-6 border border-surface bg-surface/40 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface/70 hover:shadow-[0_12px_30px_-12px_rgba(15,23,42,0.08)] sm:flex-row sm:items-center"
+      className="group relative flex flex-col gap-2 border border-surface bg-surface/40 p-3 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple hover:bg-purple"
     >
       <div className="card-shine" />
 
-      {/* Match info */}
-      <div className="relative z-10 flex flex-1 flex-col gap-3 pl-2">
+      {/* Top row: status + pool */}
+      <div className="relative z-10 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isLive ? (
             <>
-              <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />
-              <span className="text-xs font-bold uppercase tracking-wider text-rose">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-rose group-hover:bg-white" />
+              <span className="text-xs font-bold uppercase tracking-wider text-rose group-hover:text-white">
                 {minute}&apos; Live
               </span>
             </>
           ) : status === "OPEN" ? (
-            <span className="text-xs font-bold uppercase tracking-wider text-cyan">
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan group-hover:text-white">
               Open for Predictions
             </span>
           ) : (
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted group-hover:text-white/80">
               {status}
             </span>
           )}
         </div>
+        <span className="font-mono text-xs font-bold text-cyan group-hover:text-white">
+          Pool ${formatUsdc(match.onchain.poolTotal)}
+        </span>
+      </div>
 
-        <div className="flex flex-col gap-2 font-display text-2xl">
-          <div className="flex items-center gap-3">
-            <TeamBadge name={team1} />
-            <span className="text-foreground">{team1}</span>
-            <span className="ml-auto text-cyan">{score.team1}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <TeamBadge name={team2} />
-            <span className={cn(isLive ? "text-foreground" : "text-muted")}>
-              {team2}
-            </span>
-            <span className={cn("ml-auto", isLive ? "text-cyan" : "text-muted")}>
-              {score.team2}
-            </span>
-          </div>
+      {/* Teams */}
+      <div className="relative z-10 flex flex-col gap-1 font-display text-xl">
+        <div className="flex items-center gap-3">
+          <TeamBadge name={team1} />
+          <span className="flex-1 text-foreground group-hover:text-white">{team1}</span>
+          <span className="text-cyan group-hover:text-white">{score.team1}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <TeamBadge name={team2} />
+          <span className={cn("flex-1", isLive ? "text-foreground group-hover:text-white" : "text-muted group-hover:text-white/80")}>
+            {team2}
+          </span>
+          <span className={cn("group-hover:text-white", isLive ? "text-cyan" : "text-muted")}>
+            {score.team2}
+          </span>
         </div>
       </div>
 
-      {/* Market snapshot */}
-      <div className="relative z-10 flex w-full flex-col gap-3 border-t border-surface bg-background/50 p-4 sm:w-64 sm:border-l sm:border-t-0">
-        <div className="flex items-center justify-between text-xs uppercase">
-          <span className="text-muted">Entry</span>
-          <span className="font-mono font-bold text-foreground">
-            ${formatUsdc(match.onchain.entryFee)}
+      {/* Bottom row: entry + players + sub market */}
+      <div className="relative z-10 flex items-center justify-between border-t border-surface pt-2 group-hover:border-white/20">
+        <div className="flex items-center gap-4 text-[10px] uppercase sm:text-xs">
+          <span className="text-muted group-hover:text-white/80">
+            Entry <strong className="ml-1 text-foreground group-hover:text-white">${formatUsdc(match.onchain.entryFee)}</strong>
+          </span>
+          <span className="text-muted group-hover:text-white/80">
+            Players <strong className="ml-1 text-foreground group-hover:text-white">{match.onchain.participantCount}</strong>
           </span>
         </div>
-        <div className="flex items-center justify-between text-xs uppercase">
-          <span className="text-muted">Pool</span>
-          <span className="font-mono font-bold text-cyan">
-            ${formatUsdc(match.onchain.poolTotal)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-xs uppercase">
-          <span className="text-muted">Players</span>
-          <span className="font-mono font-bold text-foreground">
-            {match.onchain.participantCount}
-          </span>
-        </div>
-        <div className="mt-1 flex items-center justify-between border-t border-surface pt-3">
-          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-cyan">
-            Sub Market
-          </span>
-          <span className="pointer-events-none">
-            <EnterButton className="px-4 py-2 text-[10px]" />
-          </span>
-        </div>
+        <span className="pointer-events-none">
+          <EnterButton className="px-3 py-1.5 text-[10px] group-hover:bg-none group-hover:bg-white group-hover:text-purple" />
+        </span>
       </div>
     </Link>
   );

@@ -15,12 +15,25 @@ const FLIP_DURATION = 1400;    // tile flip center-out
 
 export type TransitionMode = "enter" | "exit";
 
-interface WorldCupTransitionProps {
+interface EventsTransitionProps {
   mode: TransitionMode;
+  logoEnter?: string;
+  logoExit?: string;
+  titleEnter?: string;
+  titleExit?: string;
+  subtitleExit?: string;
   onComplete?: () => void;
 }
 
-export function WorldCupTransition({ mode, onComplete }: WorldCupTransitionProps) {
+export function EventsTransition({
+  mode,
+  logoEnter,
+  logoExit,
+  titleEnter,
+  titleExit,
+  subtitleExit,
+  onComplete,
+}: EventsTransitionProps) {
   const [phase, setPhase] = useState<"loading" | "fading" | "flipping" | "done">("loading");
   const [progress, setProgress] = useState(0);
   const [mounted, setMounted] = useState(false);
@@ -78,9 +91,13 @@ export function WorldCupTransition({ mode, onComplete }: WorldCupTransitionProps
   const mutedClass = isEnter ? "text-muted" : "text-white/60";
   const surfaceClass = isEnter ? "bg-surface" : "bg-white/20";
   const barClass = isEnter ? "bg-foreground" : "bg-white";
-  const logo = isEnter ? FWC_LOGO_BLACK : FWC_LOGO_WHITE;
-  const title = isEnter ? "World Cup 2026" : "See You";
-  const subtitle = isEnter ? undefined : "World Cup 2026";
+  const logoSrc = isEnter
+    ? (logoEnter ?? FWC_LOGO_BLACK)
+    : (logoExit ?? FWC_LOGO_WHITE);
+  const titleText = isEnter
+    ? (titleEnter ?? "World Cup 2026")
+    : (titleExit ?? "See You");
+  const subtitleText = isEnter ? undefined : (subtitleExit ?? "World Cup 2026");
 
   const content = (
     <div className="fixed inset-0 z-[9999] overflow-hidden">
@@ -141,14 +158,14 @@ export function WorldCupTransition({ mode, onComplete }: WorldCupTransitionProps
       >
         <div className="mb-6 h-24 w-24 sm:h-32 sm:w-32">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logo} alt="World Cup 2026" className="h-full w-full object-contain" />
+          <img src={logoSrc} alt={titleText} className="h-full w-full object-contain" />
         </div>
         <h2 className={`font-wc text-center text-4xl ${textClass} sm:text-5xl md:text-6xl`}>
-          {title}
+          {titleText}
         </h2>
-        {subtitle && (
+        {subtitleText && (
           <h3 className={`font-wc mt-1 text-center text-2xl ${textClass} sm:text-3xl`}>
-            {subtitle}
+            {subtitleText}
           </h3>
         )}
 

@@ -10,14 +10,20 @@ import {
   ArrowLeft,
   CheckCircle2,
   ExternalLink,
+  Target,
+  BarChart3,
+  Users,
 } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
 import { PitchArena, type SubstitutionPrediction } from "../../../_components/pitch-arena";
+import { ScorePredictionPanel } from "../../../_components/score-prediction-panel";
+import { GoalscorerPanel } from "../../../_components/goalscorer-panel";
+import { TeamPickerModal } from "../../../_components/team-picker-modal";
+import { LockCelebration } from "../../../_components/lock-celebration";
 import {
   getMatch,
   getLineup,
   isValidPda,
-  formatUsdc,
   SOCCIT_SEED_FIXTURE_ID,
   SOCCIT_SEED_MATCH_PDA,
   SOCCIT_USDC_MINT,
@@ -25,16 +31,11 @@ import {
   type Lineup,
 } from "../../../_lib/api";
 import { submitPrediction } from "../../../_lib/prediction";
+import { cn } from "../../../_lib/utils";
 
 const DEMO_PDA = "demo";
-
 const DEVNET_EXPLORER = "https://explorer.solana.com/tx";
 
-// Seed match is the single live (on-chain) Devnet fixture that the backend's
-// `/api/prediction/prepare` accepts. The backend *read* endpoints return 404
-// for it (nothing ingested), so we render this minimal MatchState from the
-// prepare/on-chain probe so the Arena is usable for real submissions. The
-// lineup is the standard demo shape (no ingested lineup exists on the server).
 const SEED_MATCH: MatchState = {
   fixtureId: SOCCIT_SEED_FIXTURE_ID,
   onchain: {
@@ -132,23 +133,35 @@ const DEMO_LINEUP: Lineup = {
   names: {},
 };
 
+type ArenaModel = "sub" | "score" | "goalscorer";
+
+const MODEL_META: Record<ArenaModel, { title: string; icon: React.ReactNode; color: string }> = {
+  sub: { title: "Substitute Manager", icon: <Target size={16} />, color: "text-purple" },
+  score: { title: "Final Score", icon: <BarChart3 size={16} />, color: "text-cyan" },
+  goalscorer: { title: "Goalscorer", icon: <Users size={16} />, color: "text-muted" },
+};
+
 export default function ArenaPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { connection } = useConnection();
   const { connected, publicKey, wallet } = useWallet();
+
   const rawPda = params.pda as string;
   const isDemo = rawPda === DEMO_PDA;
-  // The seed match is the single live (on-chain) Devnet fixture. Its backend
-  // reads 404, so we render the mock SEED_MATCH/DEMO_LINEUP instead of fetching.
   const isSeed = rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
   const pda = isDemo ? DEMO_PDA : rawPda;
+  const modelParam = searchParams.get("model");
+  const model: ArenaModel = ["sub", "score", "goalscorer"].includes(modelParam ?? "")
+    ? (modelParam as ArenaModel)
+    : "sub";
+
   const sideParam = searchParams.get("side");
+  const sideSelected = sideParam === "1" || sideParam === "2";
   const side: 1 | 2 = sideParam === "2" ? 2 : 1;
   const fixtureId = Number(
-    searchParams.get("fixtureId") ??
-      (isSeed ? SOCCIT_SEED_FIXTURE_ID : Number.NaN)
+    searchParams.get("fixtureId") ?? (isSeed ? SOCCIT_SEED_FIXTURE_ID : Number.NaN)
   );
 
   const [match, setMatch] = useState<MatchState | null>(() =>
@@ -164,6 +177,15 @@ export default function ArenaPage() {
   const [lockMessage, setLockMessage] = useState<string | null>(null);
   const [lockError, setLockError] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<string[]>([]);
+  const [celebrating, setCelebrating] = useState(false);
+  const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
+
+  function handleTeamSelected(selectedSide: 1 | 2) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("side", String(selectedSide));
+    router.replace(`/matches/${pda}/arena?${params.toString()}`);
+    setShowTeamPicker(false);
+  }
 
   useEffect(() => {
     if (isDemo || isSeed) return;
@@ -190,32 +212,36 @@ export default function ArenaPage() {
     }
   }
 
-  // Real prediction submission flow:
-  //   prepare (backend) → wallet sign → connection.sendRawTransaction (Devnet)
-  // Only the seed match currently has a live on-chain fixture the backend can
-  // prepare against. Demo mode mocks success. Other PDAs cannot submit (no
-  // fixtureId resolved from the backend reads).
-  async function handleLock(predictions: SubstitutionPrediction[]) {
+  async function handleSubmit(input: {
+    kind: 0 | 1 | 2 | 3;
+    side: 0 | 1 | 2;
+    outPlayerId: number;
+    inPlayerId: number;
+    label: string;
+  }) {
     setLocked(true);
     setLockError(null);
     setSignatures([]);
+    setLockMessage(`Locking ${input.label}…`);
 
-    // Demo: no on-chain submit.
     if (isDemo) {
       setLockMessage("Demo prediction locked locally. No on-chain transaction.");
+      setCelebrating(true);
       return;
     }
 
-    // Seed/real submit requires a connected wallet.
     if (!isSeed) {
       setLockError("No fixture loaded that supports on-chain submission.");
+      setLocked(false);
       return;
     }
+
     if (!connected || !publicKey || !wallet) {
       setLocked(false);
-      setLockError("Connect your wallet to submit a real prediction on Devnet.");
+      setLockError("Connect your wallet to submit a real prediction.");
       return;
     }
+
     if (Number.isNaN(fixtureId)) {
       setLocked(false);
       setLockError("Could not resolve fixtureId for this match.");
@@ -223,45 +249,32 @@ export default function ArenaPage() {
     }
 
     setSubmitting(true);
-    setLockMessage(`Preparing ${predictions.length} prediction(s)…`);
     const walletBase58 = publicKey.toBase58();
 
     try {
-      const sigs: string[] = [];
-      for (let i = 0; i < predictions.length; i++) {
-        const p = predictions[i];
-        setLockMessage(
-          `Submitting ${i + 1}/${predictions.length}: ${outName(
-            p
-          )} → ${inName(p)}`
-        );
-        const result = await submitPrediction({
-          connection,
-          adapter: wallet.adapter,
-          input: {
-            wallet: walletBase58,
-            fixtureId,
-            outPlayerId: p.outPlayerId,
-            inPlayerId: p.inPlayerId,
-            lockMinute: 0,
-            slotIndex: i,
-            side: p.side,
-            kind: 2, // COMBO (out + in) — the substitute-prediction model
-          },
-        });
-        sigs.push(result.signature);
-        setSignatures([...sigs]);
-      }
-      setLockMessage(
-        `Locked ${sigs.length} prediction(s) on Devnet. Signatures:`
-      );
+      const result = await submitPrediction({
+        connection,
+        adapter: wallet.adapter,
+        input: {
+          wallet: walletBase58,
+          fixtureId,
+          outPlayerId: input.outPlayerId,
+          inPlayerId: input.inPlayerId,
+          lockMinute: match?.live?.minute ?? 0,
+          side: input.side,
+          kind: input.kind,
+        },
+      });
+      setSignatures((prev) => [...prev, result.signature]);
+      setLockMessage(`${input.label} locked on Devnet.`);
+      setCelebrating(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submission failed.";
       setLocked(false);
       setLockError(
         `${msg}${
           /insufficient funds|0x1|custom program error/i.test(msg)
-            ? " — your wallet may need the Soccit mock USDC (mint 2SJt…) to pay the $5 entry fee."
+            ? " — your wallet may need the Soccit mock USDC to pay the entry fee."
             : ""
         }`
       );
@@ -270,18 +283,40 @@ export default function ArenaPage() {
     }
   }
 
-  function outName(p: SubstitutionPrediction): string {
-    return `#${p.outPlayerId}`;
+  async function handleLockSubstitutions(predictions: SubstitutionPrediction[]) {
+    setSignatures([]);
+    for (let i = 0; i < predictions.length; i++) {
+      const p = predictions[i];
+      await handleSubmit({
+        kind: 2,
+        side: p.side,
+        outPlayerId: p.outPlayerId,
+        inPlayerId: p.inPlayerId,
+        label: `${p.position} swap (${i + 1}/${predictions.length})`,
+      });
+    }
   }
-  function inName(p: SubstitutionPrediction): string {
-    return `#${p.inPlayerId}`;
+
+  function handleLockScore(score1: number, score2: number) {
+    return handleSubmit({
+      kind: 3,
+      side: 0,
+      outPlayerId: score1,
+      inPlayerId: score2,
+      label: `score ${score1}-${score2}`,
+    });
   }
 
   if (loading) {
     return (
       <PageShell>
-        <div className="flex flex-1 items-center justify-center">
-          <Loader2 className="animate-spin text-purple" size={32} />
+        <div className="flex h-full flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
+          <div className="font-tech text-xs font-bold uppercase tracking-[0.2em] text-muted">
+            Loading Arena
+          </div>
+          <div className="relative h-3 w-full max-w-xs overflow-hidden border border-surface bg-surface/30">
+            <div className="loading-bar-fill absolute inset-y-0 left-0 bg-purple" />
+          </div>
         </div>
       </PageShell>
     );
@@ -305,45 +340,15 @@ export default function ArenaPage() {
     );
   }
 
-  const team = lineup.teams.find((t) => t.side === side);
-  if (!team) {
-    return (
-      <PageShell>
-        <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
-          <AlertCircle className="mb-4 text-rose" size={48} />
-          <h2 className="font-display text-2xl text-foreground">Team Not Found</h2>
-          <p className="mt-2 text-muted">Selected side has no lineup data.</p>
-        </div>
-      </PageShell>
-    );
-  }
-
-  const starters = team.players
-    .filter((p) => p.starter)
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      number: p.number,
-      position: p.position,
-      rating: p.positionId ? 75 + p.positionId * 2 : 78,
-      side,
-    }));
-
-  const substitutes = team.players
-    .filter((p) => !p.starter)
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      number: p.number,
-      position: p.position,
-      rating: p.positionId ? 72 + p.positionId * 2 : 75,
-      side,
-    }));
+  const meta = MODEL_META[model];
+  const team1 = lineup.teams.find((t) => t.side === 1);
+  const team2 = lineup.teams.find((t) => t.side === 2);
+  const selectedTeam = lineup.teams.find((t) => t.side === side);
 
   return (
     <PageShell>
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Arena header */}
+        {/* Header */}
         <div className="mb-3 flex items-center justify-between">
           <button
             onClick={() => router.push(`/matches/${pda}`)}
@@ -352,23 +357,25 @@ export default function ArenaPage() {
             <ArrowLeft size={14} />
             Back to Match
           </button>
-          {isDemo ? (
-            <span className="text-xs font-bold uppercase tracking-wider text-gold">Demo Mode</span>
-          ) : isSeed ? (
-            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan" />
-              Live Seed · Devnet · Fixture {fixtureId}
+          <div className="flex items-center gap-3">
+            <span className={cn("flex items-center gap-2 text-xs font-bold uppercase tracking-wider", meta.color)}>
+              {meta.icon}
+              {meta.title}
             </span>
-          ) : null}
+            {isDemo ? (
+              <span className="text-xs font-bold uppercase tracking-wider text-gold">Demo Mode</span>
+            ) : isSeed ? (
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-cyan" />
+                Live Seed
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        {/* Seed submit requires a wallet holding Soccit mock USDC. */}
-        {isSeed && !isDemo && !connected && (
+        {!isDemo && !connected && (
           <div className="mb-3 border border-gold/30 bg-gold/5 px-4 py-3 text-center text-sm text-gold">
-            Connect your Devnet wallet to submit a real on-chain prediction. The
-            wallet must hold the Soccit mock USDC (mint{" "}
-            <span className="font-mono">{SOCCIT_USDC_MINT.slice(0, 6)}…</span>)
-            to pay the ${formatUsdc(match.onchain?.entryFee ?? "0")} entry fee.
+            Connect your wallet to submit real predictions. Demo mode skips the chain.
           </div>
         )}
 
@@ -390,7 +397,7 @@ export default function ArenaPage() {
           <div className="mb-3 border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600">
               <CheckCircle2 size={16} />
-              {lockMessage ?? `${signatures.length} prediction(s) locked on Devnet`}
+              {lockMessage ?? `${signatures.length} prediction(s) locked`}
             </div>
             <ul className="mt-2 space-y-1">
               {signatures.map((sig) => (
@@ -416,20 +423,94 @@ export default function ArenaPage() {
           </div>
         )}
 
-        <PitchArena
-          matchPda={pda}
-          teamName={team.teamName ?? `Team ${side}`}
-          side={side}
-          score={match.live?.goals ?? { team1: 0, team2: 0 }}
-          minute={match.live?.minute ?? 0}
-          isLive={match.live?.statusId === 1}
-          starters={starters}
-          substitutes={substitutes}
-          onLock={handleLock}
-          locked={locked}
-          className="min-h-0"
-        />
+        {model === "sub" && selectedTeam && sideSelected && (
+          <PitchArena
+            matchPda={pda}
+            teamName={selectedTeam.teamName ?? `Team ${side}`}
+            side={side}
+            score={match.live?.goals ?? { team1: 0, team2: 0 }}
+            minute={match.live?.minute ?? 0}
+            isLive={match.live?.statusId === 1}
+            starters={selectedTeam.players
+              .filter((p) => p.starter)
+              .map((p) => ({
+                id: p.id,
+                name: p.name,
+                number: p.number,
+                position: p.position,
+                rating: p.positionId ? 75 + p.positionId * 2 : 78,
+                side,
+              }))}
+            substitutes={selectedTeam.players
+              .filter((p) => !p.starter)
+              .map((p) => ({
+                id: p.id,
+                name: p.name,
+                number: p.number,
+                position: p.position,
+                rating: p.positionId ? 72 + p.positionId * 2 : 75,
+                side,
+              }))}
+            onLock={handleLockSubstitutions}
+            locked={locked}
+            className="min-h-0"
+          />
+        )}
+
+        {model === "sub" && !sideSelected && !showTeamPicker && (
+          <div className="flex flex-1 flex-col items-center justify-center p-4 text-center">
+            <p className="text-muted">Pick a side to manage.</p>
+          </div>
+        )}
+
+        {model === "score" && (
+          <ScorePredictionPanel
+            team1Name={team1?.teamName ?? "Home"}
+            team2Name={team2?.teamName ?? "Away"}
+            currentScore={match.live?.goals ?? { team1: 0, team2: 0 }}
+            minute={match.live?.minute ?? 0}
+            isLive={match.live?.statusId === 1}
+            onLock={handleLockScore}
+            locked={locked}
+            isSubmitting={submitting}
+          />
+        )}
+
+        {model === "goalscorer" && (
+          <GoalscorerPanel
+            team1Name={team1?.teamName ?? "Home"}
+            team2Name={team2?.teamName ?? "Away"}
+            players={lineup.teams.flatMap((t) =>
+              t.players
+                .filter((p) => p.positionId !== 1)
+                .map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  number: p.number,
+                  position: p.position,
+                  rating: p.positionId ? 75 + p.positionId * 2 : 78,
+                  side: t.side as 1 | 2,
+                }))
+            )}
+          />
+        )}
       </div>
+
+      {showTeamPicker && (
+        <TeamPickerModal
+          team1={team1?.teamName ?? "Team 1"}
+          team2={team2?.teamName ?? "Team 2"}
+          onSelect={handleTeamSelected}
+          onClose={() => router.push(`/matches/${pda}`)}
+        />
+      )}
+
+      <LockCelebration
+        open={celebrating}
+        title="LOCKED IN"
+        subtitle={meta.title}
+        onDone={() => setCelebrating(false)}
+      />
     </PageShell>
   );
 }

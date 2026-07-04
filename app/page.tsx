@@ -25,22 +25,30 @@ export default function StartMenu() {
   return (
     <PageShell>
       <div className="grid auto-rows-min grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
-        <FeaturedMatchTile
-          connected={connected}
-          onRequireWallet={requireWallet}
-        />
-        <PortfolioTile
-          connected={connected}
-          onRequireWallet={requireWallet}
-        />
-        <ExplorerTile
-          connected={connected}
-          onRequireWallet={requireWallet}
-        />
-        <LeaderboardTile
-          connected={connected}
-          onRequireWallet={requireWallet}
-        />
+        <TileWrapper delay={0} className="lg:col-span-3">
+          <FeaturedMatchTile
+            connected={connected}
+            onRequireWallet={requireWallet}
+          />
+        </TileWrapper>
+        <TileWrapper delay={0.05} className="lg:col-span-2">
+          <PortfolioTile
+            connected={connected}
+            onRequireWallet={requireWallet}
+          />
+        </TileWrapper>
+        <TileWrapper delay={0.1} className="lg:col-span-2">
+          <ExplorerTile
+            connected={connected}
+            onRequireWallet={requireWallet}
+          />
+        </TileWrapper>
+        <TileWrapper delay={0.15} className="lg:col-span-3">
+          <LeaderboardTile
+            connected={connected}
+            onRequireWallet={requireWallet}
+          />
+        </TileWrapper>
       </div>
 
       <ConnectWalletModal
@@ -48,6 +56,27 @@ export default function StartMenu() {
         onClose={() => setModalOpen(false)}
       />
     </PageShell>
+  );
+}
+
+function TileWrapper({
+  children,
+  delay,
+  className,
+}: {
+  children: React.ReactNode;
+  delay: number;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -78,9 +107,7 @@ function FeaturedMatchTile({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div
       onClick={goToMatch}
       className="group relative flex min-h-[380px] cursor-pointer flex-col justify-between bg-surface p-8 transition-all hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] lg:col-span-3"
     >
@@ -138,7 +165,7 @@ function FeaturedMatchTile({
           <span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

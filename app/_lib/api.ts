@@ -80,6 +80,23 @@ export type MatchState = {
   updatedAt: number;
 };
 
+export type PredictionKind = 0 | 1 | 2 | 3;
+
+export type PredictionScore = { score1: number; score2: number };
+
+export type LeaderboardPrediction = {
+  kind: PredictionKind;
+  points: number;
+  side: 0 | 1 | 2;
+  outPlayerId: number;
+  inPlayerId: number;
+  players: {
+    out: ResolvedPlayer | null;
+    in: ResolvedPlayer | null;
+  };
+  score: PredictionScore | null;
+};
+
 export type Leaderboard = {
   fixtureId: number;
   updatedAt: number;
@@ -90,17 +107,7 @@ export type Leaderboard = {
     points: number;
     earliestScoringLockMinute: number | null;
     user: null | { username: string; avatar: AvatarId | null };
-    predictions: Array<{
-      kind: 0 | 1 | 2;
-      points: number;
-      side: 1 | 2;
-      outPlayerId: number;
-      inPlayerId: number;
-      players: {
-        out: ResolvedPlayer | null;
-        in: ResolvedPlayer | null;
-      };
-    }>;
+    predictions: LeaderboardPrediction[];
   }>;
 };
 
@@ -142,37 +149,53 @@ export type UserProfile = {
   createdAt: number;
 };
 
+export type UserMatchPrediction = {
+  kind: PredictionKind;
+  points: number;
+  side: 0 | 1 | 2;
+  outPlayerId: number;
+  inPlayerId: number;
+  score: PredictionScore | null;
+};
+
 export type UserMatch = {
   wallet: string;
   fixtureId: number;
   points: number;
   final: boolean;
   rank: number | null;
-  predictions: Array<{
-    kind: 0 | 1 | 2;
-    points: number;
-    side: 1 | 2;
-    outPlayerId: number;
-    inPlayerId: number;
-  }>;
+  predictions: UserMatchPrediction[];
 };
 
 export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${SOCCIT_API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
 
-  const body = await response.json().catch(() => null);
+  try {
+    const response = await fetch(`${SOCCIT_API_BASE_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(body?.error ?? `Request failed with ${response.status}`);
+    clearTimeout(timeout);
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(body?.error ?? `Request failed with ${response.status}`);
+    }
+
+    return body as T;
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Request timed out. The backend may be unreachable.");
+    }
+    throw err;
   }
-
-  return body as T;
 }
 
 export function getMatches() {
@@ -259,17 +282,14 @@ export function createUserProfile(input: {
 // the base64 tx, signs it with the wallet adapter, and submits it client-side
 // via `connection.sendRawTransaction`. There is no `/submit` endpoint.
 
-export type PredictionKind = 0 | 1 | 2; // 0=OUT, 1=IN, 2=COMBO(out+in)
-
 export type PreparePredictionInput = {
   wallet: string;        // base58 signer wallet; becomes tx fee payer
   fixtureId: number;     // from GET /api/matches row.fixtureId
-  outPlayerId: number;   // starter going out (0 when unused)
-  inPlayerId: number;    // sub coming in (0 when unused)
+  outPlayerId: number;   // starter going out (0 when unused) OR team1 goals for kind 3
+  inPlayerId: number;    // sub coming in (0 when unused) OR team2 goals for kind 3
   lockMinute: number;    // match minute the prediction locks at
-  slotIndex: number;     // per-wallet prediction slot (0, 1, 2…)
-  side: 1 | 2;           // 1=home, 2=away
-  kind: PredictionKind;  // 0=OUT, 1=IN, 2=COMBO
+  side: 0 | 1 | 2;       // 1=home, 2=away for sub picks; 0 for score pick
+  kind: PredictionKind;  // 0=OUT, 1=IN, 2=COMBO, 3=SCORE
 };
 
 export type PreparePredictionOutput = {
@@ -404,4 +424,65 @@ export function formatUsdc(lamports: string) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/** Prize pool after 20% platform fee is deducted. */
+export function prizePoolAfterFee(poolTotal: string): number {
+  const n = Number(poolTotal);
+  if (Number.isNaN(n)) return 0;
+  return n * 0.8;
+}
+
+/** Split prize pool among top 3: 50/30/20. Returns USDC base units. */
+export function calculatePrizes(poolTotal: string): {
+  first: number;
+  second: number;
+  third: number;
+  total: number;
+} {
+  const pool = prizePoolAfterFee(poolTotal);
+  return {
+    first: pool * 0.5,
+    second: pool * 0.3,
+    third: pool * 0.2,
+    total: pool,
+  };
+}
+
+export function predictionKindLabel(kind: PredictionKind): string {
+  switch (kind) {
+    case 0:
+      return "Out";
+    case 1:
+      return "In";
+    case 2:
+      return "Combo";
+    case 3:
+      return "Score";
+    default:
+      return "Unknown";
+  }
+}
+
+export function positionCode(position: string | null): "fw" | "md" | "df" | "gk" {
+  if (!position) return "fw";
+  const p = position.toLowerCase();
+  if (p.includes("forward") || p.includes("striker") || p.includes("wing")) return "fw";
+  if (p.includes("midfield") || p.includes("mid")) return "md";
+  if (p.includes("defender") || p.includes("back")) return "df";
+  if (p.includes("goal") || p.includes("keeper")) return "gk";
+  return "fw";
+}
+
+export function playerRarity(rating?: number): "bronze" | "gold" | "iridescent" {
+  const r = rating ?? 75;
+  if (r >= 86) return "iridescent";
+  if (r >= 80) return "gold";
+  return "bronze";
+}
+
+export function tcgCardImage(position: string | null, rating?: number): string {
+  const code = positionCode(position);
+  const rarity = playerRarity(rating);
+  return `/assets/cards/players/${code}-${rarity}.webp`;
 }

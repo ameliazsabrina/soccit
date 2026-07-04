@@ -21,7 +21,7 @@ export function SlideToLock({ onLock, disabled, label = "SLIDE TO LOCK" }: Slide
   const bg = useTransform(
     progress,
     [0, 1],
-    ["rgba(139, 92, 246, 0)", "rgba(139, 92, 246, 1)"]
+    ["rgba(3, 70, 148, 0)", "rgba(3, 70, 148, 1)"]
   );
 
   const measure = useCallback(() => {

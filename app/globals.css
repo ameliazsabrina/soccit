@@ -127,6 +127,17 @@ body {
   100% { transform: rotateY(180deg); }
 }
 
+@keyframes loading-bar {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  70% { width: 85%; }
+  100% { width: 100%; }
+}
+
+.loading-bar-fill {
+  animation: loading-bar 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
 .card-shine {
   position: absolute;
   inset: 0;
@@ -274,6 +285,46 @@ body {
 
 .animate-gradient-shift {
   animation: gradient-shift 4s ease infinite;
+}
+
+/* Slot placement flash */
+@keyframes slot-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(219, 161, 17, 0.8);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(219, 161, 17, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(219, 161, 17, 0);
+  }
+}
+
+.animate-slot-flash {
+  animation: slot-flash 0.55s ease-out;
+}
+
+/* Lock celebration radial burst */
+@keyframes celebration-burst {
+  0% {
+    background: radial-gradient(circle, rgba(3, 70, 148, 0.4) 0%, transparent 0%);
+  }
+  25% {
+    background: radial-gradient(circle, rgba(3, 70, 148, 0.35) 15%, rgba(219, 161, 17, 0.25) 35%, transparent 55%);
+  }
+  50% {
+    background: radial-gradient(circle, rgba(219, 161, 17, 0.3) 25%, rgba(3, 70, 148, 0.2) 50%, transparent 75%);
+  }
+  75% {
+    background: radial-gradient(circle, rgba(219, 161, 17, 0.15) 40%, rgba(3, 70, 148, 0.1) 65%, transparent 90%);
+  }
+  100% {
+    background: radial-gradient(circle, transparent 0%, transparent 100%);
+  }
+}
+
+.celebration-burst {
+  animation: celebration-burst 2.2s ease-out forwards;
 }
 
 /* Reduced motion */

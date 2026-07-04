@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Activity,
   Search,
-  Filter,
   Wifi,
   WifiOff,
   Loader2,
@@ -15,6 +14,10 @@ import {
   ScrollText,
   AlertCircle,
   Clock,
+  Zap,
+  ArrowRightLeft,
+  ShieldAlert,
+  Trophy,
 } from "lucide-react";
 import {
   getMatch,
@@ -30,7 +33,7 @@ import { cn } from "../../../_lib/utils";
 
 const DEMO_PDA = "demo";
 
-export default function DataLogsPage() {
+export default function MatchIntelligencePage() {
   const params = useParams();
   const router = useRouter();
   const rawPda = params.pda as string;
@@ -112,8 +115,7 @@ export default function DataLogsPage() {
         !term ||
         entry.type.toLowerCase().includes(term) ||
         String(entry.players?.in?.name).toLowerCase().includes(term) ||
-        String(entry.players?.out?.name).toLowerCase().includes(term) ||
-        JSON.stringify(entry.payload).toLowerCase().includes(term);
+        String(entry.players?.out?.name).toLowerCase().includes(term);
       return matchesType && matchesSearch;
     });
   }, [events, filter, search]);
@@ -124,8 +126,16 @@ export default function DataLogsPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
-        <div className="flex flex-1 items-center justify-center">
-          <Loader2 className="animate-spin text-purple" size={32} />
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
+          <div className="font-tech text-xs font-bold uppercase tracking-[0.2em] text-muted">
+            Loading Intelligence
+          </div>
+          <div className="relative h-3 w-full max-w-xs overflow-hidden border border-surface bg-surface/30">
+            <div className="loading-bar-fill absolute inset-y-0 left-0 bg-purple" />
+          </div>
+          <div className="font-tech text-[10px] uppercase tracking-widest text-muted/60">
+            Please wait
+          </div>
         </div>
       </div>
     );
@@ -178,12 +188,12 @@ export default function DataLogsPage() {
         </div>
       </div>
 
-      <main className="relative z-10 mx-auto w-full max-w-5xl flex-1 px-4 py-8 lg:px-8">
+      <main className="relative z-10 mx-auto w-full max-w-3xl flex-1 px-4 py-8 lg:px-8">
         <div className="mb-6">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Immutable Log</p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <h1 className="font-display text-3xl tracking-tight text-foreground">
-              Data Logs
+              Match Intelligence
             </h1>
             <span className="font-mono text-xs text-muted">{isDemo ? "DEMO" : pda}</span>
           </div>
@@ -219,24 +229,19 @@ export default function DataLogsPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search events, players, payloads…"
+              placeholder="Search events, players…"
               className="h-10 w-full bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-purple"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter size={16} className="text-muted" />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="h-10 bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan"
-            >
-              <option value="all">All types</option>
-              {eventTypes.map((type) => (
-                <option key={type} value={type}>
-                  {formatType(type)}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
+              All
+            </FilterPill>
+            {eventTypes.map((type) => (
+              <FilterPill key={type} active={filter === type} onClick={() => setFilter(type)}>
+                {formatType(type)}
+              </FilterPill>
+            ))}
           </div>
         </div>
 
@@ -251,16 +256,8 @@ export default function DataLogsPage() {
           </span>
         </div>
 
-        {/* Logs table */}
-        <div className="border border-surface bg-surface/10">
-          <div className="hidden grid-cols-12 gap-4 border-b border-surface bg-surface/30 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-muted sm:grid">
-            <div className="col-span-2">Time</div>
-            <div className="col-span-2">Type</div>
-            <div className="col-span-3">Players</div>
-            <div className="col-span-2">Side</div>
-            <div className="col-span-3">Payload</div>
-          </div>
-
+        {/* Timeline */}
+        <div className="border border-surface bg-surface/10 p-4">
           {filteredEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
               <ScrollText size={36} className="mb-4 opacity-30" />
@@ -272,9 +269,10 @@ export default function DataLogsPage() {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-surface">
+            <div className="relative space-y-0 pl-6">
+              <div className="absolute bottom-0 left-[27px] top-4 w-px bg-surface" />
               {filteredEvents.map((entry) => (
-                <LogRow key={entry.id} entry={entry} />
+                <TimelineRow key={entry.id} entry={entry} />
               ))}
             </div>
           )}
@@ -285,7 +283,32 @@ export default function DataLogsPage() {
   );
 }
 
-function LogRow({ entry }: { entry: EventEntry }) {
+function FilterPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
+        active
+          ? "bg-purple text-white"
+          : "border border-surface bg-background text-muted hover:border-purple hover:text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TimelineRow({ entry }: { entry: EventEntry }) {
+  const meta = getEventMeta(entry.type);
   const minute = (entry.payload as { minute?: number })?.minute ?? null;
   const side = (entry.payload as { side?: 1 | 2 })?.side ?? null;
 
@@ -294,55 +317,58 @@ function LogRow({ entry }: { entry: EventEntry }) {
       layout
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="grid grid-cols-1 gap-2 px-4 py-3 text-sm transition-colors hover:bg-surface/30 sm:grid-cols-12 sm:gap-4"
+      className="relative py-3"
     >
-      <div className="flex items-center gap-2 sm:col-span-2">
-        <span className="text-xs font-mono text-muted">{entry.id}</span>
-        {minute !== null && (
-          <span className="text-xs font-bold text-cyan">{minute}&apos;</span>
+      {minute !== null && (
+        <div className="absolute -left-6 top-3 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center border border-surface bg-background">
+          <span className="text-[10px] font-bold text-cyan">{minute}&apos;</span>
+        </div>
+      )}
+      <div
+        className={cn(
+          "relative overflow-hidden border bg-background/50 p-3 transition-colors hover:bg-surface",
+          meta.borderColor,
+          meta.bgColor
         )}
-      </div>
-      <div className="sm:col-span-2">
-        <span className="inline-flex items-center border border-surface bg-background px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-foreground">
-          {formatType(entry.type)}
-        </span>
-      </div>
-      <div className="sm:col-span-3">
-        {entry.players?.in || entry.players?.out ? (
-          <div className="text-xs">
-            {entry.players?.out && (
-              <p className="text-muted">
-                Out: <span className="text-foreground">{entry.players.out.name}</span>
+      >
+        <div className={cn("absolute left-0 top-0 bottom-0 w-1", meta.barColor)} />
+        <div className="flex items-start gap-3">
+          <div className={cn("flex h-9 w-9 flex-shrink-0 items-center justify-center", meta.iconBg)}>
+            <meta.icon size={18} className={meta.iconColor} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-bold capitalize text-foreground">
+                {formatType(entry.type)}
               </p>
-            )}
-            {entry.players?.in && (
-              <p className="text-muted">
-                In: <span className="text-foreground">{entry.players.in.name}</span>
+              {side && (
+                <span
+                  className={cn(
+                    "text-[10px] font-bold uppercase tracking-wider",
+                    side === 1 ? "text-purple" : "text-cyan"
+                  )}
+                >
+                  {side === 1 ? "Home" : "Away"}
+                </span>
+              )}
+            </div>
+            {(entry.players?.in || entry.players?.out) && (
+              <p className="mt-1 truncate text-xs text-muted">
+                {entry.players?.out && (
+                  <>
+                    <span className="text-foreground">{entry.players.out.name}</span> out
+                  </>
+                )}
+                {entry.players?.in && entry.players?.out && " → "}
+                {entry.players?.in && (
+                  <>
+                    <span className="text-foreground">{entry.players.in.name}</span> in
+                  </>
+                )}
               </p>
             )}
           </div>
-        ) : (
-          <span className="text-xs text-muted">—</span>
-        )}
-      </div>
-      <div className="sm:col-span-2">
-        {side ? (
-          <span
-            className={cn(
-              "text-xs font-bold uppercase",
-              side === 1 ? "text-purple" : "text-cyan"
-            )}
-          >
-            {side === 1 ? "Home" : "Away"}
-          </span>
-        ) : (
-          <span className="text-xs text-muted">—</span>
-        )}
-      </div>
-      <div className="sm:col-span-3">
-        <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted">
-          {JSON.stringify(entry.payload, null, 2)}
-        </pre>
+        </div>
       </div>
     </motion.div>
   );
@@ -388,6 +414,56 @@ function ConnectionBadge({ status }: { status: SseStatus }) {
 
 function formatType(type: string) {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getEventMeta(type: string) {
+  switch (type) {
+    case "goal":
+      return {
+        icon: Zap,
+        iconColor: "text-cyan",
+        iconBg: "bg-cyan/10",
+        barColor: "bg-cyan",
+        borderColor: "border-cyan/30",
+        bgColor: "bg-cyan/5",
+      };
+    case "substitution":
+      return {
+        icon: ArrowRightLeft,
+        iconColor: "text-purple",
+        iconBg: "bg-purple/10",
+        barColor: "bg-purple",
+        borderColor: "border-purple/30",
+        bgColor: "bg-purple/5",
+      };
+    case "yellow_card":
+      return {
+        icon: Activity,
+        iconColor: "text-gold",
+        iconBg: "bg-gold/10",
+        barColor: "bg-gold",
+        borderColor: "border-gold/30",
+        bgColor: "bg-gold/5",
+      };
+    case "red_card":
+      return {
+        icon: ShieldAlert,
+        iconColor: "text-rose",
+        iconBg: "bg-rose/10",
+        barColor: "bg-rose",
+        borderColor: "border-rose/30",
+        bgColor: "bg-rose/5",
+      };
+    default:
+      return {
+        icon: Trophy,
+        iconColor: "text-muted",
+        iconBg: "bg-surface",
+        barColor: "bg-muted",
+        borderColor: "border-surface",
+        bgColor: "bg-background/50",
+      };
+  }
 }
 
 const DEMO_EVENTS: EventEntry[] = [

@@ -103,7 +103,6 @@ export function seedPredictionInput(
     outPlayerId: 0,
     inPlayerId: 0,
     lockMinute: 0,
-    slotIndex: 0,
     side: 1,
     kind: 2,
     ...overrides,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ArrowLeft } from "lucide-react";
 import { ProfileDropdown } from "./profile-dropdown";
@@ -23,8 +23,14 @@ interface TopNavProps {
 export function TopNav({ variant = "default" }: TopNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const params = useParams();
   const { connected } = useWallet();
   const [modalOpen, setModalOpen] = useState(false);
+
+  const eventSlug =
+    pathname.startsWith("/matches/events/") && typeof params.slug === "string"
+      ? params.slug
+      : "worldcup";
 
   useEffect(() => {
     if (modalOpen) {
@@ -43,8 +49,8 @@ export function TopNav({ variant = "default" }: TopNavProps) {
         <nav className="flex flex-wrap items-center gap-2">
           {variant === "worldcup" ? (
             <button
-              onClick={() => router.push("/matches?event_exit=1")}
-              className="flex items-center gap-2 border border-white/10 bg-white/5 px-5 py-2 font-tech text-xs font-bold uppercase tracking-[0.15em] text-white/70 transition-all hover:border-wc-cyan/50 hover:text-white"
+              onClick={() => router.push(`/matches?event_exit=${eventSlug}`)}
+              className="flex items-center gap-2 border border-white/10 bg-white/5 px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] text-white/70 transition-all hover:border-purple hover:bg-purple hover:text-white"
             >
               <ArrowLeft size={14} />
               Back
@@ -60,13 +66,13 @@ export function TopNav({ variant = "default" }: TopNavProps) {
                   key={tab.href}
                   href={tab.href}
                   className={cn(
-                    "border px-5 py-2 font-tech text-xs font-bold uppercase tracking-[0.15em] transition-all",
+                    "border px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] transition-all",
                     active
-                      ? "border-cyan bg-cyan/5 text-cyan"
-                      : "border-surface bg-surface text-muted hover:border-cyan/50 hover:text-foreground"
+                      ? "border-purple bg-purple text-white"
+                      : "border-surface bg-surface text-muted hover:border-purple hover:bg-purple hover:text-white"
                   )}
                 >
-                  [{tab.label}]
+                  {tab.label}
                 </Link>
               );
             })
@@ -79,10 +85,10 @@ export function TopNav({ variant = "default" }: TopNavProps) {
           <button
             onClick={() => setModalOpen(true)}
             className={cn(
-              "flex items-center gap-2 border px-4 py-2 font-tech text-xs font-bold uppercase tracking-[0.15em] transition-all",
+              "flex items-center gap-2 border px-4 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] transition-all",
               variant === "worldcup"
-                ? "border-white/10 bg-white/5 text-white/70 hover:border-wc-cyan hover:text-wc-cyan"
-                : "border-surface bg-surface text-muted hover:border-cyan hover:text-cyan"
+                ? "border-white/10 bg-white/5 text-white/70 hover:border-purple hover:bg-purple hover:text-white"
+                : "border-surface bg-surface text-muted hover:border-purple hover:bg-purple hover:text-white"
             )}
           >
             <span className="material-symbols-outlined">wallet</span>

@@ -10,16 +10,19 @@ import {
   CircleDot,
   AlertTriangle,
   ShieldAlert,
-  Timer,
   Wifi,
   WifiOff,
   Loader2,
   Radio,
 } from "lucide-react";
+import Image from "next/image";
 import { cn } from "../_lib/utils";
 import {
   openLeaderboardStream,
   openMatchEventsStream,
+  calculatePrizes,
+  formatUsdc,
+  formatWallet,
   type EventEntry,
   type Leaderboard,
   type SseStatus,
@@ -36,6 +39,7 @@ interface LiveMatchFeedProps {
   className?: string;
   title?: string;
   showViewLogsLink?: boolean;
+  poolTotal?: string;
 }
 
 export function LiveMatchFeed({
@@ -47,6 +51,7 @@ export function LiveMatchFeed({
   className,
   title = "Live Match Feed",
   showViewLogsLink = false,
+  poolTotal = "0",
 }: LiveMatchFeedProps) {
   const [tab, setTab] = useState<FeedTab>(defaultTab);
   const [events, setEvents] = useState<EventEntry[]>(() => (isDemo ? demoEvents : []));
@@ -150,8 +155,8 @@ export function LiveMatchFeed({
         <div className="mt-4 flex border-b border-surface">
           <TabButton active={tab === "events"} onClick={() => setTab("events")}>
             <Activity size={14} className="sm:mr-2" />
-            <span className="hidden sm:inline">Match Events</span>
-            <span className="sm:hidden">Events</span>
+            <span className="hidden sm:inline">Timeline</span>
+            <span className="sm:hidden">Timeline</span>
             {events.length > 0 && (
               <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center bg-surface px-1.5 text-[10px] font-bold text-foreground">
                 {events.length}
@@ -187,7 +192,7 @@ export function LiveMatchFeed({
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.15 }}
             >
-              <LeaderboardList leaderboard={leaderboard} isDemo={isDemo} />
+              <LeaderboardList leaderboard={leaderboard} isDemo={isDemo} poolTotal={poolTotal} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -277,19 +282,20 @@ function EventList({ events, isDemo }: { events: EventEntry[]; isDemo: boolean }
       <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
         <Activity size={36} className="mb-4 opacity-30" />
         <p className="text-sm font-medium">
-          {isDemo ? "Demo events will appear here." : "No events yet."}
+          {isDemo ? "No demo action yet." : "No action yet · Stream connected"}
         </p>
         <p className="mt-1 text-xs">
           {isDemo
             ? "The demo simulates a live feed."
-            : "The SSE stream is open — events will populate once the match starts."}
+            : "Events will populate once the match starts."}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="relative space-y-0 pl-6">
+      <div className="absolute bottom-0 left-[27px] top-4 w-px bg-surface" />
       {events.map((entry) => (
         <EventRow key={entry.id} entry={entry} />
       ))}
@@ -307,94 +313,79 @@ function EventRow({ entry }: { entry: EventEntry }) {
       layout
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        "relative overflow-hidden border bg-background/50 p-3 transition-colors hover:bg-surface",
-        meta.borderColor,
-        meta.bgColor
-      )}
+      className="relative py-3"
     >
-      <div className={cn("absolute left-0 top-0 bottom-0 w-1", meta.barColor)} />
-      <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            "flex h-9 w-9 flex-shrink-0 items-center justify-center",
-            meta.iconBg
-          )}
-        >
-          <meta.icon size={18} className={meta.iconColor} />
+      {/* Minute badge on timeline */}
+      {minute !== null && (
+        <div className="absolute -left-6 top-3 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center border border-surface bg-background">
+          <span className="text-[10px] font-bold text-cyan">{minute}&apos;</span>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-bold capitalize text-foreground">
-              {formatEventType(entry.type)}
-            </p>
-            {side && (
-              <span
-                className={cn(
-                  "text-[10px] font-bold uppercase tracking-wider",
-                  side === 1 ? "text-purple" : "text-cyan"
+      )}
+
+      {/* Event card */}
+      <div
+        className={cn(
+          "relative overflow-hidden border bg-background/50 p-3 transition-colors hover:bg-surface",
+          meta.borderColor,
+          meta.bgColor
+        )}
+      >
+        <div className={cn("absolute left-0 top-0 bottom-0 w-1", meta.barColor)} />
+        <div className="flex items-start gap-3">
+          <div
+            className={cn(
+              "flex h-9 w-9 flex-shrink-0 items-center justify-center",
+              meta.iconBg
+            )}
+          >
+            <meta.icon size={18} className={meta.iconColor} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-bold capitalize text-foreground">
+                {formatEventType(entry.type)}
+              </p>
+              {side && (
+                <span
+                  className={cn(
+                    "text-[10px] font-bold uppercase tracking-wider",
+                    side === 1 ? "text-purple" : "text-cyan"
+                  )}
+                >
+                  {side === 1 ? "Home" : "Away"}
+                </span>
+              )}
+            </div>
+            {(entry.players?.in || entry.players?.out) && (
+              <p className="mt-1 truncate text-xs text-muted">
+                {entry.players?.out && (
+                  <>
+                    <span className="text-foreground">{entry.players.out.name}</span> out
+                  </>
                 )}
-              >
-                {side === 1 ? "Home" : "Away"}
-              </span>
+                {entry.players?.in && entry.players?.out && " → "}
+                {entry.players?.in && (
+                  <>
+                    <span className="text-foreground">{entry.players.in.name}</span> in
+                  </>
+                )}
+              </p>
             )}
           </div>
-          {(entry.players?.in || entry.players?.out) && (
-            <p className="mt-1 truncate text-xs text-muted">
-              {entry.players?.out && (
-                <>
-                  <span className="text-foreground">{entry.players.out.name}</span> out
-                </>
-              )}
-              {entry.players?.in && entry.players?.out && " → "}
-              {entry.players?.in && (
-                <>
-                  <span className="text-foreground">{entry.players.in.name}</span> in
-                </>
-              )}
-            </p>
-          )}
-          {isPayloadObject(entry.payload) && (
-            <PayloadDetails payload={entry.payload} />
-          )}
         </div>
-        {minute !== null && (
-          <div className="flex items-center gap-1 text-xs font-mono font-bold text-muted">
-            <Timer size={12} />
-            {minute}&apos;
-          </div>
-        )}
       </div>
     </motion.div>
-  );
-}
-
-function PayloadDetails({ payload }: { payload: Record<string, unknown> }) {
-  const entries = Object.entries(payload).filter(
-    ([key]) => !["minute", "side", "playerOutId", "playerInId"].includes(key)
-  );
-  if (entries.length === 0) return null;
-
-  return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      {entries.map(([key, value]) => (
-        <span
-          key={key}
-          className="inline-flex items-center gap-1 border border-surface bg-background px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted"
-        >
-          {key}: <span className="text-foreground">{String(value)}</span>
-        </span>
-      ))}
-    </div>
   );
 }
 
 function LeaderboardList({
   leaderboard,
   isDemo,
+  poolTotal,
 }: {
   leaderboard: Leaderboard | null;
   isDemo: boolean;
+  poolTotal: string;
 }) {
   if (!leaderboard || leaderboard.ranking.length === 0) {
     return (
@@ -412,6 +403,18 @@ function LeaderboardList({
     );
   }
 
+  const prizes = calculatePrizes(poolTotal);
+  const participantCount = leaderboard.ranking.length;
+  const winnerTakesAll = participantCount < 3;
+
+  const prizeForRank = (rank: number): number => {
+    if (winnerTakesAll) return prizes.total;
+    if (rank === 1) return prizes.first;
+    if (rank === 2) return prizes.second;
+    if (rank === 3) return prizes.third;
+    return 0;
+  };
+
   return (
     <div className="space-y-3">
       {leaderboard.final && (
@@ -419,6 +422,29 @@ function LeaderboardList({
           Final Results
         </div>
       )}
+
+      {winnerTakesAll && (
+        <div className="mb-3 border border-gold/30 bg-gold/5 px-3 py-2 text-center">
+          <p className="text-xs font-bold uppercase tracking-wider text-gold">Winner Takes All</p>
+          <p className="text-[10px] text-muted">Less than 3 players — top rank wins full pool.</p>
+        </div>
+      )}
+
+      {leaderboard.ranking.slice(0, 3).length > 0 && (
+        <div className="mb-4 grid grid-cols-3 gap-2">
+          {leaderboard.ranking.slice(0, 3).map((row, i) => (
+            <PodiumCard
+              key={row.owner}
+              rank={i + 1}
+              username={row.user?.username}
+              avatar={row.user?.avatar}
+              points={row.points}
+              prize={prizeForRank(i + 1)}
+            />
+          ))}
+        </div>
+      )}
+
       {leaderboard.ranking.map((row, i) => (
         <motion.div
           key={row.owner}
@@ -427,16 +453,16 @@ function LeaderboardList({
           animate={{ opacity: 1, y: 0 }}
           className={cn(
             "flex items-center gap-3 border bg-background/50 p-3 transition-colors hover:bg-surface",
-            i === 0 && "border-gold/30 bg-gold/5",
-            i === 1 && "border-muted/50 bg-surface/30",
-            i === 2 && "border-bronze/30 bg-bronze/5",
+            i === 0 && "border-gold/40 bg-gold/5 shadow-[0_0_20px_rgba(219,161,17,0.25)]",
+            i === 1 && "border-silver/50 bg-surface/30 shadow-[0_0_16px_rgba(232,234,237,0.18)]",
+            i === 2 && "border-bronze/40 bg-bronze/5 shadow-[0_0_14px_rgba(219,161,17,0.18)]",
             i > 2 && "border-surface"
           )}
         >
           <RankBadge rank={i + 1} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-foreground">
-              {row.user?.username ?? "Unknown"}
+              {row.user?.username ?? formatWallet(row.owner)}
             </p>
             <p className="text-[10px] uppercase tracking-wider text-muted">
               {row.predictions.length} prediction{row.predictions.length !== 1 ? "s" : ""}
@@ -444,12 +470,53 @@ function LeaderboardList({
           </div>
           <div className="text-right">
             <span className="block font-mono font-bold text-cyan">{row.points} pts</span>
-            {row.earliestScoringLockMinute !== null && (
-              <span className="text-[10px] text-muted">{row.earliestScoringLockMinute}&apos;</span>
+            {i < 3 && prizeForRank(i + 1) > 0 && (
+              <span className="text-[10px] font-bold text-gold">
+                ${formatUsdc(String(Math.round(prizeForRank(i + 1))))}
+              </span>
             )}
           </div>
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+function PodiumCard({
+  rank,
+  username,
+  avatar,
+  points,
+  prize,
+}: {
+  rank: number;
+  username?: string | null;
+  avatar?: string | null;
+  points: number;
+  prize: number;
+}) {
+  const colors =
+    rank === 1
+      ? "border-gold/40 bg-gold/5 text-gold"
+      : rank === 2
+      ? "border-surface bg-surface/30 text-foreground"
+      : "border-bronze/40 bg-bronze/5 text-bronze";
+
+  return (
+    <div className={cn("flex flex-col items-center border p-3 text-center", colors)}>
+      <span className="mb-2 font-display text-2xl">#{rank}</span>
+      {avatar ? (
+        <div className="relative mb-2 h-10 w-10 overflow-hidden">
+          <Image src={`/avatars/${avatar}.webp`} alt={username ?? "Player"} fill className="object-cover" unoptimized />
+        </div>
+      ) : (
+        <div className="mb-2 flex h-10 w-10 items-center justify-center bg-surface text-[10px] font-bold uppercase text-foreground">
+          {username?.slice(0, 2).toUpperCase() ?? "?"}
+        </div>
+      )}
+      <p className="truncate text-xs font-bold text-foreground">{username ?? "Unknown"}</p>
+      <p className="text-[10px] text-muted">{points} pts</p>
+      {prize > 0 && <p className="mt-1 text-[10px] font-bold text-gold">${formatUsdc(String(Math.round(prize)))}</p>}
     </div>
   );
 }
@@ -485,10 +552,6 @@ function RankBadge({ rank }: { rank: number }) {
 
 function formatEventType(type: string) {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function isPayloadObject(payload: unknown): payload is Record<string, unknown> {
-  return typeof payload === "object" && payload !== null;
 }
 
 function getEventMeta(type: string) {

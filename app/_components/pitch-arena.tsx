@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User } from "lucide-react";
+import { X, User, ArrowRightLeft, GripHorizontal, Sparkles, Crosshair } from "lucide-react";
 import { PlayerCard, type PlayerCardData } from "./player-card";
 import { SlideToLock } from "./slide-to-lock";
 import { LiveMatchFeed } from "./live-match-feed";
+import { LockCelebration } from "./lock-celebration";
 import { cn } from "../_lib/utils";
 
 export interface SubstitutionPrediction {
@@ -25,7 +26,7 @@ interface PitchArenaProps {
   isLive: boolean;
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
-  onLock: (predictions: SubstitutionPrediction[]) => void;
+  onLock: (predictions: SubstitutionPrediction[]) => void | Promise<void>;
   locked?: boolean;
   className?: string;
 }
@@ -60,15 +61,27 @@ export function PitchArena({
   const [predictions, setPredictions] = useState<Record<string, SubstitutionPrediction>>({});
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const [selectedSub, setSelectedSub] = useState<PlayerCardData | null>(null);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [showSubDetail, setShowSubDetail] = useState<PlayerCardData | null>(null);
+  const [justPlaced, setJustPlaced] = useState<string | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Map slots to starters
-  const startersBySlot = Object.fromEntries(
-    FORMATION_SLOTS.map((slot) => {
-      const starter = starters.find((s) => matchPosition(s.position, slot.position));
-      return [slot.id, starter];
-    })
+  const startersBySlot = useMemo(
+    () =>
+      Object.fromEntries(
+        FORMATION_SLOTS.map((slot) => {
+          const starter = starters.find((s) => matchPosition(s.position, slot.position));
+          return [slot.id, starter];
+        })
+      ),
+    [starters]
   );
+
+  useEffect(() => {
+    if (!justPlaced) return;
+    const timer = setTimeout(() => setJustPlaced(null), 600);
+    return () => clearTimeout(timer);
+  }, [justPlaced]);
 
   function matchPosition(playerPos: string | null, slotPos: string) {
     if (!playerPos) return false;
@@ -108,6 +121,7 @@ export function PitchArena({
       },
     }));
     setSelectedSub(null);
+    setJustPlaced(slotId);
   }
 
   function clearSlot(slotId: string) {
@@ -120,8 +134,12 @@ export function PitchArena({
 
   function handleBenchClick(player: PlayerCardData) {
     if (typeof window !== "undefined" && window.innerWidth < 1024) {
-      setSelectedSub(player);
+      setSelectedSub((prev) => (prev?.id === player.id ? null : player));
     }
+  }
+
+  function handleBenchDetails(player: PlayerCardData) {
+    setShowSubDetail(player);
   }
 
   function handleSlotClick(slotId: string) {
@@ -132,13 +150,24 @@ export function PitchArena({
     }
   }
 
-  function handleLockConfirm() {
-    setShowConfirm(false);
-    onLock(Object.values(predictions));
+  async function handleLock() {
+    if (predictionList.length === 0 || locked || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await Promise.resolve(onLock(Object.values(predictions)));
+      setCelebrating(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const predictionList = Object.values(predictions);
-  const filledCount = predictionList.length;
+  const potentialPayout = useMemo(() => {
+    return predictionList.reduce((sum, p) => {
+      const sub = substitutes.find((s) => s.id === p.inPlayerId);
+      return sum + (sub ? getMultiplier(sub) : 1);
+    }, 0);
+  }, [predictionList, substitutes]);
 
   return (
     <div className={cn("flex flex-1 flex-col overflow-hidden lg:flex-row", className)}>
@@ -146,7 +175,9 @@ export function PitchArena({
       <aside className="hidden w-72 flex-col border-r border-surface bg-surface/20 p-4 lg:flex">
         <div className="mb-4 border-b border-surface pb-3">
           <h3 className="font-display text-2xl text-foreground">Bench Deck</h3>
-          <p className="text-xs font-bold uppercase tracking-wider text-muted">Available Substitutes</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted">
+            Drag a card onto the pitch
+          </p>
         </div>
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
           {substitutes.map((sub) => (
@@ -155,14 +186,14 @@ export function PitchArena({
               player={sub}
               draggable
               onDragStart={handleDragStart}
-              onClick={() => handleBenchClick(sub)}
+              onClick={() => handleBenchDetails(sub)}
             />
           ))}
         </div>
       </aside>
 
       {/* Center: Pitch + HUD */}
-      <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-background p-4">
+      <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-background p-4 pb-40 lg:pb-4">
         {/* Atmospheric orb */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple/10 blur-[120px]" />
@@ -182,6 +213,12 @@ export function PitchArena({
               <span>{isLive ? `${minute ?? 0}' LIVE` : "UPCOMING"}</span>
             </div>
           </div>
+        </div>
+
+        {/* Desktop instruction */}
+        <div className="relative z-20 mb-3 hidden items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted lg:flex">
+          <Crosshair size={14} className="text-purple" />
+          Drag a substitute card onto the pitch
         </div>
 
         {/* Perspective pitch */}
@@ -204,6 +241,7 @@ export function PitchArena({
                 const predicted = predictions[slot.id];
                 const sub = predicted ? substitutes.find((s) => s.id === predicted.inPlayerId) : null;
                 const isDragOver = dragOverSlot === slot.id;
+                const flashed = justPlaced === slot.id;
                 return (
                   <div
                     key={slot.id}
@@ -222,6 +260,7 @@ export function PitchArena({
                       starter={starter}
                       sub={sub}
                       isDragOver={isDragOver}
+                      flashed={flashed}
                       onClear={() => clearSlot(slot.id)}
                     />
                   </div>
@@ -234,14 +273,21 @@ export function PitchArena({
         {/* Mobile bench deck */}
         <div className="relative z-20 mt-4 w-full max-w-4xl lg:hidden">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">Substitutes</span>
-            {selectedSub && (
+            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
+              <GripHorizontal size={14} />
+              Substitutes
+            </span>
+            {selectedSub ? (
               <span className="text-xs font-bold uppercase text-cyan">
                 Tap a slot to place {selectedSub.name}
               </span>
+            ) : (
+              <span className="text-xs font-bold uppercase text-muted">
+                Tap a sub, then tap a slot
+              </span>
             )}
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-4">
+          <div className="flex gap-4 overflow-x-auto pb-4">
             {substitutes.map((sub) => (
               <PlayerCard
                 key={sub.id}
@@ -249,31 +295,17 @@ export function PitchArena({
                 draggable
                 onDragStart={handleDragStart}
                 onClick={() => handleBenchClick(sub)}
+                onDoubleClick={() => handleBenchDetails(sub)}
                 compact
+                selected={selectedSub?.id === sub.id}
               />
             ))}
           </div>
         </div>
-
-        {/* Lock action */}
-        <div className="relative z-20 mt-4 w-full max-w-md">
-          <button
-            onClick={() => filledCount > 0 && setShowConfirm(true)}
-            disabled={filledCount === 0 || locked}
-            className={cn(
-              "w-full py-4 font-display text-lg uppercase tracking-[0.1em] transition-all",
-              filledCount > 0 && !locked
-                ? "btn-gradient text-white"
-                : "cursor-not-allowed bg-surface text-muted"
-            )}
-          >
-            {locked ? "Locked" : `Lock Predictions (${filledCount}/11)`}
-          </button>
-        </div>
       </main>
 
       {/* Right: Live Feed */}
-      <aside className="w-full border-l border-surface bg-surface/20 lg:w-80 xl:w-96">
+      <aside className="hidden w-full border-l border-surface bg-surface/20 lg:block lg:w-80 xl:w-96">
         <LiveMatchFeed
           pda={matchPda}
           isDemo={matchPda === "demo"}
@@ -282,19 +314,37 @@ export function PitchArena({
         />
       </aside>
 
-      {/* Lock confirmation modal */}
+      {/* Prediction slip */}
+      <PredictionSlip
+        teamName={teamName}
+        predictions={predictionList}
+        substitutes={substitutes}
+        potentialPayout={potentialPayout}
+        locked={locked}
+        isSubmitting={isSubmitting}
+        onLock={handleLock}
+      />
+
+      {/* Mobile sub detail sheet */}
       <AnimatePresence>
-        {showConfirm && (
-          <LockConfirmationModal
-            teamName={teamName}
-            predictions={predictionList}
-            substitutes={substitutes}
-            starters={starters}
-            onConfirm={handleLockConfirm}
-            onClose={() => setShowConfirm(false)}
+        {showSubDetail && (
+          <SubDetailSheet
+            player={showSubDetail}
+            onClose={() => setShowSubDetail(null)}
+            onSelect={() => {
+              setSelectedSub(showSubDetail);
+              setShowSubDetail(null);
+            }}
           />
         )}
       </AnimatePresence>
+
+      {/* Lock celebration */}
+      <LockCelebration
+        open={celebrating}
+        subtitle={teamName}
+        onDone={() => setCelebrating(false)}
+      />
     </div>
   );
 }
@@ -304,17 +354,23 @@ function Slot({
   starter,
   sub,
   isDragOver,
+  flashed,
   onClear,
 }: {
   slot: (typeof FORMATION_SLOTS)[0];
   starter?: PlayerCardData;
   sub?: PlayerCardData | null;
   isDragOver: boolean;
+  flashed: boolean;
   onClear: () => void;
 }) {
   if (sub) {
     return (
-      <div className="relative">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className={cn("relative", flashed && "animate-slot-flash")}
+      >
         <PlayerCard player={sub} locked />
         <button
           onClick={(e) => {
@@ -326,7 +382,7 @@ function Slot({
         >
           <X size={14} />
         </button>
-      </div>
+      </motion.div>
     );
   }
 
@@ -335,7 +391,7 @@ function Slot({
       className={cn(
         "flex h-24 w-16 cursor-pointer flex-col items-center justify-center border-2 transition-all lg:h-28 lg:w-20",
         isDragOver
-          ? "border-cyan bg-cyan/10 glow-cyan"
+          ? "border-purple bg-purple/10 shadow-[0_0_20px_rgba(3,70,148,0.45)]"
           : "border-dashed border-cyan/40 bg-background/40 hover:border-cyan hover:bg-cyan/5"
       )}
     >
@@ -343,12 +399,12 @@ function Slot({
         size={24}
         className={cn(
           "mb-1 transition-opacity",
-          isDragOver ? "text-cyan opacity-100" : "text-cyan/40 opacity-40"
+          isDragOver ? "text-purple opacity-100" : "text-cyan/40 opacity-40"
         )}
       />
       <span className="text-[10px] uppercase tracking-wider text-muted">{slot.label}</span>
       {starter && (
-        <span className="mt-1 max-w-full truncate px-1 text-[9px] uppercase text-foreground/60">
+        <span className="mt-1 max-w-full truncate px-1 text-[9px] uppercase text-foreground/80">
           {starter.name.split(" ").pop()}
         </span>
       )}
@@ -356,23 +412,86 @@ function Slot({
   );
 }
 
-function LockConfirmationModal({
+function PredictionSlip({
   teamName,
   predictions,
   substitutes,
-  starters,
-  onConfirm,
-  onClose,
+  potentialPayout,
+  locked,
+  isSubmitting,
+  onLock,
 }: {
   teamName: string;
   predictions: SubstitutionPrediction[];
   substitutes: PlayerCardData[];
-  starters: PlayerCardData[];
-  onConfirm: () => void;
-  onClose: () => void;
+  potentialPayout: number;
+  locked?: boolean;
+  isSubmitting: boolean;
+  onLock: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-surface bg-surface/95 px-4 py-4 shadow-[0_-8px_30px_rgba(0,0,0,0.25)] backdrop-blur-sm lg:left-72 lg:right-80 xl:right-96">
+      <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="flex items-center gap-2 font-display text-lg text-foreground">
+              <Sparkles size={18} className="text-cyan" />
+              Your Prediction Slip
+            </h4>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted">
+              {teamName}
+            </span>
+          </div>
+          {predictions.length === 0 ? (
+            <p className="text-xs text-muted">No subs selected yet. Make a swap to lock in.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {predictions.map((p) => {
+                const sub = substitutes.find((s) => s.id === p.inPlayerId);
+                return (
+                  <span
+                    key={p.slotId}
+                    className="inline-flex items-center gap-1.5 border border-surface bg-background px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground"
+                  >
+                    {p.slotId.toUpperCase()}
+                    <ArrowRightLeft size={10} className="text-muted" />
+                    {sub?.name ?? "Sub"}
+                    <span className="text-cyan">({getMultiplier(sub).toFixed(1)}x)</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {predictions.length > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              Potential payout multiplier: <span className="font-bold text-cyan">{potentialPayout.toFixed(1)}x</span>
+            </p>
+          )}
+        </div>
+        <div className="w-full md:w-64 lg:w-72">
+          <SlideToLock
+            onLock={onLock}
+            disabled={predictions.length === 0 || locked || isSubmitting}
+            label={locked ? "LOCKED" : isSubmitting ? "SUBMITTING…" : "SLIDE TO LOCK"}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubDetailSheet({
+  player,
+  onClose,
+  onSelect,
+}: {
+  player: PlayerCardData;
+  onClose: () => void;
+  onSelect: () => void;
+}) {
+  const multiplier = getMultiplier(player);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 lg:hidden">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -381,40 +500,55 @@ function LockConfirmationModal({
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
       />
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        className="relative z-10 w-full max-w-lg border border-surface bg-surface/95 p-6 shadow-2xl"
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="relative z-10 w-full border-t border-surface bg-surface p-5"
       >
-        <h2 className="mb-2 font-display text-2xl text-foreground">Confirm Substitutions</h2>
-        <p className="mb-6 text-sm text-muted">
-          {teamName} — {predictions.length} prediction{predictions.length !== 1 ? "s" : ""}
-        </p>
-        <div className="mb-6 max-h-64 space-y-2 overflow-y-auto">
-          {predictions.map((p) => {
-            const sub = substitutes.find((s) => s.id === p.inPlayerId);
-            const out = starters.find((s) => s.id === p.outPlayerId);
-            return (
-              <div key={p.slotId} className="flex items-center justify-between border border-surface bg-background/50 p-3">
-                <div>
-                  <p className="text-sm font-bold text-foreground">{p.position}</p>
-                  <p className="text-xs text-muted">
-                    {out?.name ?? "Starter"} → {sub?.name ?? "Sub"}
-                  </p>
-                </div>
-                <span className="font-display text-sm text-cyan">{p.slotId.toUpperCase()}</span>
-              </div>
-            );
-          })}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted">{player.position}</p>
+            <h3 className="font-display text-2xl text-foreground">{player.name}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-foreground"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
         </div>
-        <SlideToLock onLock={onConfirm} label="SLIDE TO LOCK" />
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="border border-surface bg-background p-3 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Rating</p>
+            <p className="font-display text-xl text-foreground">{player.rating ?? "—"}</p>
+          </div>
+          <div className="border border-surface bg-background p-3 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Number</p>
+            <p className="font-display text-xl text-foreground">#{player.number ?? "—"}</p>
+          </div>
+          <div className="border border-surface bg-background p-3 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Multiplier</p>
+            <p className="font-display text-xl text-cyan">{multiplier.toFixed(1)}x</p>
+          </div>
+        </div>
         <button
-          onClick={onClose}
-          className="mt-4 w-full py-3 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground"
+          onClick={onSelect}
+          className="w-full bg-purple py-3 font-display text-sm uppercase tracking-wider text-white transition-colors hover:bg-purple/90"
         >
-          Cancel
+          Select for Substitution
         </button>
       </motion.div>
     </div>
   );
+}
+
+function getMultiplier(player?: PlayerCardData): number {
+  if (!player) return 1;
+  if (player.multiplier) return player.multiplier;
+  const r = player.rating ?? 75;
+  if (r >= 86) return 4.0;
+  if (r >= 80) return 2.5;
+  return 1.2;
 }
