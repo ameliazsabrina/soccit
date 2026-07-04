@@ -214,11 +214,12 @@ type Health = {
 > This is a health/observability endpoint — you generally don't need it for the app UI. It's here
 > so ops (and a status page) can tell a healthy-but-idle backend from a frozen one.
 
-**Verified live:**
+**Verified live** (`worker.alive: true` = ingestor healthy; the large `lastBeatAgeMs` here just
+means no match was live in the last few hours — expected, not a fault):
 
 ```bash
 $ curl https://13.213.196.237.sslip.io/healthz
-{"ok":true,"worker":{"alive":true,"heartbeatAgeMs":3200},"feed":{"lastBeatAgeMs":18412}}
+{"ok":true,"worker":{"alive":true,"heartbeatAgeMs":7694},"feed":{"lastBeatAgeMs":16846120}}
 ```
 
 ---
@@ -1496,5 +1497,5 @@ route integration tests, pending live verification on the staging URL. On 2026-0
 Redis heartbeat) and `feed` (data-freshness) probes, after the TxLINE worker was found silently
 crash-looping on a poison beat and freezing ingestion; the worker now isolates per-beat failures and
 writes `txline:worker:heartbeat` / `txline:scores:lastBeatAt`. The added fields are backward
-compatible (`ok` unchanged) — verified via the `/healthz` route integration test, pending live
-re-verification on the staging URL._
+compatible (`ok` unchanged) — verified via the `/healthz` route integration test and live on the
+staging URL on 2026-07-04 (`worker.alive: true` after the crash-loop fix deployed)._
