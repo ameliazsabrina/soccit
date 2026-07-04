@@ -38,4 +38,6 @@ pub enum SoccitError {
     Overflow,
     #[msg("Predicted score is out of the allowed range")]
     ScoreOutOfRange,
+    #[msg("The entry window for this match has not opened yet")]
+    EntryNotOpenYet,
 }

@@ -68,6 +68,16 @@ pub fn place_prediction_handler(
         ctx.accounts.match_account.status == STATUS_OPEN,
         SoccitError::MatchNotOpen
     );
+    
+    let start_time = ctx.accounts.match_account.start_time;
+    if start_time != 0 {
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            now >= start_time - ENTRY_LEAD_SECS,
+            SoccitError::EntryNotOpenYet
+        );
+    }
+
     require!(kind <= KIND_SCORE, SoccitError::InvalidKind);
 
     let is_score = kind == KIND_SCORE;

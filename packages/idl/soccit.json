@@ -194,6 +194,10 @@
         {
           "name": "resolver",
           "type": "pubkey"
+        },
+        {
+          "name": "start_time",
+          "type": "i64"
         }
       ]
     },
@@ -595,6 +599,11 @@
       "code": 6017,
       "name": "ScoreOutOfRange",
       "msg": "Predicted score is out of the allowed range"
+    },
+    {
+      "code": 6018,
+      "name": "EntryNotOpenYet",
+      "msg": "The entry window for this match has not opened yet"
     }
   ],
   "types": [
@@ -715,6 +724,10 @@
           {
             "name": "participant_count",
             "type": "u32"
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
           }
         ]
       }

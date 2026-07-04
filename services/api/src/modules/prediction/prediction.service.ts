@@ -16,7 +16,17 @@ import {
   predictionPda,
 } from "../../onchain/program.js";
 import { MatchNotFoundError } from "../match/match.errors.js";
-import { MatchNotOpenError } from "./prediction.errors.js";
+import {
+  EntryNotOpenYetError,
+  MatchNotOpenError,
+} from "./prediction.errors.js";
+
+const ENTRY_LEAD_SECS = 600;
+
+export function isEntryWindowOpen(startTime: number, nowSecs: number): boolean {
+  if (startTime === 0) return true;
+  return nowSecs >= startTime - ENTRY_LEAD_SECS;
+}
 import {
   type PreparePredictionInput,
   type PreparePredictionOutput,
@@ -53,8 +63,19 @@ export interface BuildPreparePredictionTxArgs {
  * supplied by the client. The next free slot is `entry.slotsUsed` (0 on the
  * first pick), and the fee is the match entry fee only on that first pick.
  */
-export function buildPreparePredictionTx(args: BuildPreparePredictionTxArgs): PreparePredictionOutput {
-  const { programId, matchAccount, match, entry, wallet, input, blockhash, lastValidBlockHeight } = args;
+export function buildPreparePredictionTx(
+  args: BuildPreparePredictionTxArgs,
+): PreparePredictionOutput {
+  const {
+    programId,
+    matchAccount,
+    match,
+    entry,
+    wallet,
+    input,
+    blockhash,
+    lastValidBlockHeight,
+  } = args;
 
   const slotIndex = entry ? entry.slotsUsed : 0;
   const feeCharged = entry ? 0n : match.entryFee;
@@ -103,12 +124,15 @@ export function buildPreparePredictionTx(args: BuildPreparePredictionTxArgs): Pr
     usdcMint: match.usdcMint.toBase58(),
     entryFee: feeCharged.toString(),
     slotIndex,
+    startTime: Number(match.startTime),
     blockhash,
     lastValidBlockHeight,
   });
 }
 
-export async function preparePrediction(input: PreparePredictionInput): Promise<PreparePredictionOutput> {
+export async function preparePrediction(
+  input: PreparePredictionInput,
+): Promise<PreparePredictionOutput> {
   const programId = getProgramId();
   const wallet = new PublicKey(input.wallet);
   const matchAccount = matchPda(programId, BigInt(input.fixtureId));
@@ -119,11 +143,20 @@ export async function preparePrediction(input: PreparePredictionInput): Promise<
     throw new MatchNotOpenError(input.fixtureId, statusLabel(match.status));
   }
 
+  // Entry window: mirror the on-chain gate so the frontend gets a clean error
+  // (with the kickoff time for a countdown) instead of a doomed transaction.
+  // The on-chain Clock remains the source of truth.
+  const startTime = Number(match.startTime);
+  if (!isEntryWindowOpen(startTime, Math.floor(Date.now() / 1000))) {
+    throw new EntryNotOpenYetError(input.fixtureId, startTime);
+  }
+
   // Pay-per-match: the caller's Entry tells us the next free slot and whether
   // the entry fee has already been paid.
   const entry = await fetchEntry(matchAccount, wallet);
 
-  const { blockhash, lastValidBlockHeight } = await getConnection().getLatestBlockhash("confirmed");
+  const { blockhash, lastValidBlockHeight } =
+    await getConnection().getLatestBlockhash("confirmed");
 
   return buildPreparePredictionTx({
     programId,

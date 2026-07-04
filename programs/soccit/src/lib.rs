@@ -22,9 +22,10 @@ pub mod soccit {
         team2_id: u32,
         entry_fee: u64,
         resolver: Pubkey,
+        start_time: i64,
     ) -> Result<()> {
         instructions::create_match::create_match_handler(
-            ctx, match_id, team1_id, team2_id, entry_fee, resolver,
+            ctx, match_id, team1_id, team2_id, entry_fee, resolver, start_time,
         )
     }
 

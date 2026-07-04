@@ -50,6 +50,7 @@ pub fn create_match_handler(
     team2_id: u32,
     entry_fee: u64,
     resolver: Pubkey,
+    start_time: i64,
 ) -> Result<()> {
     let m = &mut ctx.accounts.match_account;
     m.match_id = match_id;
@@ -68,5 +69,6 @@ pub fn create_match_handler(
     m.winner3 = Pubkey::default();
     m.vault_authority_bump = ctx.bumps.vault_authority;
     m.bump = ctx.bumps.match_account;
+    m.start_time = start_time;
     Ok(())
 }

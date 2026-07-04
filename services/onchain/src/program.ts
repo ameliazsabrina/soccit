@@ -24,7 +24,8 @@ const PLACE_PREDICTION_DISCRIMINATOR = Buffer.from([79, 46, 195, 197, 50, 91, 88
 const RESOLVE_DISCRIMINATOR = Buffer.from([246, 150, 236, 206, 108, 63, 58, 10]);
 const SETTLE_DISCRIMINATOR = Buffer.from([247, 163, 22, 141, 33, 169, 225, 56]);
 
-export const MATCH_ACCOUNT_LEN = 241;
+// 8 disc + … + participant_count(u32)@237 + start_time(i64)@241 = 249
+export const MATCH_ACCOUNT_LEN = 249;
 
 export interface DecodedMatch {
   matchId: bigint;
@@ -44,6 +45,8 @@ export interface DecodedMatch {
   vaultAuthorityBump: number;
   bump: number;
   participantCount: number;
+  /** Kickoff time (unix seconds); 0 = entry gate disabled (always open). */
+  startTime: bigint;
 }
 
 export function matchIdToLe(matchId: bigint): Buffer {
@@ -85,6 +88,7 @@ export function decodeMatch(buf: Buffer): DecodedMatch {
     vaultAuthorityBump: buf.readUInt8(235),
     bump: buf.readUInt8(236),
     participantCount: buf.readUInt32LE(237),
+    startTime: buf.readBigInt64LE(241),
   };
 }
 
@@ -97,21 +101,24 @@ export interface CreateMatchParams {
   team2Id: number;
   entryFee: bigint;
   resolver: PublicKey;
+  /** Kickoff time (unix seconds); 0 = entry gate disabled (always open). */
+  startTime: bigint;
 }
 
 export function buildCreateMatchInstruction(params: CreateMatchParams): TransactionInstruction {
-  const { programId, admin, usdcMint, matchId, team1Id, team2Id, entryFee, resolver } = params;
+  const { programId, admin, usdcMint, matchId, team1Id, team2Id, entryFee, resolver, startTime } = params;
   const match = matchPda(programId, matchId);
   const vaultAuthority = vaultAuthorityPda(programId, match);
   const vault = associatedTokenAddress(usdcMint, vaultAuthority, true);
 
-  const data = Buffer.alloc(8 + 8 + 4 + 4 + 8 + 32);
+  const data = Buffer.alloc(8 + 8 + 4 + 4 + 8 + 32 + 8);
   CREATE_MATCH_DISCRIMINATOR.copy(data, 0);
   data.writeBigUInt64LE(matchId, 8);
   data.writeUInt32LE(team1Id, 16);
   data.writeUInt32LE(team2Id, 20);
   data.writeBigUInt64LE(entryFee, 24);
   resolver.toBuffer().copy(data, 32);
+  data.writeBigInt64LE(startTime, 64);
 
   return new TransactionInstruction({
     programId,

@@ -1,6 +1,9 @@
 import { TRPCError, initTRPC } from "@trpc/server";
 import { MatchNotFoundError } from "../modules/match/match.errors.js";
-import { MatchNotOpenError } from "../modules/prediction/prediction.errors.js";
+import {
+  EntryNotOpenYetError,
+  MatchNotOpenError,
+} from "../modules/prediction/prediction.errors.js";
 import { LeaderboardNotReadyError } from "../modules/leaderboard/leaderboard.errors.js";
 import { LineupNotReadyError } from "../modules/lineup/lineup.errors.js";
 import { TxlineNotConfiguredError } from "../txline.js";
@@ -17,7 +20,6 @@ export interface Context {
 
 const t = initTRPC.context<Context>().create();
 
-/** Map a known domain error to its tRPC code, or null if it is not one we own. */
 function mapDomainError(err: unknown): TRPCError | null {
   if (
     err instanceof MatchNotFoundError ||
@@ -48,7 +50,8 @@ function mapDomainError(err: unknown): TRPCError | null {
   if (
     err instanceof UsernameTakenError ||
     err instanceof WalletAlreadyRegisteredError ||
-    err instanceof MatchNotOpenError
+    err instanceof MatchNotOpenError ||
+    err instanceof EntryNotOpenYetError
   ) {
     return new TRPCError({
       code: "CONFLICT",

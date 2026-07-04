@@ -22,6 +22,7 @@ pub struct Match {
     pub vault_authority_bump: u8,
     pub bump: u8,
     pub participant_count: u32,
+    pub start_time: i64,
 }
 
 #[account]

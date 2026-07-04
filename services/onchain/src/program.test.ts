@@ -36,6 +36,7 @@ function encodeMatch(over: Partial<{
   winner2: PublicKey;
   winner3: PublicKey;
   participantCount: number;
+  startTime: bigint;
 }> = {}): Buffer {
   const buf = Buffer.alloc(MATCH_ACCOUNT_LEN);
   MATCH_DISC.copy(buf, 0);
@@ -56,6 +57,7 @@ function encodeMatch(over: Partial<{
   buf.writeUInt8(254, 235);
   buf.writeUInt8(255, 236);
   buf.writeUInt32LE(over.participantCount ?? 3, 237);
+  buf.writeBigInt64LE(over.startTime ?? 0n, 241);
   return buf;
 }
 
@@ -75,7 +77,14 @@ describe("decodeMatch", () => {
     const vault = PublicKey.unique();
     const w1 = PublicKey.unique();
     const decoded = decodeMatch(
-      encodeMatch({ resolver, usdcMint: mint, vault, winner1: w1, status: STATUS_RESOLVED }),
+      encodeMatch({
+        resolver,
+        usdcMint: mint,
+        vault,
+        winner1: w1,
+        status: STATUS_RESOLVED,
+        startTime: 1_782_446_400n,
+      }),
     );
     expect(decoded.matchId).toBe(17926593n);
     expect(decoded.status).toBe(STATUS_RESOLVED);
@@ -85,6 +94,7 @@ describe("decodeMatch", () => {
     expect(decoded.winner1.toBase58()).toBe(w1.toBase58());
     expect(decoded.winner2.equals(PublicKey.default)).toBe(true);
     expect(decoded.participantCount).toBe(3);
+    expect(decoded.startTime).toBe(1_782_446_400n);
   });
 
   it("rejects a wrong discriminator", () => {
@@ -225,6 +235,7 @@ describe("buildCreateMatchInstruction", () => {
       team2Id: 22,
       entryFee: 1_000_000n,
       resolver,
+      startTime: 1_782_446_400n,
     });
     expect(ix.data.subarray(0, 8).equals(CREATE_DISC)).toBe(true);
     expect(ix.data.readBigUInt64LE(8)).toBe(17926593n);
@@ -232,6 +243,7 @@ describe("buildCreateMatchInstruction", () => {
     expect(ix.data.readUInt32LE(20)).toBe(22);
     expect(ix.data.readBigUInt64LE(24)).toBe(1_000_000n);
     expect(new PublicKey(ix.data.subarray(32, 64)).toBase58()).toBe(resolver.toBase58());
+    expect(ix.data.readBigInt64LE(64)).toBe(1_782_446_400n);
     const m = matchPda(PROGRAM_ID, 17926593n);
     expect(ix.keys[1]!.pubkey.toBase58()).toBe(m.toBase58());
     expect(ix.keys[7]!.pubkey.toBase58()).toBe(SystemProgram.programId.toBase58());

@@ -12,6 +12,7 @@ use solana_transaction::versioned::VersionedTransaction;
 use spl_associated_token_account::get_associated_token_address;
 
 use anchor_lang::prelude::Pubkey;
+use anchor_lang::solana_program::clock::Clock;
 
 const ENTRY_FEE: u64 = 10_000_000;
 const MATCH_ID: u64 = 42;
@@ -66,6 +67,15 @@ fn send(
         .map_err(|e| format!("{:?}\nLOGS:\n{}", e.err, e.meta.logs.join("\n")))
 }
 
+fn warp_clock(svm: &mut LiteSVM, unix_ts: i64) {
+    let mut clock = svm.get_sysvar::<Clock>();
+    clock.unix_timestamp = unix_ts;
+    svm.set_sysvar(&clock);
+    // Advance the blockhash so retried picks with identical content (e.g. a
+    // gate-rejected slot-0 pick then a successful one) don't collide on signature.
+    svm.expire_blockhash();
+}
+
 fn token_balance(svm: &LiteSVM, ata: &Pubkey) -> u64 {
     get_spl_account::<TokenAccountState>(svm, ata)
         .expect("token account")
@@ -87,6 +97,17 @@ fn create_match(
     admin: &Keypair,
     mint: &Pubkey,
     resolver: &Pubkey,
+) -> (Pubkey, Pubkey) {
+    // start_time 0 = entry gate disabled (always open) for the existing tests.
+    create_match_with_start(svm, admin, mint, resolver, 0)
+}
+
+fn create_match_with_start(
+    svm: &mut LiteSVM,
+    admin: &Keypair,
+    mint: &Pubkey,
+    resolver: &Pubkey,
+    start_time: i64,
 ) -> (Pubkey, Pubkey) {
     let (m, _) = match_pda();
     let (vault_auth, _) = vault_authority_pda(&m);
@@ -111,6 +132,7 @@ fn create_match(
             team2_id: 2,
             entry_fee: ENTRY_FEE,
             resolver: *resolver,
+            start_time,
         }
         .data(),
     };
@@ -555,6 +577,54 @@ fn score_prediction_stores_scoreline_and_ignores_side() {
     // Score picks are exempt from the side lock even after a sub set it.
     place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 0, 3, 0, 0, 90, 2).unwrap();
     assert_eq!(read_match(&svm, &m).participant_count, 1, "one wallet, one entry");
+}
+
+#[test]
+fn entry_gate_blocks_before_window_then_opens_ten_min_before_ko() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    let mint = CreateMint::new(&mut svm, &admin)
+        .decimals(6)
+        .send()
+        .unwrap();
+
+    // Anchor "now" to a fixed clock, then schedule kickoff 1 hour out.
+    let now = svm.get_sysvar::<Clock>().unix_timestamp;
+    let start = now + 3600;
+    let (m, vault) = create_match_with_start(&mut svm, &admin, &mint, &resolver.pubkey(), start);
+    let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+
+    // 1h before KO → more than 10 min before the window opens → rejected.
+    let too_early = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0);
+    assert!(too_early.is_err(), "entry before KO-10min must fail");
+
+    // Still one second too early.
+    warp_clock(&mut svm, start - 601);
+    let just_early = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0);
+    assert!(just_early.is_err(), "entry 10min+1s before KO must fail");
+
+    // Exactly KO-10min → the window opens.
+    warp_clock(&mut svm, start - 600);
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+
+    // Stays open in-play (after kickoff).
+    warp_clock(&mut svm, start + 1800);
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 15, 0, 60, 1).unwrap();
+}
+
+#[test]
+fn entry_gate_disabled_when_start_time_zero() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    let mint = CreateMint::new(&mut svm, &admin)
+        .decimals(6)
+        .send()
+        .unwrap();
+    // start_time 0 = always open, regardless of clock.
+    let (m, vault) = create_match_with_start(&mut svm, &admin, &mint, &resolver.pubkey(), 0);
+    let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    warp_clock(&mut svm, 1_000_000_000);
+    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
 }
 
 #[test]

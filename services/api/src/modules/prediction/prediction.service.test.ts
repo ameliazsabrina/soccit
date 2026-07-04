@@ -12,7 +12,7 @@ import {
   matchPda,
   predictionPda,
 } from "../../onchain/program.js";
-import { buildPreparePredictionTx } from "./prediction.service.js";
+import { buildPreparePredictionTx, isEntryWindowOpen } from "./prediction.service.js";
 import { KIND_SCORE, type PreparePredictionInput } from "./prediction.schema.js";
 
 const PROGRAM_ID = new PublicKey("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v");
@@ -132,6 +132,7 @@ describe("buildPreparePredictionTx", () => {
     expect(out.usdcMint).toBe(DEVNET_USDC_MINT.toBase58());
     expect(out.entryFee).toBe("5000000");
     expect(out.slotIndex).toBe(0);
+    expect(out.startTime).toBe(0); // encodeMatch leaves start_time 0 (gate disabled)
     expect(out.prediction).toBe(predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58());
     expect(out.matchAccount).toBe(matchAccount.toBase58());
   });
@@ -154,5 +155,24 @@ describe("buildPreparePredictionTx", () => {
     expect(place.data.readUInt8(9)).toBe(KIND_SCORE); // kind
     expect(place.data.readUInt32LE(10)).toBe(2); // score1
     expect(place.data.readUInt32LE(14)).toBe(1); // score2
+  });
+});
+
+describe("isEntryWindowOpen (KO−10min gate)", () => {
+  const KO = 1_782_446_400; // arbitrary kickoff, unix seconds
+
+  it("is always open when startTime is 0 (gate disabled)", () => {
+    expect(isEntryWindowOpen(0, 0)).toBe(true);
+    expect(isEntryWindowOpen(0, KO + 99999)).toBe(true);
+  });
+
+  it("is closed more than 10 minutes before kickoff", () => {
+    expect(isEntryWindowOpen(KO, KO - 601)).toBe(false);
+  });
+
+  it("opens exactly 10 minutes before kickoff and stays open in-play", () => {
+    expect(isEntryWindowOpen(KO, KO - 600)).toBe(true);
+    expect(isEntryWindowOpen(KO, KO)).toBe(true);
+    expect(isEntryWindowOpen(KO, KO + 3600)).toBe(true);
   });
 });

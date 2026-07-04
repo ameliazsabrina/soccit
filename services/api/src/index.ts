@@ -42,7 +42,7 @@ import { listSchedule } from "./modules/schedule/schedule.service.js";
 import { TxlineNotConfiguredError } from "./txline.js";
 import { preparePredictionInput } from "./modules/prediction/prediction.schema.js";
 import { preparePrediction } from "./modules/prediction/prediction.service.js";
-import { MatchNotOpenError } from "./modules/prediction/prediction.errors.js";
+import { EntryNotOpenYetError, MatchNotOpenError } from "./modules/prediction/prediction.errors.js";
 import {
   InvalidSignatureError,
   UserNotFoundError,
@@ -133,7 +133,7 @@ app.post("/api/prediction/prepare", async (c) => {
   } catch (err) {
     if (err instanceof MatchNotFoundError)
       return c.json({ error: err.message }, 404);
-    if (err instanceof MatchNotOpenError)
+    if (err instanceof MatchNotOpenError || err instanceof EntryNotOpenYetError)
       return c.json({ error: err.message }, 409);
     throw err;
   }

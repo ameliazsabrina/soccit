@@ -200,6 +200,10 @@ export type Soccit = {
         {
           "name": "resolver",
           "type": "pubkey"
+        },
+        {
+          "name": "startTime",
+          "type": "i64"
         }
       ]
     },
@@ -601,6 +605,11 @@ export type Soccit = {
       "code": 6017,
       "name": "scoreOutOfRange",
       "msg": "Predicted score is out of the allowed range"
+    },
+    {
+      "code": 6018,
+      "name": "entryNotOpenYet",
+      "msg": "The entry window for this match has not opened yet"
     }
   ],
   "types": [
@@ -721,6 +730,10 @@ export type Soccit = {
           {
             "name": "participantCount",
             "type": "u32"
+          },
+          {
+            "name": "startTime",
+            "type": "i64"
           }
         ]
       }

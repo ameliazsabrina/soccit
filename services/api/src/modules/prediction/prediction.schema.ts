@@ -77,6 +77,8 @@ export const preparePredictionOutput = z.object({
   entryFee: z.string(),
   // The server-derived slot this pick occupies (0 for the first pick).
   slotIndex: z.number().int().min(0),
+  // Kickoff time (unix seconds); 0 = no entry gate. Entries open 10 min before.
+  startTime: z.number().int(),
   blockhash: z.string(),
   lastValidBlockHeight: z.number().int(),
 });

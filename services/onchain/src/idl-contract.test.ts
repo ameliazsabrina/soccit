@@ -53,6 +53,7 @@ describe("IDL contract — instruction discriminators & account counts", () => {
           team2Id: 2,
           entryFee: 1_000_000n,
           resolver: onCurve(),
+          startTime: 0n,
         }),
     },
     {

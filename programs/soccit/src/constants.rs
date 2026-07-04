@@ -27,3 +27,4 @@ pub const KIND_IN: u8 = 1;
 pub const KIND_COMBO: u8 = 2;
 pub const KIND_SCORE: u8 = 3;
 pub const MAX_GOALS: u32 = 99;
+pub const ENTRY_LEAD_SECS: i64 = 600;
