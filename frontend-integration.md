@@ -158,13 +158,22 @@ export type ResolvedPlayer = {
 
 Prediction `kind` values (shared across leaderboard and participation):
 
-| `kind` | Meaning            |
-| ------ | ------------------ |
-| `0`    | OUT (player out)   |
-| `1`    | IN (player in)     |
-| `2`    | COMBO (out + in)   |
+| `kind` | Meaning            | `outPlayerId` / `inPlayerId` mean… | `side` |
+| ------ | ------------------ | ---------------------------------- | ------ |
+| `0`    | OUT (player out)   | player subbed OUT / unused         | 1 or 2 |
+| `1`    | IN (player in)     | unused / player subbed IN          | 1 or 2 |
+| `2`    | COMBO (out + in)   | player OUT / player IN             | 1 or 2 |
+| `3`    | SCORE (final score)| **score1 (team1) / score2 (team2)**| `0`    |
 
-`side` is always `1` (team 1 / home) or `2` (team 2 / away).
+For substitution picks (`kind` 0/1/2) `side` is `1` (team 1 / home) or `2` (team 2 / away). A
+**score prediction** (`kind` 3) is about the whole match, so it carries `side: 0` and reuses the
+`outPlayerId`/`inPlayerId` fields to hold the predicted scoreline: `outPlayerId` = team-1 goals,
+`inPlayerId` = team-2 goals (each `0..99`).
+
+**Scoring:** substitution picks score against the live substitution feed (OUT/IN = +1 each, COMBO
+both = 3). A score pick is graded only at 90-min full-time: **exact scoreline = 3 pts, correct
+outcome (right win/draw/loss, wrong goals) = 1 pt, else 0**. Before full-time a score pick shows 0
+points (provisional). One wallet can mix substitution and score picks in the same match.
 
 ---
 
@@ -405,12 +414,12 @@ wallet. The frontend deserializes it, has the wallet sign it, and submits it to 
 type PreparePredictionInput = {
   wallet: string; // 32–44 char base58 wallet; becomes the tx fee payer + signer
   fixtureId: number; // positive int (from GET /api/matches → row.fixtureId)
-  side: 1 | 2; // team 1 (home) or team 2 (away)
-  kind: 0 | 1 | 2; // 0 = OUT, 1 = IN, 2 = COMBO (see Shared Types)
-  outPlayerId: number; // uint32; player predicted to be subbed OUT (0 when unused)
-  inPlayerId: number; // uint32; player predicted to be subbed IN (0 when unused)
+  side: 0 | 1 | 2; // 1/2 for substitution picks; 0 for a score pick
+  kind: 0 | 1 | 2 | 3; // 0 = OUT, 1 = IN, 2 = COMBO, 3 = SCORE (see Shared Types)
+  outPlayerId: number; // uint32; sub-OUT player id, OR (kind 3) team-1 goals (0..99)
+  inPlayerId: number; // uint32; sub-IN player id, OR (kind 3) team-2 goals (0..99)
   lockMinute: number; // uint16; match minute the prediction locks at
-  slotIndex: number; // uint8; the user's prediction slot for this match (0, 1, 2… — lets one wallet place several)
+  // NOTE: no slotIndex — the server derives the next free slot from the wallet's on-chain entry.
 };
 ```
 
@@ -424,7 +433,8 @@ type PreparePredictionOutput = {
   matchAccount: string; // the match PDA (same value used by the read endpoints)
   userUsdcAta: string; // the wallet's USDC associated-token account (created idempotently by the tx)
   usdcMint: string; // the mint the entry fee is charged in
-  entryFee: string; // stringified integer, USDC base units (e.g. "5000000" = 5 USDC)
+  entryFee: string; // fee THIS tx charges (pay-per-match): full fee on the wallet's first pick, "0" after
+  slotIndex: number; // server-derived slot this pick occupies (0 for the first pick)
   blockhash: string; // recent blockhash baked into the tx
   lastValidBlockHeight: number; // submit before this height or the blockhash expires
 };
@@ -434,13 +444,16 @@ type PreparePredictionOutput = {
 
 - The transaction contains **two instructions**: an *idempotent* create-associated-token-account
   (so a first-time user with no USDC account doesn't fail — a no-op if it already exists), then the
-  `place_prediction` program instruction that transfers the `entryFee` from `userUsdcAta` into the
-  match vault.
-- The wallet **must already hold at least `entryFee` of `usdcMint`**, plus a little SOL for network
-  fees, or submission will fail on-chain. `usdcMint` is whatever mint the match was created with —
-  read it from the response (do not assume mainnet USDC).
-- To place multiple predictions on the same match from one wallet, increment `slotIndex` (each slot
-  is a distinct Prediction PDA).
+  `place_prediction` program instruction.
+- **Pay-per-match, not per-pick:** a wallet is charged the entry fee **once**, on its first pick in
+  a match. Later picks (up to 5 slots per match, any mix of substitution and score) are free — for
+  those, `prepare` returns `entryFee: "0"` and the tx transfers nothing. Show the user the returned
+  `entryFee` so they know whether this pick costs anything.
+- On the paying (first) pick the wallet **must already hold at least `entryFee` of `usdcMint`**,
+  plus a little SOL for network fees. `usdcMint` is whatever mint the match was created with — read
+  it from the response (do not assume mainnet USDC).
+- **Do not track slots client-side** — the server reads the wallet's on-chain entry and returns the
+  correct `slotIndex`/`prediction` PDA. Just call `prepare` again for each additional pick.
 - The returned `blockhash`/`lastValidBlockHeight` bound the tx's lifetime — sign and submit
   promptly; if it expires, call `prepare` again for a fresh blockhash.
 
@@ -462,14 +475,21 @@ $ curl -i -X POST https://13.213.196.237.sslip.io/api/prediction/prepare \
 HTTP/2 400
 {"error":"invalid body"}
 
-# valid input against an OPEN match → 200 with a base64 tx
+# valid substitution pick against an OPEN match → 200 with a base64 tx
 $ curl -s -X POST https://13.213.196.237.sslip.io/api/prediction/prepare \
     -H "content-type: application/json" \
     -d '{"wallet":"G6vSMwTKg9ZvF1dP8T5tN2jEZkvzaErw8SkEqcBAdu9R","fixtureId":18172379,
-         "side":1,"kind":0,"outPlayerId":0,"inPlayerId":0,"lockMinute":45,"slotIndex":0}'
+         "side":1,"kind":0,"outPlayerId":0,"inPlayerId":0,"lockMinute":45}'
 {"transaction":"AQAAAAAAAA…","fixtureId":18172379,"prediction":"…","matchAccount":"AH9SCug…",
  "userUsdcAta":"…","usdcMint":"2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac","entryFee":"5000000",
- "blockhash":"…","lastValidBlockHeight":…}
+ "slotIndex":0,"blockhash":"…","lastValidBlockHeight":…}
+
+# a score prediction (final score 2–1) → side 0, kind 3, goals in out/in
+$ curl -s -X POST https://13.213.196.237.sslip.io/api/prediction/prepare \
+    -H "content-type: application/json" \
+    -d '{"wallet":"G6vSMwTKg9ZvF1dP8T5tN2jEZkvzaErw8SkEqcBAdu9R","fixtureId":18172379,
+         "side":0,"kind":3,"outPlayerId":2,"inPlayerId":1,"lockMinute":45}'
+# second pick by the same wallet → entryFee "0", slotIndex 1 (pay-per-match)
 ```
 
 **Frontend flow (submit is client-side):**
@@ -481,9 +501,10 @@ const prep = await apiJson<PreparePredictionOutput>("/api/prediction/prepare", {
   method: "POST",
   body: JSON.stringify({
     wallet, fixtureId, side, kind,
-    outPlayerId, inPlayerId, lockMinute, slotIndex,
+    outPlayerId, inPlayerId, lockMinute, // no slotIndex — server derives it
   }),
 });
+// prep.entryFee is "0" when this pick is free (pay-per-match); prep.slotIndex is the slot used.
 
 const tx = Transaction.from(Buffer.from(prep.transaction, "base64"));
 const signed = await wallet.signTransaction(tx); // wallet adapter
@@ -525,15 +546,18 @@ type Leaderboard = {
       avatar: AvatarId | null;
     };
     predictions: Array<{
-      kind: 0 | 1 | 2;
+      kind: 0 | 1 | 2 | 3; // 3 = SCORE
       points: number;
-      side: 1 | 2;
-      outPlayerId: number;
-      inPlayerId: number;
+      side: 0 | 1 | 2; // 0 for a score pick
+      outPlayerId: number; // sub-OUT player id, OR (kind 3) team-1 goals
+      inPlayerId: number; // sub-IN player id, OR (kind 3) team-2 goals
       players: {
+        // resolved for substitution picks; both null for a score pick
         out: ResolvedPlayer | null;
         in: ResolvedPlayer | null;
       };
+      // populated only for a score pick (kind 3); null for substitution picks
+      score: { score1: number; score2: number } | null;
     }>;
   }>;
 };
@@ -576,7 +600,7 @@ Schema example of a populated success response (no seeded fixture available to f
       "predictions": [
         {
           "kind": 2,
-          "points": 12,
+          "points": 9,
           "side": 1,
           "outPlayerId": 5001,
           "inPlayerId": 5002,
@@ -597,7 +621,17 @@ Schema example of a populated success response (no seeded fixture available to f
               "position": "Forward",
               "side": 1
             }
-          }
+          },
+          "score": null
+        },
+        {
+          "kind": 3,
+          "points": 3,
+          "side": 0,
+          "outPlayerId": 2,
+          "inPlayerId": 1,
+          "players": { "out": null, "in": null },
+          "score": { "score1": 2, "score2": 1 }
         }
       ]
     }
@@ -1074,11 +1108,11 @@ type UserMatchesResponse = Array<{
   final: boolean;
   rank: number | null; // 1–3 or null
   predictions: Array<{
-    kind: 0 | 1 | 2;
+    kind: 0 | 1 | 2 | 3; // 3 = SCORE
     points: number;
-    side: 1 | 2;
-    outPlayerId: number;
-    inPlayerId: number;
+    side: 0 | 1 | 2; // 0 for a score pick
+    outPlayerId: number; // sub-OUT player id, OR (kind 3) team-1 goals
+    inPlayerId: number; // sub-IN player id, OR (kind 3) team-2 goals
   }>;
 }>;
 ```

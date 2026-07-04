@@ -1,7 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 
-const U8_MAX = 255;
 const U16_MAX = 65_535;
 const U32_MAX = 4_294_967_295;
 
@@ -19,16 +18,50 @@ const walletSchema = z
     }
   }, "invalid base58 wallet address");
 
-export const preparePredictionInput = z.object({
-  wallet: walletSchema,
-  fixtureId: z.number().int().positive(),
-  side: z.union([z.literal(1), z.literal(2)]),
-  kind: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  outPlayerId: z.number().int().min(0).max(U32_MAX),
-  inPlayerId: z.number().int().min(0).max(U32_MAX),
-  lockMinute: z.number().int().min(0).max(U16_MAX),
-  slotIndex: z.number().int().min(0).max(U8_MAX),
-});
+export const KIND_OUT = 0;
+export const KIND_IN = 1;
+export const KIND_COMBO = 2;
+export const KIND_SCORE = 3;
+
+// Matches the on-chain MAX_GOALS bound for a score prediction.
+const MAX_GOALS = 99;
+
+export const preparePredictionInput = z
+  .object({
+    wallet: walletSchema,
+    fixtureId: z.number().int().positive(),
+    // 0 = no side (score picks); 1/2 = team side (substitution picks).
+    side: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+    kind: z.union([
+      z.literal(KIND_OUT),
+      z.literal(KIND_IN),
+      z.literal(KIND_COMBO),
+      z.literal(KIND_SCORE),
+    ]),
+    // For a score pick these carry score1 (out) and score2 (in), each 0..MAX_GOALS.
+    outPlayerId: z.number().int().min(0).max(U32_MAX),
+    inPlayerId: z.number().int().min(0).max(U32_MAX),
+    lockMinute: z.number().int().min(0).max(U16_MAX),
+    // slotIndex is NOT a client input: under pay-per-match the server derives
+    // the next free slot from the caller's on-chain Entry.
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === KIND_SCORE) {
+      if (v.outPlayerId > MAX_GOALS || v.inPlayerId > MAX_GOALS) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `score prediction goals must be 0..${MAX_GOALS}`,
+          path: ["outPlayerId"],
+        });
+      }
+    } else if (v.side !== 1 && v.side !== 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "substitution predictions require side 1 or 2",
+        path: ["side"],
+      });
+    }
+  });
 
 export const preparePredictionOutput = z.object({
   // Unsigned, fully-serialized legacy transaction, base64-encoded. The wallet
@@ -39,7 +72,11 @@ export const preparePredictionOutput = z.object({
   matchAccount: z.string(),
   userUsdcAta: z.string(),
   usdcMint: z.string(),
+  // Fee actually charged by THIS transaction: the match entry fee on a wallet's
+  // first pick, or "0" for a later pick (pay-per-match).
   entryFee: z.string(),
+  // The server-derived slot this pick occupies (0 for the first pick).
+  slotIndex: z.number().int().min(0),
   blockhash: z.string(),
   lastValidBlockHeight: z.number().int(),
 });

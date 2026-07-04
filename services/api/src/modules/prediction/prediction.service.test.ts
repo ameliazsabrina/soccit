@@ -2,6 +2,7 @@ import { PublicKey, Transaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { describe, expect, it } from "vitest";
 import {
+  type DecodedEntry,
   type DecodedMatch,
   MATCH_ACCOUNT_LEN,
   STATUS_OPEN,
@@ -12,7 +13,7 @@ import {
   predictionPda,
 } from "../../onchain/program.js";
 import { buildPreparePredictionTx } from "./prediction.service.js";
-import type { PreparePredictionInput } from "./prediction.schema.js";
+import { KIND_SCORE, type PreparePredictionInput } from "./prediction.schema.js";
 
 const PROGRAM_ID = new PublicKey("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v");
 const DEVNET_USDC_MINT = new PublicKey("2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac");
@@ -58,18 +59,27 @@ const input: PreparePredictionInput = {
   outPlayerId: 10101970,
   inPlayerId: 908961,
   lockMinute: 20,
-  slotIndex: 3,
 };
 
 const BLOCKHASH = "11111111111111111111111111111111";
 
-function build() {
+const entryWithSlots = (slotsUsed: number, side = 1): DecodedEntry => ({
+  owner: WALLET,
+  matchKey: matchAccount,
+  side,
+  slotsUsed,
+  playerCount: slotsUsed,
+  bump: 255,
+});
+
+function build(over: Partial<PreparePredictionInput> = {}, entry: DecodedEntry | null = null) {
   return buildPreparePredictionTx({
     programId: PROGRAM_ID,
     matchAccount,
     match,
+    entry,
     wallet: WALLET,
-    input,
+    input: { ...input, ...over },
     blockhash: BLOCKHASH,
     lastValidBlockHeight: 1234,
   });
@@ -101,7 +111,7 @@ describe("buildPreparePredictionTx", () => {
     expect(place.data.readUInt32LE(10)).toBe(input.outPlayerId);
     expect(place.data.readUInt32LE(14)).toBe(input.inPlayerId);
     expect(place.data.readUInt16LE(18)).toBe(input.lockMinute);
-    expect(place.data.readUInt8(20)).toBe(input.slotIndex);
+    expect(place.data.readUInt8(20)).toBe(0); // first pick → slot 0
 
     // user(signer/writable) → match → entry → prediction → userAta → vault → tokenProgram → system
     expect(place.keys[0]).toMatchObject({ isSigner: true, isWritable: true });
@@ -109,21 +119,40 @@ describe("buildPreparePredictionTx", () => {
     expect(place.keys[1]!.pubkey.toBase58()).toBe(matchAccount.toBase58());
     expect(place.keys[2]!.pubkey.toBase58()).toBe(entryPda(PROGRAM_ID, matchAccount, WALLET).toBase58());
     expect(place.keys[3]!.pubkey.toBase58()).toBe(
-      predictionPda(PROGRAM_ID, matchAccount, WALLET, input.slotIndex).toBase58(),
+      predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58(),
     );
     expect(place.keys[5]!.pubkey.toBase58()).toBe(vault.toBase58());
     expect(place.keys[6]!.pubkey.toBase58()).toBe(TOKEN_PROGRAM_ID.toBase58());
   });
 
-  it("derives the user's USDC ATA for the match mint and reports it", () => {
+  it("charges the full entry fee and uses slot 0 on a wallet's first pick (no entry)", () => {
     const out = build();
     const expectedAta = associatedTokenAddress(DEVNET_USDC_MINT, WALLET);
     expect(out.userUsdcAta).toBe(expectedAta.toBase58());
     expect(out.usdcMint).toBe(DEVNET_USDC_MINT.toBase58());
     expect(out.entryFee).toBe("5000000");
-    expect(out.prediction).toBe(
-      predictionPda(PROGRAM_ID, matchAccount, WALLET, input.slotIndex).toBase58(),
-    );
+    expect(out.slotIndex).toBe(0);
+    expect(out.prediction).toBe(predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58());
     expect(out.matchAccount).toBe(matchAccount.toBase58());
+  });
+
+  it("pay-per-match: a later pick charges 0 and uses the next free slot", () => {
+    const out = build({}, entryWithSlots(2));
+    expect(out.entryFee).toBe("0");
+    expect(out.slotIndex).toBe(2);
+    expect(out.prediction).toBe(predictionPda(PROGRAM_ID, matchAccount, WALLET, 2).toBase58());
+
+    const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
+    expect(tx.instructions[1]!.data.readUInt8(20)).toBe(2); // slot in the ix
+  });
+
+  it("builds a KIND_SCORE pick: kind=3, side=0, score1/score2 in out/in fields", () => {
+    const out = build({ kind: KIND_SCORE, side: 0, outPlayerId: 2, inPlayerId: 1 });
+    const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
+    const place = tx.instructions[1]!;
+    expect(place.data.readUInt8(8)).toBe(0); // side
+    expect(place.data.readUInt8(9)).toBe(KIND_SCORE); // kind
+    expect(place.data.readUInt32LE(10)).toBe(2); // score1
+    expect(place.data.readUInt32LE(14)).toBe(1); // score2
   });
 });

@@ -1,4 +1,8 @@
-import { leaderboardOutput, type LeaderboardOutput } from "@soccit/scoring/leaderboard/schema";
+import {
+  KIND_SCORE,
+  leaderboardOutput,
+  type LeaderboardOutput,
+} from "@soccit/scoring/leaderboard/schema";
 import { getRedis } from "../../redis.js";
 import type { ResolvedPlayer } from "../lineup/lineup.schema.js";
 import { loadPlayerIndex } from "../lineup/lineup.service.js";
@@ -24,13 +28,25 @@ export function enrichLeaderboard(
     ranking: board.ranking.map((entry) => ({
       ...entry,
       user: users.get(entry.owner) ?? null,
-      predictions: entry.predictions.map((p) => ({
-        ...p,
-        players: {
-          out: index.get(p.outPlayerId) ?? null,
-          in: index.get(p.inPlayerId) ?? null,
-        },
-      })),
+      predictions: entry.predictions.map((p) => {
+        // A score pick stores score1/score2 in the out/in fields — they are not
+        // player ids, so skip lineup resolution and surface the scoreline.
+        if (p.kind === KIND_SCORE) {
+          return {
+            ...p,
+            players: { out: null, in: null },
+            score: { score1: p.outPlayerId, score2: p.inPlayerId },
+          };
+        }
+        return {
+          ...p,
+          players: {
+            out: index.get(p.outPlayerId) ?? null,
+            in: index.get(p.inPlayerId) ?? null,
+          },
+          score: null,
+        };
+      }),
     })),
   };
 }

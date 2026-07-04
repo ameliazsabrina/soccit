@@ -4,6 +4,7 @@ import {
   KIND_COMBO,
   KIND_IN,
   KIND_OUT,
+  KIND_SCORE,
   leaderboardOutput,
   type Prediction,
   type Substitution,
@@ -138,5 +139,71 @@ describe("score", () => {
     );
     expect(out.ranking).toHaveLength(2);
     expect(out.winners).toEqual(["a", null, null]);
+  });
+
+  describe("score predictions (tiered: exact=3, outcome=1)", () => {
+    // A score pick: side 0, score1 in outPlayerId, score2 in inPlayerId.
+    const scorePred = (owner: string, s1: number, s2: number): Prediction =>
+      pred({ owner, side: 0, kind: KIND_SCORE, outPlayerId: s1, inPlayerId: s2 });
+
+    const grade = (predictions: Prediction[], finalScore?: { score1: number; score2: number }) =>
+      score({ fixtureId: 1, predictions, subs: [], finalScore, final: finalScore != null, now: 0 });
+
+    it("awards 3 for an exact scoreline", () => {
+      const out = grade([scorePred("a", 2, 1)], { score1: 2, score2: 1 });
+      expect(out.ranking[0]).toMatchObject({ owner: "a", points: 3 });
+    });
+
+    it("awards 1 for a correct outcome with the wrong goals", () => {
+      const out = grade([scorePred("a", 3, 1)], { score1: 2, score2: 1 });
+      expect(out.ranking[0]?.points).toBe(1);
+    });
+
+    it("awards 1 for a correctly predicted draw with wrong goals", () => {
+      const out = grade([scorePred("a", 1, 1)], { score1: 2, score2: 2 });
+      expect(out.ranking[0]?.points).toBe(1);
+    });
+
+    it("awards 0 for the wrong outcome", () => {
+      const out = grade([scorePred("a", 2, 1)], { score1: 0, score2: 3 });
+      expect(out.ranking[0]?.points).toBe(0);
+    });
+
+    it("is provisional (0 pts) before full-time, when no final score is known", () => {
+      const out = grade([scorePred("a", 2, 1)], undefined);
+      expect(out.ranking[0]?.points).toBe(0);
+    });
+
+    it("surfaces the predicted scoreline on the result (out=score1, in=score2, side 0)", () => {
+      const out = grade([scorePred("a", 2, 1)], { score1: 2, score2: 1 });
+      expect(out.ranking[0]?.predictions[0]).toMatchObject({
+        kind: KIND_SCORE,
+        side: 0,
+        outPlayerId: 2,
+        inPlayerId: 1,
+        points: 3,
+      });
+    });
+
+    it("aggregates a sub pick and a score pick for the same owner at full-time", () => {
+      const out = score({
+        fixtureId: 1,
+        predictions: [
+          pred({ owner: "a", side: 1, kind: KIND_OUT, outPlayerId: 100, lockMinute: 10 }),
+          scorePred("a", 2, 1),
+        ],
+        subs: [sub({ side: 1, playerOutId: 100, minute: 60 })],
+        final: true,
+        finalScore: { score1: 2, score2: 1 },
+        now: 0,
+      });
+      // +1 for the OUT hit, +3 for the exact score = 4
+      expect(out.ranking[0]).toMatchObject({ owner: "a", points: 4 });
+    });
+
+    it("emits schema-valid output for a score pick", () => {
+      const out = grade([scorePred("a", 2, 1)], { score1: 2, score2: 1 });
+      expect(() => leaderboardOutput.parse(out)).not.toThrow();
+    });
   });
 });

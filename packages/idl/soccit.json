@@ -590,6 +590,11 @@
       "code": 6016,
       "name": "Overflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6017,
+      "name": "ScoreOutOfRange",
+      "msg": "Predicted score is out of the allowed range"
     }
   ],
   "types": [

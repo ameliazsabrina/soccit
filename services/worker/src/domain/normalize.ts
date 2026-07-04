@@ -7,14 +7,21 @@ export interface NormalizeOptions {
 
 const DEFAULT_TERMINAL = new Set(["game_finalised"]);
 
-const STATUS_ACTIONS = new Set(["status", "halftime_finalised", "game_finalised"]);
+const STATUS_ACTIONS = new Set([
+  "status",
+  "halftime_finalised",
+  "game_finalised",
+]);
 
 function toSide(participant: number | undefined): Side | undefined {
   if (participant === 1 || participant === 2) return participant;
   return undefined;
 }
 
-export function normalize(raw: RawEvent, opts: NormalizeOptions = {}): DomainEvent[] {
+export function normalize(
+  raw: RawEvent,
+  opts: NormalizeOptions = {},
+): DomainEvent[] {
   const terminal = opts.terminalActions ?? DEFAULT_TERMINAL;
   const events: DomainEvent[] = [];
 
@@ -66,22 +73,25 @@ export function normalize(raw: RawEvent, opts: NormalizeOptions = {}): DomainEve
       break;
   }
 
-  // A configured terminal action must always surface as a status event — even
-  // when it is not one of the built-in status actions — otherwise the terminal
-  // cue never reaches the stream and scoring/settlement never fire.
   if (action && (STATUS_ACTIONS.has(action) || terminal.has(action))) {
+    const stats = raw.Stats;
     events.push({
       type: "status",
       ...base,
       action,
       statusId: d?.StatusId ?? raw.StatusId,
       terminal: terminal.has(action),
+      goals1: stats?.["1"],
+      goals2: stats?.["2"],
     });
   }
 
   return events;
 }
 
-export function isTerminal(raw: RawEvent, terminalActions = DEFAULT_TERMINAL): boolean {
+export function isTerminal(
+  raw: RawEvent,
+  terminalActions = DEFAULT_TERMINAL,
+): boolean {
   return raw.Action != null && terminalActions.has(raw.Action);
 }

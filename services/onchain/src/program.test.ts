@@ -2,12 +2,14 @@ import { describe, it, expect } from "vitest";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
+  ENTRY_ACCOUNT_LEN,
   MATCH_ACCOUNT_LEN,
   STATUS_RESOLVED,
   buildCreateMatchInstruction,
   buildPlacePredictionInstruction,
   buildResolveInstruction,
   buildSettleInstruction,
+  decodeEntry,
   decodeMatch,
   entryPda,
   matchPda,
@@ -89,6 +91,36 @@ describe("decodeMatch", () => {
     const buf = encodeMatch();
     buf.writeUInt8(0, 0);
     expect(() => decodeMatch(buf)).toThrow();
+  });
+});
+
+describe("decodeEntry", () => {
+  const ENTRY_DISC = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
+
+  const encodeEntry = (over: { side?: number; slotsUsed?: number; playerCount?: number } = {}) => {
+    const buf = Buffer.alloc(ENTRY_ACCOUNT_LEN);
+    ENTRY_DISC.copy(buf, 0);
+    PublicKey.unique().toBuffer().copy(buf, 8); // owner
+    PublicKey.unique().toBuffer().copy(buf, 40); // match_key
+    buf.writeUInt8(over.side ?? 1, 72);
+    buf.writeUInt8(over.slotsUsed ?? 0, 73);
+    buf.writeUInt8(over.playerCount ?? 0, 114);
+    buf.writeUInt8(255, 115); // bump
+    return buf;
+  };
+
+  it("reads side / slotsUsed for a score-first (unset side) entry", () => {
+    const decoded = decodeEntry(encodeEntry({ side: 0, slotsUsed: 2, playerCount: 1 }));
+    expect(decoded.side).toBe(0);
+    expect(decoded.slotsUsed).toBe(2);
+    expect(decoded.playerCount).toBe(1);
+    expect(decoded.bump).toBe(255);
+  });
+
+  it("rejects a wrong discriminator", () => {
+    const buf = encodeEntry();
+    buf.writeUInt8(0, 0);
+    expect(() => decodeEntry(buf)).toThrow(/discriminator/);
   });
 });
 

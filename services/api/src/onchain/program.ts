@@ -1,8 +1,11 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
+  type DecodedEntry,
   type DecodedMatch,
   MATCH_ACCOUNT_LEN,
+  decodeEntry,
   decodeMatch,
+  entryPda,
   matchPda,
 } from "@soccit/onchain/program";
 import { config } from "../config.js";
@@ -11,6 +14,7 @@ import { config } from "../config.js";
 // (`../../onchain/program.js`) keep resolving while the single source of
 // truth lives in @soccit/onchain — used by both the API and settlement.
 export {
+  type DecodedEntry,
   type DecodedMatch,
   MATCH_ACCOUNT_LEN,
   STATUS_OPEN,
@@ -19,8 +23,10 @@ export {
   KIND_OUT,
   KIND_IN,
   KIND_COMBO,
+  KIND_SCORE,
   associatedTokenAddress,
   buildPlacePredictionInstruction,
+  decodeEntry,
   decodeMatch,
   entryPda,
   matchIdToLe,
@@ -33,7 +39,8 @@ let connection: Connection | undefined;
 let programId: PublicKey | undefined;
 
 export function getConnection(): Connection {
-  if (!connection) connection = new Connection(config.solana.rpcUrl, "confirmed");
+  if (!connection)
+    connection = new Connection(config.solana.rpcUrl, "confirmed");
   return connection;
 }
 
@@ -42,11 +49,27 @@ export function getProgramId(): PublicKey {
   return programId;
 }
 
-export async function fetchMatch(fixtureId: number): Promise<DecodedMatch | null> {
+export async function fetchMatch(
+  fixtureId: number,
+): Promise<DecodedMatch | null> {
   const pda = matchPda(getProgramId(), BigInt(fixtureId));
   const info = await getConnection().getAccountInfo(pda);
   if (!info) return null;
   return decodeMatch(info.data);
+}
+
+/**
+ * The caller's Entry for a match, or null if they have not picked yet. Used to
+ * report the pay-per-match fee (0 once an entry exists) and the next free slot.
+ */
+export async function fetchEntry(
+  matchAccount: PublicKey,
+  wallet: PublicKey,
+): Promise<DecodedEntry | null> {
+  const pda = entryPda(getProgramId(), matchAccount, wallet);
+  const info = await getConnection().getAccountInfo(pda);
+  if (!info) return null;
+  return decodeEntry(info.data);
 }
 
 /**

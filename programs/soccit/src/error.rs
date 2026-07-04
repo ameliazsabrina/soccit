@@ -36,4 +36,6 @@ pub enum SoccitError {
     VaultUnderfunded,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("Predicted score is out of the allowed range")]
+    ScoreOutOfRange,
 }

@@ -28,6 +28,8 @@ export interface StatusChangeEvent extends Base {
   action: string;
   statusId?: number;
   terminal: boolean;
+  goals1?: number;
+  goals2?: number;
 }
 
 export interface RedCardEvent extends Base {

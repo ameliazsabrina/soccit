@@ -174,7 +174,6 @@ describe("POST /api/prediction/prepare", () => {
     outPlayerId: 11,
     inPlayerId: 0,
     lockMinute: 45,
-    slotIndex: 3,
   };
 
   const post = (payload: unknown) =>

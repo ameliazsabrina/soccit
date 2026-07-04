@@ -3,13 +3,25 @@ import { z } from "zod";
 export const KIND_OUT = 0;
 export const KIND_IN = 1;
 export const KIND_COMBO = 2;
-
+export const KIND_SCORE = 3;
 export const sideSchema = z.union([z.literal(1), z.literal(2)]);
+const predictionSideSchema = z.union([
+  z.literal(0),
+  z.literal(1),
+  z.literal(2),
+]);
+
+const kindSchema = z.union([
+  z.literal(KIND_OUT),
+  z.literal(KIND_IN),
+  z.literal(KIND_COMBO),
+  z.literal(KIND_SCORE),
+]);
 
 export const predictionSchema = z.object({
   owner: z.string(),
-  side: sideSchema,
-  kind: z.union([z.literal(KIND_OUT), z.literal(KIND_IN), z.literal(KIND_COMBO)]),
+  side: predictionSideSchema,
+  kind: kindSchema,
   outPlayerId: z.number().int().nonnegative(),
   inPlayerId: z.number().int().nonnegative(),
   lockMinute: z.number().int().nonnegative(),
@@ -25,7 +37,7 @@ export const substitutionSchema = z.object({
 export const predictionResultSchema = z.object({
   kind: predictionSchema.shape.kind,
   points: z.number().int().nonnegative(),
-  side: sideSchema,
+  side: predictionSideSchema,
   outPlayerId: z.number().int().nonnegative(),
   inPlayerId: z.number().int().nonnegative(),
 });
@@ -42,7 +54,11 @@ export const leaderboardOutput = z.object({
   updatedAt: z.number().int(),
   final: z.boolean(),
   ranking: z.array(leaderboardEntrySchema),
-  winners: z.tuple([z.string().nullable(), z.string().nullable(), z.string().nullable()]),
+  winners: z.tuple([
+    z.string().nullable(),
+    z.string().nullable(),
+    z.string().nullable(),
+  ]),
 });
 
 export type Side = z.infer<typeof sideSchema>;

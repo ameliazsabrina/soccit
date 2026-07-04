@@ -61,7 +61,31 @@ describe("enrichLeaderboard", () => {
     const enriched = enrichLeaderboard(board, new Map(), new Map());
     expect(() => enrichedLeaderboardOutput.parse(enriched)).not.toThrow();
     expect(enriched.ranking[0]?.predictions[0]?.players).toEqual({ out: null, in: null });
+    expect(enriched.ranking[0]?.predictions[0]?.score).toBeNull();
     expect(enriched.ranking[0]?.user).toBeNull();
+  });
+
+  it("surfaces the scoreline for a score pick and does not resolve players", () => {
+    const scoreBoard = {
+      ...sample,
+      ranking: [
+        {
+          owner,
+          points: 3,
+          earliestScoringLockMinute: 90,
+          // KIND_SCORE (3): side 0, score1=2 in outPlayerId, score2=1 in inPlayerId.
+          predictions: [{ kind: 3, points: 3, side: 0, outPlayerId: 2, inPlayerId: 1 }],
+        },
+      ],
+    };
+    const board = parseLeaderboard(JSON.stringify(scoreBoard), 17926594);
+    // A misleading index entry for id 2 must NOT be attached to a score pick.
+    const index = new Map<number, ResolvedPlayer>([[2, player(2, "Not A Player", 1)]]);
+    const enriched = enrichLeaderboard(board, index, new Map());
+    expect(() => enrichedLeaderboardOutput.parse(enriched)).not.toThrow();
+    const pred = enriched.ranking[0]?.predictions[0];
+    expect(pred?.players).toEqual({ out: null, in: null });
+    expect(pred?.score).toEqual({ score1: 2, score2: 1 });
   });
 });
 

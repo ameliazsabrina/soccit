@@ -68,19 +68,29 @@ pub fn place_prediction_handler(
         ctx.accounts.match_account.status == STATUS_OPEN,
         SoccitError::MatchNotOpen
     );
-    require!(side == 1 || side == 2, SoccitError::InvalidSide);
-    require!(kind <= KIND_COMBO, SoccitError::InvalidKind);
-    if kind == KIND_COMBO {
-        require!(out_id != 0 && in_id != 0, SoccitError::IncompleteCombo);
-        require!(out_id != in_id, SoccitError::SelfSubstitution);
+    require!(kind <= KIND_SCORE, SoccitError::InvalidKind);
+
+    let is_score = kind == KIND_SCORE;
+    if is_score {
+        require!(
+            out_id <= MAX_GOALS && in_id <= MAX_GOALS,
+            SoccitError::ScoreOutOfRange
+        );
+    } else {
+        require!(side == 1 || side == 2, SoccitError::InvalidSide);
+        if kind == KIND_COMBO {
+            require!(out_id != 0 && in_id != 0, SoccitError::IncompleteCombo);
+            require!(out_id != in_id, SoccitError::SelfSubstitution);
+        }
     }
 
     let entry = &mut ctx.accounts.entry;
+    let first_pick = entry.owner == Pubkey::default();
 
-    if entry.owner == Pubkey::default() {
+    if first_pick {
         entry.owner = ctx.accounts.user.key();
         entry.match_key = ctx.accounts.match_account.key();
-        entry.side = side;
+        entry.side = if is_score { 0 } else { side };
         entry.slots_used = 0;
         entry.player_count = 0;
         entry.bump = ctx.bumps.entry;
@@ -90,8 +100,12 @@ pub fn place_prediction_handler(
             .participant_count
             .checked_add(1)
             .ok_or(SoccitError::Overflow)?;
-    } else {
-        require!(side == entry.side, SoccitError::SideLocked);
+    } else if !is_score {
+        if entry.side == 0 {
+            entry.side = side;
+        } else {
+            require!(side == entry.side, SoccitError::SideLocked);
+        }
     }
 
     require!(entry.slots_used < MAX_SLOTS, SoccitError::SlotsFull);
@@ -100,45 +114,56 @@ pub fn place_prediction_handler(
         SoccitError::SlotIndexMismatch
     );
 
-    let new_players: &[u32] = match kind {
-        KIND_OUT => &[out_id],
-        KIND_IN => &[in_id],
-        _ => &[out_id, in_id],
-    };
-    let used = entry.player_count as usize;
-    for &pid in new_players {
-        require!(
-            !entry.players[..used].contains(&pid),
-            SoccitError::DuplicatePlayer
-        );
-    }
-    for &pid in new_players {
-        let idx = entry.player_count as usize;
-        entry.players[idx] = pid;
-        entry.player_count += 1;
+    if !is_score {
+        let new_players: &[u32] = match kind {
+            KIND_OUT => &[out_id],
+            KIND_IN => &[in_id],
+            _ => &[out_id, in_id],
+        };
+        let used = entry.player_count as usize;
+        for &pid in new_players {
+            require!(
+                !entry.players[..used].contains(&pid),
+                SoccitError::DuplicatePlayer
+            );
+        }
+        for &pid in new_players {
+            let idx = entry.player_count as usize;
+            entry.players[idx] = pid;
+            entry.player_count += 1;
+        }
     }
     entry.slots_used += 1;
 
-    let fee = ctx.accounts.match_account.entry_fee;
+    // Pay-per-match: the entry fee is charged once, on a wallet's first pick in
+    // this match. Later picks (in additional slots) are free.
+    let fee = if first_pick {
+        ctx.accounts.match_account.entry_fee
+    } else {
+        0
+    };
 
-    token::transfer(
-        CpiContext::new(
-            ctx.accounts.token_program.key(),
-            Transfer {
-                from: ctx.accounts.user_usdc_ata.to_account_info(),
-                to: ctx.accounts.vault.to_account_info(),
-                authority: ctx.accounts.user.to_account_info(),
-            },
-        ),
-        fee,
-    )?;
+    if first_pick {
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.key(),
+                Transfer {
+                    from: ctx.accounts.user_usdc_ata.to_account_info(),
+                    to: ctx.accounts.vault.to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                },
+            ),
+            fee,
+        )?;
 
-    let m = &mut ctx.accounts.match_account;
-    m.pool_total = m.pool_total.checked_add(fee).ok_or(SoccitError::Overflow)?;
+        let m = &mut ctx.accounts.match_account;
+        m.pool_total = m.pool_total.checked_add(fee).ok_or(SoccitError::Overflow)?;
+    }
 
+    let match_key = ctx.accounts.match_account.key();
     let p = &mut ctx.accounts.prediction;
     p.owner = ctx.accounts.user.key();
-    p.match_key = m.key();
+    p.match_key = match_key;
     p.side = side;
     p.kind = kind;
     p.out_player_id = out_id;

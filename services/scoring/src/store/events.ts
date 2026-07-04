@@ -1,5 +1,8 @@
 import type { Redis } from "ioredis";
-import { substitutionSchema, type Substitution } from "../leaderboard/leaderboard.schema.js";
+import {
+  substitutionSchema,
+  type Substitution,
+} from "../leaderboard/leaderboard.schema.js";
 
 const eventStreamKey = (id: number) => `events:${id}`;
 
@@ -11,7 +14,8 @@ export interface StreamEntry {
 
 function parseFields(fields: string[]): { type: string; payload: unknown } {
   const map: Record<string, string> = {};
-  for (let i = 0; i + 1 < fields.length; i += 2) map[fields[i] as string] = fields[i + 1] as string;
+  for (let i = 0; i + 1 < fields.length; i += 2)
+    map[fields[i] as string] = fields[i + 1] as string;
   let payload: unknown = undefined;
   try {
     payload = map.json ? JSON.parse(map.json) : undefined;
@@ -21,10 +25,19 @@ function parseFields(fields: string[]): { type: string; payload: unknown } {
   return { type: map.type ?? "", payload };
 }
 
-export async function readAll(redis: Redis, fixtureId: number): Promise<{ entries: StreamEntry[]; lastId: string }> {
-  const rows = (await redis.xrange(eventStreamKey(fixtureId), "-", "+")) as [string, string[]][];
+export async function readAll(
+  redis: Redis,
+  fixtureId: number,
+): Promise<{ entries: StreamEntry[]; lastId: string }> {
+  const rows = (await redis.xrange(eventStreamKey(fixtureId), "-", "+")) as [
+    string,
+    string[],
+  ][];
   const entries = rows.map(([id, fields]) => ({ id, ...parseFields(fields) }));
-  const lastId = entries.length > 0 ? (entries[entries.length - 1] as StreamEntry).id : "0-0";
+  const lastId =
+    entries.length > 0
+      ? (entries[entries.length - 1] as StreamEntry).id
+      : "0-0";
   return { entries, lastId };
 }
 
@@ -39,9 +52,13 @@ export async function* tail(
   let cursor = fromId;
   try {
     while (!signal.aborted) {
-      const res = (await reader.xread("BLOCK", blockMs, "STREAMS", eventStreamKey(fixtureId), cursor)) as
-        | [string, [string, string[]][]][]
-        | null;
+      const res = (await reader.xread(
+        "BLOCK",
+        blockMs,
+        "STREAMS",
+        eventStreamKey(fixtureId),
+        cursor,
+      )) as [string, [string, string[]][]][] | null;
       if (!res) continue;
       for (const [, rows] of res) {
         for (const [id, fields] of rows) {
@@ -65,4 +82,14 @@ export function isTerminalStatus(entry: StreamEntry): boolean {
   if (entry.type !== "status") return false;
   const p = entry.payload as { terminal?: unknown } | undefined;
   return Boolean(p && p.terminal === true);
+}
+
+export function finalScoreFromStatus(
+  entry: StreamEntry,
+): { score1: number; score2: number } | undefined {
+  if (entry.type !== "status") return undefined;
+  const p = entry.payload as { goals1?: unknown; goals2?: unknown } | undefined;
+  if (!p || typeof p.goals1 !== "number" || typeof p.goals2 !== "number")
+    return undefined;
+  return { score1: p.goals1, score2: p.goals2 };
 }

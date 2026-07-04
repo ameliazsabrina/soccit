@@ -18,6 +18,7 @@ const PRED_SEED = Buffer.from("pred");
 const ENTRY_SEED = Buffer.from("entry");
 
 const MATCH_DISCRIMINATOR = Buffer.from([236, 63, 169, 38, 15, 56, 196, 162]);
+const ENTRY_DISCRIMINATOR = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
 const CREATE_MATCH_DISCRIMINATOR = Buffer.from([107, 2, 184, 145, 70, 142, 17, 165]);
 const PLACE_PREDICTION_DISCRIMINATOR = Buffer.from([79, 46, 195, 197, 50, 91, 88, 229]);
 const RESOLVE_DISCRIMINATOR = Buffer.from([246, 150, 236, 206, 108, 63, 58, 10]);
@@ -131,6 +132,37 @@ export function buildCreateMatchInstruction(params: CreateMatchParams): Transact
 export const KIND_OUT = 0;
 export const KIND_IN = 1;
 export const KIND_COMBO = 2;
+export const KIND_SCORE = 3;
+
+/** One-per-(match, wallet) Entry account. `side` is 0 when unset (score-first). */
+export interface DecodedEntry {
+  owner: PublicKey;
+  matchKey: PublicKey;
+  side: number;
+  slotsUsed: number;
+  playerCount: number;
+  bump: number;
+}
+
+// 8 disc + 32 owner + 32 match_key + 1 side + 1 slots_used + 40 players + 1 count + 1 bump
+export const ENTRY_ACCOUNT_LEN = 116;
+
+export function decodeEntry(buf: Buffer): DecodedEntry {
+  if (buf.length < ENTRY_ACCOUNT_LEN) {
+    throw new Error(`Entry account too short: ${buf.length} < ${ENTRY_ACCOUNT_LEN}`);
+  }
+  if (!buf.subarray(0, 8).equals(ENTRY_DISCRIMINATOR)) {
+    throw new Error("not an Entry account (discriminator mismatch)");
+  }
+  return {
+    owner: new PublicKey(buf.subarray(8, 40)),
+    matchKey: new PublicKey(buf.subarray(40, 72)),
+    side: buf.readUInt8(72),
+    slotsUsed: buf.readUInt8(73),
+    playerCount: buf.readUInt8(114),
+    bump: buf.readUInt8(115),
+  };
+}
 
 export function predictionPda(
   programId: PublicKey,

@@ -67,6 +67,30 @@ describe("normalize (real TxLINE wire format)", () => {
     });
   });
 
+  it("attaches the rolling scoreline (goals1/goals2) to a terminal status from Stats", () => {
+    const raw: RawEvent = {
+      FixtureId: 1,
+      Action: "game_finalised",
+      Clock: { Seconds: 5700 },
+      Stats: { "1": 2, "2": 1 },
+    };
+    const events = normalize(raw);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "status",
+      action: "game_finalised",
+      terminal: true,
+      goals1: 2,
+      goals2: 1,
+    });
+  });
+
+  it("leaves goals undefined on a status beat with no Stats", () => {
+    const events = normalize(fx("game_finalised"));
+    expect(events[0]).toMatchObject({ type: "status", terminal: true });
+    expect((events[0] as { goals1?: number }).goals1).toBeUndefined();
+  });
+
   it("emits a status event for an explicit status action", () => {
     const events = normalize(fx("status"));
     expect(events[0]).toMatchObject({ type: "status", action: "status", statusId: 2, terminal: false });

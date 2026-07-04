@@ -1,12 +1,14 @@
 import { PublicKey, Transaction } from "@solana/web3.js";
 import { createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import {
+  type DecodedEntry,
   type DecodedMatch,
   STATUS_OPEN,
   STATUS_RESOLVED,
   STATUS_SETTLED,
   associatedTokenAddress,
   buildPlacePredictionInstruction,
+  fetchEntry,
   fetchMatch,
   getConnection,
   getProgramId,
@@ -32,6 +34,8 @@ export interface BuildPreparePredictionTxArgs {
   programId: PublicKey;
   matchAccount: PublicKey;
   match: DecodedMatch;
+  /** The caller's existing Entry, or null if this is their first pick. */
+  entry: DecodedEntry | null;
   wallet: PublicKey;
   input: PreparePredictionInput;
   blockhash: string;
@@ -44,13 +48,20 @@ export interface BuildPreparePredictionTxArgs {
  * it. The API never holds a key or signs. We prepend an idempotent
  * create-ATA instruction so a first-time user (no USDC token account yet) does
  * not fail; it is a no-op when the ATA already exists.
+ *
+ * Pay-per-match: the slot and the fee are derived from the caller's Entry, not
+ * supplied by the client. The next free slot is `entry.slotsUsed` (0 on the
+ * first pick), and the fee is the match entry fee only on that first pick.
  */
 export function buildPreparePredictionTx(args: BuildPreparePredictionTxArgs): PreparePredictionOutput {
-  const { programId, matchAccount, match, wallet, input, blockhash, lastValidBlockHeight } = args;
+  const { programId, matchAccount, match, entry, wallet, input, blockhash, lastValidBlockHeight } = args;
+
+  const slotIndex = entry ? entry.slotsUsed : 0;
+  const feeCharged = entry ? 0n : match.entryFee;
 
   // User wallets are on-curve, so the standard ATA derivation applies.
   const userUsdcAta = associatedTokenAddress(match.usdcMint, wallet);
-  const prediction = predictionPda(programId, matchAccount, wallet, input.slotIndex);
+  const prediction = predictionPda(programId, matchAccount, wallet, slotIndex);
 
   const createAtaIx = createAssociatedTokenAccountIdempotentInstruction(
     wallet, // payer
@@ -70,7 +81,7 @@ export function buildPreparePredictionTx(args: BuildPreparePredictionTxArgs): Pr
     outId: input.outPlayerId,
     inId: input.inPlayerId,
     lockMinute: input.lockMinute,
-    slotIndex: input.slotIndex,
+    slotIndex,
   });
 
   const tx = new Transaction();
@@ -90,7 +101,8 @@ export function buildPreparePredictionTx(args: BuildPreparePredictionTxArgs): Pr
     matchAccount: matchAccount.toBase58(),
     userUsdcAta: userUsdcAta.toBase58(),
     usdcMint: match.usdcMint.toBase58(),
-    entryFee: match.entryFee.toString(),
+    entryFee: feeCharged.toString(),
+    slotIndex,
     blockhash,
     lastValidBlockHeight,
   });
@@ -107,12 +119,17 @@ export async function preparePrediction(input: PreparePredictionInput): Promise<
     throw new MatchNotOpenError(input.fixtureId, statusLabel(match.status));
   }
 
+  // Pay-per-match: the caller's Entry tells us the next free slot and whether
+  // the entry fee has already been paid.
+  const entry = await fetchEntry(matchAccount, wallet);
+
   const { blockhash, lastValidBlockHeight } = await getConnection().getLatestBlockhash("confirmed");
 
   return buildPreparePredictionTx({
     programId,
     matchAccount,
     match,
+    entry,
     wallet,
     input,
     blockhash,

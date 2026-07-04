@@ -25,3 +25,5 @@ pub const STATUS_SETTLED: u8 = 2;
 pub const KIND_OUT: u8 = 0;
 pub const KIND_IN: u8 = 1;
 pub const KIND_COMBO: u8 = 2;
+pub const KIND_SCORE: u8 = 3;
+pub const MAX_GOALS: u32 = 99;

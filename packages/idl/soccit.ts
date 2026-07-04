@@ -596,6 +596,11 @@ export type Soccit = {
       "code": 6016,
       "name": "overflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6017,
+      "name": "scoreOutOfRange",
+      "msg": "Predicted score is out of the allowed range"
     }
   ],
   "types": [
