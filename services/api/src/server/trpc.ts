@@ -3,6 +3,7 @@ import { MatchNotFoundError } from "../modules/match/match.errors.js";
 import { MatchNotOpenError } from "../modules/prediction/prediction.errors.js";
 import { LeaderboardNotReadyError } from "../modules/leaderboard/leaderboard.errors.js";
 import { LineupNotReadyError } from "../modules/lineup/lineup.errors.js";
+import { TxlineNotConfiguredError } from "../txline.js";
 import {
   InvalidSignatureError,
   UserNotFoundError,
@@ -26,6 +27,13 @@ function mapDomainError(err: unknown): TRPCError | null {
   ) {
     return new TRPCError({
       code: "NOT_FOUND",
+      message: err.message,
+      cause: err,
+    });
+  }
+  if (err instanceof TxlineNotConfiguredError) {
+    return new TRPCError({
+      code: "PRECONDITION_FAILED",
       message: err.message,
       cause: err,
     });

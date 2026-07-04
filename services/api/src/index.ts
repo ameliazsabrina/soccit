@@ -37,6 +37,9 @@ import {
   setAvatar,
 } from "./modules/user/user.service.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
+import { scheduleInput } from "./modules/schedule/schedule.schema.js";
+import { listSchedule } from "./modules/schedule/schedule.service.js";
+import { TxlineNotConfiguredError } from "./txline.js";
 import { preparePredictionInput } from "./modules/prediction/prediction.schema.js";
 import { preparePrediction } from "./modules/prediction/prediction.service.js";
 import { MatchNotOpenError } from "./modules/prediction/prediction.errors.js";
@@ -65,6 +68,22 @@ app.all("/trpc/*", (c) =>
 );
 
 app.get("/api/matches", async (c) => c.json(await listMatches()));
+
+app.get("/api/schedule", async (c) => {
+  const toNum = (v: string | undefined) => (v == null ? undefined : Number(v));
+  const parsed = scheduleInput.safeParse({
+    startEpochDay: toNum(c.req.query("startEpochDay")),
+    competitionId: toNum(c.req.query("competitionId")),
+  });
+  if (!parsed.success) return c.json({ error: "invalid query" }, 400);
+  try {
+    return c.json(await listSchedule(parsed.data));
+  } catch (err) {
+    if (err instanceof TxlineNotConfiguredError)
+      return c.json({ error: err.message }, 503);
+    throw err;
+  }
+});
 
 app.get("/api/match/:pda", async (c) => {
   const pda = c.req.param("pda");
@@ -282,11 +301,13 @@ app.get("/api/leaderboard/:pda/stream", async (c) => {
   });
 });
 
-serve(
-  { fetch: app.fetch, port: config.port, hostname: config.host },
-  (info) => {
-    logger.info({ port: info.port, host: config.host }, "soccit api listening");
-  },
-);
+if (process.env.NODE_ENV !== "test") {
+  serve(
+    { fetch: app.fetch, port: config.port, hostname: config.host },
+    (info) => {
+      logger.info({ port: info.port, host: config.host }, "soccit api listening");
+    },
+  );
+}
 
 export { app };

@@ -34,6 +34,11 @@ import {
 import { userMatchesOutput } from "../modules/participation/participation.schema.js";
 import { getUserMatches } from "../modules/participation/participation.service.js";
 import {
+  scheduleInput,
+  scheduleOutput,
+} from "../modules/schedule/schedule.schema.js";
+import { listSchedule } from "../modules/schedule/schedule.service.js";
+import {
   preparePredictionInput,
   preparePredictionOutput,
 } from "../modules/prediction/prediction.schema.js";
@@ -131,6 +136,13 @@ const userRouter = router({
   avatars: publicProcedure.output(avatarsOutput).query(() => listAvatars()),
 });
 
+const scheduleRouter = router({
+  list: publicProcedure
+    .input(scheduleInput.optional())
+    .output(scheduleOutput)
+    .query(({ input }) => listSchedule(input ?? {})),
+});
+
 const predictionRouter = router({
   prepare: publicProcedure
     .input(preparePredictionInput)
@@ -140,6 +152,7 @@ const predictionRouter = router({
 
 export const appRouter = router({
   match: matchRouter,
+  schedule: scheduleRouter,
   prediction: predictionRouter,
   leaderboard: leaderboardRouter,
   events: eventsRouter,

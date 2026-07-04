@@ -17,6 +17,8 @@ const Schema = z.object({
   PROGRAM_ID: z.string().default("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v"),
   SSE_KEEPALIVE_MS: z.coerce.number().int().positive().default(15000),
   STREAM_BLOCK_MS: z.coerce.number().int().positive().default(5000),
+  TXLINE_BASE_URL: z.string().url().default("https://txline.txodds.com"),
+  TXLINE_API_TOKEN: z.string().optional(),
   LOG_LEVEL: z.string().default("info"),
 });
 
@@ -40,6 +42,10 @@ export const config = {
   solana: { cluster: env.SOLANA_CLUSTER, rpcUrl: resolveRpcUrl(), programId: env.PROGRAM_ID },
   sseKeepaliveMs: env.SSE_KEEPALIVE_MS,
   streamBlockMs: env.STREAM_BLOCK_MS,
+  txline: {
+    baseUrl: env.TXLINE_BASE_URL.replace(/\/$/, ""),
+    apiToken: env.TXLINE_API_TOKEN || undefined,
+  },
   logLevel: env.LOG_LEVEL,
 } as const;
 
