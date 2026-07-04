@@ -172,21 +172,44 @@ Prediction `kind` values (shared across leaderboard and participation):
 
 ### 1. `GET /healthz`
 
-Liveness probe.
+Liveness + ingestion-health probe. `ok` reflects the API process itself; `worker` and `feed`
+are best-effort probes of the background TxLINE ingestor (read from Redis).
 
 - **Path params:** none
 - **Query params:** none
-- **Success:** `200`
+- **Success:** `200` → `Health`
 
-```json
-{ "ok": true }
+```ts
+type Health = {
+  ok: true; // the API process is up
+  worker: null | {
+    alive: boolean; // true if the ingestor refreshed its heartbeat in the last ~35s
+    heartbeatAgeMs: number | null; // ms since the last worker heartbeat (null if never seen)
+  };
+  feed: null | {
+    lastBeatAgeMs: number | null; // ms since the feed last delivered a real beat (null if never)
+  };
+};
 ```
+
+**Interpreting it:**
+
+- `worker.alive === true` → the ingestor process is running.
+- `worker.alive === false` (or `worker === null`) → the ingestor is **down / crash-looping** —
+  live scores and events will be stale. This is the alarm to watch.
+- `feed.lastBeatAgeMs` is **data freshness**, not health: it stays high when no match is currently
+  live (the feed is legitimately quiet between fixtures), so a large value with `worker.alive: true`
+  is normal. A large value with `worker.alive: false` means ingestion is actually broken.
+- `worker`/`feed` are `null` when the API can't reach Redis; `ok` is still `true` (API is up).
+
+> This is a health/observability endpoint — you generally don't need it for the app UI. It's here
+> so ops (and a status page) can tell a healthy-but-idle backend from a frozen one.
 
 **Verified live:**
 
 ```bash
 $ curl https://13.213.196.237.sslip.io/healthz
-{"ok":true}
+{"ok":true,"worker":{"alive":true,"heartbeatAgeMs":3200},"feed":{"lastBeatAgeMs":18412}}
 ```
 
 ---
@@ -1082,6 +1105,76 @@ HTTP/2 200
 
 ---
 
+### 14. `GET /api/schedule`
+
+The **fixture schedule**: TxLINE's confirmed upcoming-fixture calendar, fetched live from the feed
+(`/api/fixtures/snapshot`) and trimmed to display fields. This is distinct from `GET /api/matches`
+(#2): `/api/matches` lists only fixtures that already have an on-chain prediction market, whereas
+`/api/schedule` is the raw feed calendar of everything scheduled — use it to show upcoming games
+before a market exists. It is **not** keyed by a match PDA; it takes optional day/competition
+filters instead.
+
+- **Path params:** none
+- **Query params:**
+  - `startEpochDay` — optional non-negative int. Ordinal days since 1970 (UTC). Returns fixtures
+    starting at or within ~30 days after that day. Defaults to the current UTC day.
+  - `competitionId` — optional int. Filter to a single competition.
+- **Request body:** none
+- **Success:** `200` → `ScheduleFixture[]`, sorted by kickoff time (soonest first)
+
+```ts
+type ScheduleFixture = {
+  fixtureId: number;
+  startTime: number | null; // kickoff, epoch seconds as delivered by the TxLINE feed
+  competition: string | null;
+  competitionId: number | null;
+  team1: { id: number | null; name: string | null };
+  team2: { id: number | null; name: string | null };
+  team1IsHome: boolean | null;
+};
+```
+
+**Notes:**
+
+- This endpoint proxies the **live TxLINE feed** (not Redis / not on-chain). The server holds the
+  TxLINE credentials; the frontend passes no token.
+- Malformed rows from the feed are silently dropped rather than failing the whole response; a valid
+  request with nothing scheduled returns `200` and `[]`.
+- `team*.id`/`name` and `startTime` can be `null` when the feed omits them — fall back gracefully.
+- `startTime` is passed through exactly as the feed delivers it (TxOdds epoch seconds); verify the
+  unit against a known kickoff before doing date math, and treat it as UTC.
+
+**Error statuses:**
+
+| Status | Body                                                                        | When                                                       |
+| ------ | --------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `400`  | `{ "error": "invalid query" }`                                              | `startEpochDay`/`competitionId` is not a valid number.     |
+| `503`  | `{ "error": "TxLINE is not configured: set TXLINE_API_TOKEN to enable schedule data" }` | The API has no TxLINE API token configured. |
+| `500`  | `Internal Server Error` (plain text)                                        | Upstream TxLINE call failed (auth/network). Retryable.     |
+
+**Example:**
+
+```bash
+$ curl -s 'https://13.213.196.237.sslip.io/api/schedule?competitionId=7'
+[
+  {
+    "fixtureId": 18172379,
+    "startTime": 1700000000,
+    "competition": "World Cup",
+    "competitionId": 7,
+    "team1": { "id": 3220, "name": "USA" },
+    "team2": { "id": 1619, "name": "Bosnia & Herzegovina" },
+    "team1IsHome": true
+  }
+]
+```
+
+_(schema example — a `503` is returned until `TXLINE_API_TOKEN` is set on the API service.)_
+
+**tRPC equivalent:** `schedule.list` (query, optional `{ startEpochDay?, competitionId? }` input).
+
+---
+
 ## tRPC API
 
 The same backend mounts a tRPC router at:
@@ -1097,6 +1190,7 @@ envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes
 | -------------------- | ---------------------------------------- | ------------ |
 | `match.list`         | `GET /api/matches`                        | query        |
 | `match.get`          | `GET /api/match/:pda`                     | query        |
+| `schedule.list`      | `GET /api/schedule`                       | query        |
 | `prediction.prepare` | `POST /api/prediction/prepare`            | mutation     |
 | `leaderboard.get`    | `GET /api/leaderboard/:pda`               | query        |
 | `leaderboard.stream` | `GET /api/leaderboard/:pda/stream`        | subscription |
@@ -1125,6 +1219,13 @@ envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes
 - **Input:** `{ pda: string }` (base58 match-account address)
 - **Output:** `MatchState` (same shape as REST #3)
 - **Errors:** `MatchNotFoundError → NOT_FOUND`
+
+#### `schedule.list`
+
+- **Input:** optional `{ startEpochDay?: number; competitionId?: number }` (same as REST #14 query)
+- **Output:** `ScheduleFixture[]` (same shape as REST #14), sorted by kickoff ascending
+- **Errors:** `TxlineNotConfiguredError → PRECONDITION_FAILED` (no API token); upstream failure →
+  `INTERNAL_SERVER_ERROR`
 
 #### `prediction.prepare`
 
@@ -1196,6 +1297,7 @@ The backend maps domain errors to tRPC codes (`services/api/src/server/trpc.ts`)
 | `MatchNotFoundError`, `LeaderboardNotReadyError`, `LineupNotReadyError`, `UserNotFoundError` | `NOT_FOUND`        | 404         |
 | `InvalidSignatureError`                                                               | `UNAUTHORIZED`          | 401         |
 | `UsernameTakenError`, `WalletAlreadyRegisteredError`, `MatchNotOpenError`              | `CONFLICT`              | 409         |
+| `TxlineNotConfiguredError`                                                            | `PRECONDITION_FAILED`   | 412         |
 | anything else                                                                         | `INTERNAL_SERVER_ERROR` | 500         |
 
 Input validation failures (malformed PDA / wallet) produce tRPC `BAD_REQUEST` (400) from Zod.
@@ -1263,9 +1365,13 @@ Use the `apiJson` helper from Quick Start. General rules:
 
 | Endpoint                         | Method | Status | Meaning                                  | Response shape                                                  |
 | -------------------------------- | ------ | ------ | ---------------------------------------- | -------------------------------------------------------------- |
-| `/healthz`                       | GET    | 200    | Service alive                            | `{ "ok": true }`                                               |
+| `/healthz`                       | GET    | 200    | API alive + ingestor health probe        | `{ "ok": true, "worker": { alive, heartbeatAgeMs } \| null, "feed": { lastBeatAgeMs } \| null }` |
 | `/api/matches`                   | GET    | 200    | Match-discovery list (possibly empty)    | `MatchSummary[]`                                              |
 | `/api/matches`                   | GET    | 500    | RPC lookup failed scanning chain state   | `Internal Server Error` (plain text)                          |
+| `/api/schedule`                  | GET    | 200    | Fixture schedule (possibly empty)        | `ScheduleFixture[]`                                          |
+| `/api/schedule`                  | GET    | 400    | Invalid query param                      | `{ "error": "invalid query" }`                               |
+| `/api/schedule`                  | GET    | 503    | TxLINE API token not configured          | `{ "error": "TxLINE is not configured: …" }`                 |
+| `/api/schedule`                  | GET    | 500    | Upstream TxLINE call failed              | `Internal Server Error` (plain text)                         |
 | `/api/match/:pda`                 | GET    | 200    | Match state returned                     | `MatchState`                                                   |
 | `/api/match/:pda`                 | GET    | 400    | Invalid match address                    | `{ "error": "invalid match address" }`                        |
 | `/api/match/:pda`                 | GET    | 404    | Unknown PDA / no match state             | `{ "error": "No match found for match account <pda>" }`       |
@@ -1347,4 +1453,14 @@ success shape verified against devnet + a local API instance; deploy the `api` s
 on the staging URL. The `POST /api/prediction/prepare` endpoint (#4) was documented on 2026-07-02
 (verified live: `400` validation + `200` unsigned tx against OPEN match `18172379`); the same change
 mapped `MatchNotOpenError` to tRPC `CONFLICT` so `prediction.prepare` matches the REST `409` — redeploy
-`api` for that parity._
+`api` for that parity. The `GET /api/schedule` endpoint (#14) was added on 2026-07-04
+(`services/api/src/modules/schedule/*`, `services/api/src/txline.ts`): a live passthrough to the
+TxLINE fixtures snapshot, mapping `TxlineNotConfiguredError` to REST `503` / tRPC `PRECONDITION_FAILED`.
+It requires `TXLINE_API_TOKEN` on the `api` service (returns `503` until set) — verified via unit +
+route integration tests, pending live verification on the staging URL. On 2026-07-04 `GET /healthz`
+(#1) was extended from `{ ok: true }` to also carry best-effort `worker` (ingestor liveness via a
+Redis heartbeat) and `feed` (data-freshness) probes, after the TxLINE worker was found silently
+crash-looping on a poison beat and freezing ingestion; the worker now isolates per-beat failures and
+writes `txline:worker:heartbeat` / `txline:scores:lastBeatAt`. The added fields are backward
+compatible (`ok` unchanged) — verified via the `/healthz` route integration test, pending live
+re-verification on the staging URL._
