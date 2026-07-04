@@ -83,10 +83,14 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("GET /healthz", () => {
-  it("returns ok", async () => {
+  it("returns ok plus best-effort worker/feed probes", async () => {
     const res = await app.request("/healthz");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({
+      ok: true,
+      worker: { alive: false, heartbeatAgeMs: null },
+      feed: { lastBeatAgeMs: null },
+    });
   });
 });
 

@@ -7,29 +7,36 @@ import type { LineupSnapshot } from "../domain/lineup.js";
 import { matchMinute, type RawEvent } from "../txline/types.js";
 
 const LAST_EVENT_ID_KEY = "txline:scores:lastEventId";
+const WORKER_HEARTBEAT_KEY = "txline:worker:heartbeat";
+const LAST_BEAT_AT_KEY = "txline:scores:lastBeatAt";
 const fixtureKey = (id: number) => `fixture:${id}`;
 const eventStreamKey = (id: number) => `events:${id}`;
 const lineupKey = (id: number) => `lineup:${id}`;
-// Reverse index consumed by the API to map a public match-account PDA back to
-// its internal fixtureId (see services/api/src/modules/match/pda.ts).
 const matchPdaKey = (pda: string) => `matchpda:${pda}`;
 
 const MATCH_SEED = Buffer.from("match");
 const PROGRAM_ID = new PublicKey(config.solana.programId);
 
-/** Derive the match-account PDA for a fixture: PDA = hash(programId, "match", fixtureId_le). */
 function matchPda(fixtureId: number): string {
   const idLe = Buffer.alloc(8);
   idLe.writeBigUInt64LE(BigInt(fixtureId));
-  return PublicKey.findProgramAddressSync([MATCH_SEED, idLe], PROGRAM_ID)[0].toBase58();
+  return PublicKey.findProgramAddressSync(
+    [MATCH_SEED, idLe],
+    PROGRAM_ID,
+  )[0].toBase58();
 }
 
 export class RedisStore {
   private redis: Redis;
 
   constructor(url = config.redis.url) {
-    this.redis = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: null });
-    this.redis.on("error", (err) => logger.warn({ err: String(err) }, "redis error"));
+    this.redis = new Redis(url, {
+      lazyConnect: true,
+      maxRetriesPerRequest: null,
+    });
+    this.redis.on("error", (err) =>
+      logger.warn({ err: String(err) }, "redis error"),
+    );
   }
 
   async init(): Promise<void> {
@@ -43,6 +50,13 @@ export class RedisStore {
 
   async setLastEventId(id: string): Promise<void> {
     await this.redis.set(LAST_EVENT_ID_KEY, id);
+  }
+  async heartbeat(): Promise<void> {
+    await this.redis.set(WORKER_HEARTBEAT_KEY, String(Date.now()));
+  }
+
+  async recordBeat(): Promise<void> {
+    await this.redis.set(LAST_BEAT_AT_KEY, String(Date.now()));
   }
 
   async persist(raw: RawEvent, events: DomainEvent[]): Promise<void> {

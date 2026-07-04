@@ -9,9 +9,10 @@ import { MongoStore } from "./mongo.js";
 export class Store {
   private mongo: MongoStore | undefined;
 
-  // Collaborators are injectable so the failure-isolation policy below can be
-  // unit-tested without a live Redis/Mongo. Production uses the defaults.
-  constructor(readonly redis: RedisStore = new RedisStore(), mongo?: MongoStore) {
+  constructor(
+    readonly redis: RedisStore = new RedisStore(),
+    mongo?: MongoStore,
+  ) {
     this.mongo = mongo;
   }
 
@@ -22,14 +23,13 @@ export class Store {
       this.mongo = new MongoStore(config.mongo.url, config.mongo.db);
       await this.mongo.init();
     } else {
-      logger.warn("MONGO_URL unset — durable persistence disabled (Redis-only)");
+      logger.warn(
+        "MONGO_URL unset — durable persistence disabled (Redis-only)",
+      );
     }
   }
 
   async persist(raw: RawEvent, events: DomainEvent[]): Promise<void> {
-    // Redis is the source of truth for downstream scoring — a Redis failure
-    // must propagate (the event is not acked and will be retried). Mongo is
-    // best-effort durability/history: never let it wedge live ingestion.
     await this.redis.persist(raw, events);
     if (this.mongo) {
       try {
@@ -63,6 +63,14 @@ export class Store {
 
   setLastEventId(id: string): Promise<void> {
     return this.redis.setLastEventId(id);
+  }
+
+  heartbeat(): Promise<void> {
+    return this.redis.heartbeat();
+  }
+
+  recordBeat(): Promise<void> {
+    return this.redis.recordBeat();
   }
 
   async close(): Promise<void> {

@@ -56,7 +56,32 @@ const app = new Hono();
 
 app.use("*", cors());
 
-app.get("/healthz", (c) => c.json({ ok: true }));
+const WORKER_HEARTBEAT_KEY = "txline:worker:heartbeat";
+const LAST_BEAT_AT_KEY = "txline:scores:lastBeatAt";
+const WORKER_ALIVE_WINDOW_MS = 35_000;
+
+app.get("/healthz", async (c) => {
+  let worker: { alive: boolean; heartbeatAgeMs: number | null } | null = null;
+  let feed: { lastBeatAgeMs: number | null } | null = null;
+  try {
+    const redis = getRedis();
+    const [hb, beat] = await Promise.all([
+      redis.get(WORKER_HEARTBEAT_KEY),
+      redis.get(LAST_BEAT_AT_KEY),
+    ]);
+    const now = Date.now();
+    const ageOf = (v: string | null) => (v == null ? null : now - Number(v));
+    const heartbeatAgeMs = ageOf(hb);
+    worker = {
+      alive: heartbeatAgeMs != null && heartbeatAgeMs < WORKER_ALIVE_WINDOW_MS,
+      heartbeatAgeMs,
+    };
+    feed = { lastBeatAgeMs: ageOf(beat) };
+  } catch {
+    // Redis unavailable — surface unknown worker/feed state, API is still up.
+  }
+  return c.json({ ok: true, worker, feed });
+});
 
 app.all("/trpc/*", (c) =>
   fetchRequestHandler({
@@ -305,7 +330,10 @@ if (process.env.NODE_ENV !== "test") {
   serve(
     { fetch: app.fetch, port: config.port, hostname: config.host },
     (info) => {
-      logger.info({ port: info.port, host: config.host }, "soccit api listening");
+      logger.info(
+        { port: info.port, host: config.host },
+        "soccit api listening",
+      );
     },
   );
 }
