@@ -17,7 +17,7 @@ interface TickerMarqueeProps {
 export function TickerMarquee({ variant = "default" }: TickerMarqueeProps) {
   const isWorldCup = variant === "worldcup";
   return (
-    <div className="relative z-10 mx-auto w-full max-w-[1200px] px-8 pb-6 lg:px-8">
+    <div className="fixed bottom-0 left-0 z-30 w-full px-8 pb-4 lg:px-8">
       <div
         className={cn(
           "relative overflow-hidden border-y py-2",

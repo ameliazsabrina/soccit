@@ -2,8 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, ArrowRightLeft, GripHorizontal, Sparkles, Crosshair } from "lucide-react";
-import { PlayerCard, type PlayerCardData } from "./player-card";
+import {
+  X,
+  User,
+  ArrowLeft,
+  ArrowRightLeft,
+  Sparkles,
+  Crosshair,
+  Trophy,
+  Radio,
+  Info,
+} from "lucide-react";
+import { type PlayerCardData } from "./player-card";
 import { SlideToLock } from "./slide-to-lock";
 import { LiveMatchFeed } from "./live-match-feed";
 import { LockCelebration } from "./lock-celebration";
@@ -17,13 +27,11 @@ export interface SubstitutionPrediction {
   side: 1 | 2;
 }
 
-interface PitchArenaProps {
+export interface PitchArenaProps {
   matchPda: string;
   teamName: string;
   side: 1 | 2;
-  score: { team1: number; team2: number };
-  minute: number | null;
-  isLive: boolean;
+  onBack: () => void;
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
   onLock: (predictions: SubstitutionPrediction[]) => void | Promise<void>;
@@ -31,27 +39,58 @@ interface PitchArenaProps {
   className?: string;
 }
 
-const FORMATION_SLOTS = [
-  { id: "lw", label: "LW", position: "Forward", col: 2, row: 1 },
-  { id: "st", label: "ST", position: "Forward", col: 6, row: 1 },
-  { id: "rw", label: "RW", position: "Forward", col: 10, row: 1 },
-  { id: "lcm", label: "LCM", position: "Midfielder", col: 3, row: 3 },
-  { id: "cm", label: "CM", position: "Midfielder", col: 6, row: 3 },
-  { id: "rcm", label: "RCM", position: "Midfielder", col: 9, row: 3 },
-  { id: "lb", label: "LB", position: "Defender", col: 1, row: 5 },
-  { id: "lcb", label: "LCB", position: "Defender", col: 4, row: 5 },
-  { id: "rcb", label: "RCB", position: "Defender", col: 8, row: 5 },
-  { id: "rb", label: "RB", position: "Defender", col: 11, row: 5 },
-  { id: "gk", label: "GK", position: "Goalkeeper", col: 6, row: 6 },
-];
+type SidebarTab = "slip" | "feed" | "info";
+
+const POSITION_COLORS: Record<string, string> = {
+  Goalkeeper: "bg-purple/20 border-purple/50 text-purple",
+  Defender: "bg-purple/10 border-purple/30 text-purple/80",
+  Midfielder: "bg-gold/10 border-gold/40 text-gold",
+  Forward: "bg-rose/10 border-rose/40 text-rose",
+};
+
+// 11-slot formation mapped from ARENASUBS.svg coordinates (1920x1080 wireframe).
+// Pitch bounding box: x=[98,1093] (w=995), y=[148,597] (h=449).
+const FORMATION_SLOTS: Record<string, { gridX: number; gridY: number }> = {
+  GK: { gridX: 49.6, gridY: 87.2 },
+  LB: { gridX: 16.5, gridY: 70.5 },
+  LCB: { gridX: 35.1, gridY: 75.6 },
+  CB: { gridX: 35.1, gridY: 75.6 },
+  RCB: { gridX: 64.2, gridY: 75.6 },
+  RB: { gridX: 82.5, gridY: 65.4 },
+  CDM: { gridX: 49.6, gridY: 36.2 },
+  CM: { gridX: 36.1, gridY: 41.3 },
+  LCM: { gridX: 36.1, gridY: 41.3 },
+  RCM: { gridX: 63.1, gridY: 41.3 },
+  LW: { gridX: 19.9, gridY: 31.5 },
+  LM: { gridX: 19.9, gridY: 31.5 },
+  ST: { gridX: 49.6, gridY: 4.1 },
+  CF: { gridX: 49.6, gridY: 4.1 },
+  RW: { gridX: 79.1, gridY: 31.5 },
+  RM: { gridX: 79.1, gridY: 31.5 },
+};
+
+function posColor(position: string | null): string {
+  if (!position) return "bg-surface border-surface text-muted";
+  const key = position.charAt(0).toUpperCase() + position.slice(1).toLowerCase();
+  for (const [posKey, cls] of Object.entries(POSITION_COLORS)) {
+    if (key.includes(posKey) || posKey.includes(key)) return cls;
+  }
+  return "bg-surface border-surface text-muted";
+}
+
+function getSlot(player: PlayerCardData): { gridX: number; gridY: number } {
+  if (player.gridX != null && player.gridY != null) {
+    return { gridX: player.gridX, gridY: player.gridY };
+  }
+  const code = (player.positionCode ?? "").toUpperCase();
+  return FORMATION_SLOTS[code] ?? { gridX: 50, gridY: 50 };
+}
 
 export function PitchArena({
   matchPda,
   teamName,
   side,
-  score,
-  minute,
-  isLive,
+  onBack,
   starters,
   substitutes,
   onLock,
@@ -59,102 +98,83 @@ export function PitchArena({
   className,
 }: PitchArenaProps) {
   const [predictions, setPredictions] = useState<Record<string, SubstitutionPrediction>>({});
-  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+  const [dragOverPlayer, setDragOverPlayer] = useState<number | null>(null);
   const [selectedSub, setSelectedSub] = useState<PlayerCardData | null>(null);
   const [showSubDetail, setShowSubDetail] = useState<PlayerCardData | null>(null);
-  const [justPlaced, setJustPlaced] = useState<string | null>(null);
+  const [justPlaced, setJustPlaced] = useState<number | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const startersBySlot = useMemo(
-    () =>
-      Object.fromEntries(
-        FORMATION_SLOTS.map((slot) => {
-          const starter = starters.find((s) => matchPosition(s.position, slot.position));
-          return [slot.id, starter];
-        })
-      ),
-    [starters]
-  );
+  const [activeTab, setActiveTab] = useState<SidebarTab>("slip");
 
   useEffect(() => {
-    if (!justPlaced) return;
+    if (justPlaced === null) return;
     const timer = setTimeout(() => setJustPlaced(null), 600);
     return () => clearTimeout(timer);
   }, [justPlaced]);
-
-  function matchPosition(playerPos: string | null, slotPos: string) {
-    if (!playerPos) return false;
-    return playerPos.toLowerCase() === slotPos.toLowerCase();
-  }
 
   function handleDragStart(e: React.DragEvent, player: PlayerCardData) {
     e.dataTransfer.setData("application/json", JSON.stringify(player));
     e.dataTransfer.effectAllowed = "copy";
   }
 
-  function handleDrop(e: React.DragEvent, slotId: string) {
+  function handleDropOnStarter(e: React.DragEvent, starterPlayer: PlayerCardData) {
     e.preventDefault();
-    setDragOverSlot(null);
+    setDragOverPlayer(null);
     const data = e.dataTransfer.getData("application/json");
     if (!data) return;
     try {
-      const player: PlayerCardData = JSON.parse(data);
-      assignPlayerToSlot(slotId, player);
+      const sub: PlayerCardData = JSON.parse(data);
+      assignSubToStarter(starterPlayer, sub);
     } catch {
       // ignore
     }
   }
 
-  function assignPlayerToSlot(slotId: string, sub: PlayerCardData) {
-    const slot = FORMATION_SLOTS.find((s) => s.id === slotId);
-    const starter = startersBySlot[slotId];
-    if (!slot || !starter) return;
+  function assignSubToStarter(starter: PlayerCardData, sub: PlayerCardData) {
     setPredictions((prev) => ({
       ...prev,
-      [slotId]: {
-        slotId,
-        position: slot.position,
+      [starter.id]: {
+        slotId: String(starter.id),
+        position: starter.position ?? "Player",
         outPlayerId: starter.id,
         inPlayerId: sub.id,
         side,
       },
     }));
     setSelectedSub(null);
-    setJustPlaced(slotId);
+    setJustPlaced(starter.id);
   }
 
-  function clearSlot(slotId: string) {
+  function clearPrediction(playerId: number) {
     setPredictions((prev) => {
       const next = { ...prev };
-      delete next[slotId];
+      delete next[playerId];
       return next;
     });
   }
 
   function handleBenchClick(player: PlayerCardData) {
-    if (typeof window !== "undefined" && window.innerWidth < 1024) {
-      setSelectedSub((prev) => (prev?.id === player.id ? null : player));
-    }
+    setSelectedSub((prev) => (prev?.id === player.id ? null : player));
   }
 
   function handleBenchDetails(player: PlayerCardData) {
     setShowSubDetail(player);
   }
 
-  function handleSlotClick(slotId: string) {
+  function handleStarterClick(starter: PlayerCardData) {
     if (selectedSub) {
-      assignPlayerToSlot(slotId, selectedSub);
-    } else if (predictions[slotId]) {
-      clearSlot(slotId);
+      assignSubToStarter(starter, selectedSub);
+    } else if (predictions[starter.id]) {
+      clearPrediction(starter.id);
     }
   }
 
   async function handleLock() {
+    const predictionList = Object.values(predictions);
     if (predictionList.length === 0 || locked || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await Promise.resolve(onLock(Object.values(predictions)));
+      await Promise.resolve(onLock(predictionList));
       setCelebrating(true);
     } finally {
       setIsSubmitting(false);
@@ -169,161 +189,210 @@ export function PitchArena({
     }, 0);
   }, [predictionList, substitutes]);
 
+  const bench = substitutes.slice(0, 5);
+
   return (
-    <div className={cn("flex flex-1 flex-col overflow-hidden lg:flex-row", className)}>
-      {/* Left: Bench Deck */}
-      <aside className="hidden w-72 flex-col border-r border-surface bg-surface/20 p-4 lg:flex">
-        <div className="mb-4 border-b border-surface pb-3">
-          <h3 className="font-display text-2xl text-foreground">Bench Deck</h3>
-          <p className="text-xs font-bold uppercase tracking-wider text-muted">
-            Drag a card onto the pitch
-          </p>
-        </div>
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
-          {substitutes.map((sub) => (
-            <PlayerCard
-              key={sub.id}
-              player={sub}
-              draggable
-              onDragStart={handleDragStart}
-              onClick={() => handleBenchDetails(sub)}
-            />
-          ))}
-        </div>
-      </aside>
-
-      {/* Center: Pitch + HUD */}
-      <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-background p-4 pb-40 lg:pb-4">
-        {/* Atmospheric orb */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple/10 blur-[120px]" />
-        </div>
-
-        {/* Scoreboard HUD */}
-        <div className="relative z-20 mb-4 flex items-center gap-6 glass border border-surface px-8 py-3">
-          <div className="text-center">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">{teamName}</p>
-            <div className="flex items-center gap-3 font-display text-4xl text-foreground">
-              <span>{score.team1}</span>
-              <span className="text-muted">-</span>
-              <span>{score.team2}</span>
-            </div>
-            <div className="mt-1 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
-              {isLive && <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />}
-              <span>{isLive ? `${minute ?? 0}' LIVE` : "UPCOMING"}</span>
-            </div>
+    <div className={cn("grid h-full grid-cols-1 gap-5 lg:grid-cols-[1fr_40%]", className)}>
+      {/* ===== LEFT: Pitch + Bench ===== */}
+      <div className="flex min-h-0 flex-col">
+        {/* Top bar: back + team identity */}
+        <div className="flex h-16 items-center gap-3 px-2">
+          <button
+            onClick={onBack}
+            className="flex h-10 w-10 items-center justify-center border border-surface bg-surface/30 text-foreground transition-colors hover:bg-surface/60"
+            aria-label="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <span className="flex h-10 w-10 items-center justify-center border border-surface bg-surface/30 text-foreground">
+            <User size={18} />
+          </span>
+          <div>
+            <p className="font-display text-lg leading-tight text-foreground">{teamName}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              {side === 1 ? "Home" : "Away"} · Sub Manager
+            </p>
           </div>
         </div>
 
-        {/* Desktop instruction */}
-        <div className="relative z-20 mb-3 hidden items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted lg:flex">
-          <Crosshair size={14} className="text-purple" />
-          Drag a substitute card onto the pitch
-        </div>
-
-        {/* Perspective pitch */}
-        <div className="relative z-10 w-full max-w-4xl" style={{ perspective: "1200px" }}>
-          <div
-            className="pitch-surface relative aspect-[3/2] w-full overflow-hidden border-[10px] border-pitch-deep shadow-2xl"
-            style={{ transform: "rotateX(24deg) scale(1.05)", transformStyle: "preserve-3d" }}
-          >
-            <div className="pitch-line absolute inset-4 rounded-[40px]" />
-            <div className="pitch-line absolute left-1/2 top-4 bottom-4 w-0 -translate-x-1/2" />
-            <div className="pitch-line absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full" />
-
-            {/* Slots grid */}
+        {/* Pitch */}
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden p-2">
+          <div className="relative w-full max-w-full" style={{ aspectRatio: "995 / 449" }}>
+            {/* Trapezoid pitch surface */}
             <div
-              className="absolute inset-0 grid grid-cols-11 grid-rows-6 gap-2 p-8"
-              onDragOver={(e) => e.preventDefault()}
+              className="pitch-surface absolute inset-0 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]"
+              style={{
+                clipPath: "polygon(14.5% 0%, 85.5% 0%, 100% 100%, 0% 100%)",
+              }}
+            />
+            {/* Pitch markings */}
+            <svg
+              className="pointer-events-none absolute inset-0 text-pitch-line"
+              viewBox="0 0 995 449"
+              preserveAspectRatio="none"
             >
-              {FORMATION_SLOTS.map((slot) => {
-                const starter = startersBySlot[slot.id];
-                const predicted = predictions[slot.id];
-                const sub = predicted ? substitutes.find((s) => s.id === predicted.inPlayerId) : null;
-                const isDragOver = dragOverSlot === slot.id;
-                const flashed = justPlaced === slot.id;
+              <polygon
+                points="144,0 851,0 995,449 0,449"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+              />
+              <line x1="497.5" y1="0" x2="497.5" y2="449" stroke="currentColor" strokeWidth="2" />
+              <circle
+                cx="497.5"
+                cy="224.5"
+                r="48"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+            </svg>
+
+            {/* Player tokens */}
+            <div className="absolute inset-0" onDragOver={(e) => e.preventDefault()}>
+              {starters.map((starter) => {
+                const predicted = predictions[starter.id];
+                const sub = predicted
+                  ? substitutes.find((s) => s.id === predicted.inPlayerId)
+                  : null;
+                const isDragOver = dragOverPlayer === starter.id;
+                const flashed = justPlaced === starter.id;
+                const slot = getSlot(starter);
                 return (
                   <div
-                    key={slot.id}
-                    className="flex items-center justify-center"
-                    style={{ gridColumn: slot.col, gridRow: slot.row }}
+                    key={starter.id}
+                    className="absolute -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      left: `${slot.gridX}%`,
+                      top: `${slot.gridY}%`,
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault();
-                      setDragOverSlot(slot.id);
+                      setDragOverPlayer(starter.id);
                     }}
-                    onDragLeave={() => setDragOverSlot(null)}
-                    onDrop={(e) => handleDrop(e, slot.id)}
-                    onClick={() => handleSlotClick(slot.id)}
+                    onDragLeave={() => setDragOverPlayer(null)}
+                    onDrop={(e) => handleDropOnStarter(e, starter)}
+                    onClick={() => handleStarterClick(starter)}
                   >
-                    <Slot
-                      slot={slot}
-                      starter={starter}
+                    <PlayerToken
+                      player={starter}
                       sub={sub}
                       isDragOver={isDragOver}
                       flashed={flashed}
-                      onClear={() => clearSlot(slot.id)}
+                      onClear={() => clearPrediction(starter.id)}
                     />
                   </div>
                 );
               })}
             </div>
           </div>
+
+          {/* Instruction overlay */}
+          <div className="absolute left-4 top-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
+            <Crosshair size={12} className="text-purple" />
+            {selectedSub
+              ? `Tap a player to swap in ${selectedSub.name.split(" ").pop()}`
+              : "Drag a sub onto a player"}
+          </div>
         </div>
 
-        {/* Mobile bench deck */}
-        <div className="relative z-20 mt-4 w-full max-w-4xl lg:hidden">
+        {/* Bench strip */}
+        <div className="h-64 flex-shrink-0 border-t border-surface bg-surface/10 px-3 py-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
-              <GripHorizontal size={14} />
-              Substitutes
+            <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
+              <span className="flex h-5 w-5 items-center justify-center bg-surface text-foreground">
+                <User size={10} />
+              </span>
+              Bench
+              <span className="text-muted/60">({substitutes.length})</span>
             </span>
-            {selectedSub ? (
-              <span className="text-xs font-bold uppercase text-cyan">
-                Tap a slot to place {selectedSub.name}
-              </span>
-            ) : (
-              <span className="text-xs font-bold uppercase text-muted">
-                Tap a sub, then tap a slot
-              </span>
+            {selectedSub && (
+              <button
+                onClick={() => setSelectedSub(null)}
+                className="text-[10px] font-bold uppercase text-cyan hover:underline"
+              >
+                Cancel selection
+              </button>
             )}
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {substitutes.map((sub) => (
-              <PlayerCard
+          <div className="flex h-[calc(100%-2rem)] items-center justify-center gap-3">
+            {bench.map((sub) => (
+              <div
                 key={sub.id}
-                player={sub}
-                draggable
-                onDragStart={handleDragStart}
                 onClick={() => handleBenchClick(sub)}
                 onDoubleClick={() => handleBenchDetails(sub)}
-                compact
-                selected={selectedSub?.id === sub.id}
-              />
+                className={cn(
+                  "h-full max-h-52 flex-1 cursor-pointer transition-transform hover:-translate-y-1",
+                  selectedSub?.id === sub.id && "-translate-y-2 scale-105"
+                )}
+                style={{ maxWidth: "180px", minWidth: "100px" }}
+              >
+                <BenchCard
+                  player={sub}
+                  draggable
+                  onDragStart={handleDragStart}
+                />
+              </div>
             ))}
+            {bench.length === 0 && (
+              <p className="text-xs text-muted">No substitutes available.</p>
+            )}
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* Right: Live Feed */}
-      <aside className="hidden w-full border-l border-surface bg-surface/20 lg:block lg:w-80 xl:w-96">
-        <LiveMatchFeed
-          pda={matchPda}
-          isDemo={matchPda === "demo"}
-          className="h-full border-0"
-          showViewLogsLink
-        />
-      </aside>
+      {/* ===== RIGHT: Sidebar with separate tab header ===== */}
+      <div className="flex min-h-0 flex-col">
+        <div className="flex h-16 items-center border-b border-surface">
+          {[
+            { key: "slip" as const, label: "Slip", icon: <Sparkles size={14} /> },
+            { key: "feed" as const, label: "Feed", icon: <Radio size={14} /> },
+            { key: "info" as const, label: "Info", icon: <Info size={14} /> },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 px-3 py-4 text-[10px] font-bold uppercase tracking-wider transition-all",
+                activeTab === tab.key
+                  ? "border-b-2 border-purple bg-surface/40 text-foreground"
+                  : "border-b-2 border-transparent text-muted hover:text-foreground"
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+              {tab.key === "slip" && predictionList.length > 0 && (
+                <span className="flex h-4 w-4 items-center justify-center bg-purple text-[8px] text-white">
+                  {predictionList.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-      {/* Prediction slip */}
-      <PredictionSlip
-        teamName={teamName}
-        predictions={predictionList}
-        substitutes={substitutes}
-        potentialPayout={potentialPayout}
-        locked={locked}
-        isSubmitting={isSubmitting}
-        onLock={handleLock}
-      />
+        <div className="flex-1 overflow-hidden bg-surface/20">
+          {activeTab === "slip" && (
+            <SlipTab
+              predictions={predictionList}
+              substitutes={substitutes}
+              potentialPayout={potentialPayout}
+              locked={locked}
+              isSubmitting={isSubmitting}
+              onLock={handleLock}
+              starters={starters}
+            />
+          )}
+          {activeTab === "feed" && (
+            <LiveMatchFeed
+              pda={matchPda}
+              isDemo={matchPda === "demo"}
+              className="h-full border-0"
+              showViewLogsLink
+            />
+          )}
+          {activeTab === "info" && <InfoTab teamName={teamName} />}
+        </div>
+      </div>
 
       {/* Mobile sub detail sheet */}
       <AnimatePresence>
@@ -339,7 +408,6 @@ export function PitchArena({
         )}
       </AnimatePresence>
 
-      {/* Lock celebration */}
       <LockCelebration
         open={celebrating}
         subtitle={teamName}
@@ -349,38 +417,52 @@ export function PitchArena({
   );
 }
 
-function Slot({
-  slot,
-  starter,
+// ===== Player Token (on pitch) =====
+function PlayerToken({
+  player,
   sub,
   isDragOver,
   flashed,
   onClear,
 }: {
-  slot: (typeof FORMATION_SLOTS)[0];
-  starter?: PlayerCardData;
+  player: PlayerCardData;
   sub?: PlayerCardData | null;
   isDragOver: boolean;
   flashed: boolean;
   onClear: () => void;
 }) {
+  const displayPlayer = sub ?? player;
+  const posCls = posColor(displayPlayer.position);
+  const lastName = displayPlayer.name.split(" ").pop() ?? displayPlayer.name;
+  const posCode = displayPlayer.positionCode
+    ?? displayPlayer.position?.slice(0, 2).toUpperCase()
+    ?? "??";
+
   if (sub) {
     return (
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
+        initial={{ scale: 0.7, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className={cn("relative", flashed && "animate-slot-flash")}
       >
-        <PlayerCard player={sub} locked />
+        <div className={cn("flex h-12 w-12 flex-col items-center justify-center border-2 sm:h-14 sm:w-14", posCls)}>
+          <span className="text-[10px] font-bold uppercase">{posCode}</span>
+          <span className="max-w-full truncate px-0.5 text-[7px] font-bold uppercase tracking-tight sm:text-[8px]">
+            {lastName}
+          </span>
+        </div>
+        <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center bg-cyan text-[8px] font-bold text-background">
+          {getMultiplier(sub).toFixed(1)}x
+        </div>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onClear();
           }}
-          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center bg-rose text-white shadow-lg transition-transform hover:scale-110"
+          className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center bg-rose text-white shadow-lg transition-transform hover:scale-110"
           aria-label="Clear prediction"
         >
-          <X size={14} />
+          <X size={11} />
         </button>
       </motion.div>
     );
@@ -389,97 +471,184 @@ function Slot({
   return (
     <div
       className={cn(
-        "flex h-24 w-16 cursor-pointer flex-col items-center justify-center border-2 transition-all lg:h-28 lg:w-20",
-        isDragOver
-          ? "border-purple bg-purple/10 shadow-[0_0_20px_rgba(3,70,148,0.45)]"
-          : "border-dashed border-cyan/40 bg-background/40 hover:border-cyan hover:bg-cyan/5"
+        "flex h-12 w-12 cursor-pointer flex-col items-center justify-center border-2 transition-all sm:h-14 sm:w-14",
+        posCls,
+        isDragOver && "scale-110 ring-2 ring-cyan ring-offset-2 ring-offset-pitch-turf",
       )}
     >
-      <User
-        size={24}
-        className={cn(
-          "mb-1 transition-opacity",
-          isDragOver ? "text-purple opacity-100" : "text-cyan/40 opacity-40"
-        )}
-      />
-      <span className="text-[10px] uppercase tracking-wider text-muted">{slot.label}</span>
-      {starter && (
-        <span className="mt-1 max-w-full truncate px-1 text-[9px] uppercase text-foreground/80">
-          {starter.name.split(" ").pop()}
-        </span>
-      )}
+      <span className="text-[10px] font-bold uppercase">{posCode}</span>
+      <span className="max-w-full truncate px-0.5 text-[7px] font-bold uppercase tracking-tight sm:text-[8px]">
+        {lastName}
+      </span>
     </div>
   );
 }
 
-function PredictionSlip({
-  teamName,
+// ===== Bench Card (large portrait TCG) =====
+function BenchCard({
+  player,
+  draggable,
+  onDragStart,
+}: {
+  player: PlayerCardData;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent, player: PlayerCardData) => void;
+}) {
+  const posCls = posColor(player.position);
+  const lastName = player.name.split(" ").pop() ?? player.name;
+  const posCode = player.positionCode
+    ?? player.position?.slice(0, 2).toUpperCase()
+    ?? "??";
+  const multiplier = getMultiplier(player);
+
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={(e) => onDragStart?.(e, player)}
+      className={cn(
+        "relative flex h-full w-full flex-col items-center justify-between border-2 p-2",
+        posCls,
+      )}
+    >
+      <span className="text-xs font-bold uppercase">{posCode}</span>
+      <div className="flex flex-col items-center">
+        <span className="max-w-full truncate text-center text-[10px] font-bold uppercase tracking-tight">
+          {lastName}
+        </span>
+        {player.number && (
+          <span className="text-[9px] text-muted">#{player.number}</span>
+        )}
+      </div>
+      <div className="flex h-5 w-full items-center justify-center bg-background/40 text-[10px] font-bold text-foreground">
+        {multiplier.toFixed(1)}x
+      </div>
+    </div>
+  );
+}
+
+// ===== Slip Tab =====
+function SlipTab({
   predictions,
   substitutes,
   potentialPayout,
   locked,
   isSubmitting,
   onLock,
+  starters,
 }: {
-  teamName: string;
   predictions: SubstitutionPrediction[];
   substitutes: PlayerCardData[];
   potentialPayout: number;
   locked?: boolean;
   isSubmitting: boolean;
   onLock: () => void;
+  starters: PlayerCardData[];
 }) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-surface bg-surface/95 px-4 py-4 shadow-[0_-8px_30px_rgba(0,0,0,0.25)] backdrop-blur-sm lg:left-72 lg:right-80 xl:right-96">
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="mb-2 flex items-center justify-between">
-            <h4 className="flex items-center gap-2 font-display text-lg text-foreground">
-              <Sparkles size={18} className="text-cyan" />
-              Your Prediction Slip
-            </h4>
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">
-              {teamName}
-            </span>
-          </div>
-          {predictions.length === 0 ? (
-            <p className="text-xs text-muted">No subs selected yet. Make a swap to lock in.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {predictions.map((p) => {
-                const sub = substitutes.find((s) => s.id === p.inPlayerId);
-                return (
-                  <span
-                    key={p.slotId}
-                    className="inline-flex items-center gap-1.5 border border-surface bg-background px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground"
-                  >
-                    {p.slotId.toUpperCase()}
-                    <ArrowRightLeft size={10} className="text-muted" />
-                    {sub?.name ?? "Sub"}
-                    <span className="text-cyan">({getMultiplier(sub).toFixed(1)}x)</span>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-          {predictions.length > 0 && (
-            <p className="mt-2 text-xs text-muted">
-              Potential payout multiplier: <span className="font-bold text-cyan">{potentialPayout.toFixed(1)}x</span>
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto p-4">
+        {predictions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Crosshair size={32} className="mb-3 text-muted/40" />
+            <p className="text-sm text-muted">No subs selected yet.</p>
+            <p className="mt-1 text-xs text-muted/60">
+              Drag a bench card onto a player on the pitch.
             </p>
-          )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {predictions.map((p) => {
+              const sub = substitutes.find((s) => s.id === p.inPlayerId);
+              const outPlayer = starters.find((s) => s.id === p.outPlayerId);
+              return (
+                <div
+                  key={p.slotId}
+                  className="flex items-center gap-2 border border-surface bg-background/50 p-2.5"
+                >
+                  <div className="flex flex-1 items-center gap-2">
+                    <span className="truncate text-xs font-bold text-muted">
+                      {outPlayer?.name.split(" ").pop() ?? "Player"}
+                    </span>
+                    <ArrowRightLeft size={12} className="text-muted" />
+                    <span className="truncate text-xs font-bold text-foreground">
+                      {sub?.name.split(" ").pop() ?? "Sub"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-cyan">
+                    {getMultiplier(sub).toFixed(1)}x
+                  </span>
+                </div>
+              );
+            })}
+            <p className="pt-3 text-center text-xs text-muted">
+              Potential payout:{" "}
+              <span className="font-bold text-cyan">{potentialPayout.toFixed(1)}x</span>
+            </p>
+          </div>
+        )}
+      </div>
+      <div className="flex-shrink-0 border-t border-surface p-4">
+        <SlideToLock
+          onLock={onLock}
+          disabled={predictions.length === 0 || locked || isSubmitting}
+          label={locked ? "LOCKED" : isSubmitting ? "SUBMITTING…" : "SLIDE TO LOCK"}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ===== Info Tab =====
+function InfoTab({ teamName }: { teamName: string }) {
+  return (
+    <div className="h-full overflow-y-auto p-4">
+      <h3 className="mb-3 flex items-center gap-2 font-display text-sm uppercase tracking-wider text-foreground">
+        <Trophy size={14} className="text-gold" />
+        How to Play
+      </h3>
+      <div className="space-y-3 text-xs text-muted">
+        <div className="flex gap-2">
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">1</span>
+          <p>Pick a sub from the bench below the pitch.</p>
         </div>
-        <div className="w-full md:w-64 lg:w-72">
-          <SlideToLock
-            onLock={onLock}
-            disabled={predictions.length === 0 || locked || isSubmitting}
-            label={locked ? "LOCKED" : isSubmitting ? "SUBMITTING…" : "SLIDE TO LOCK"}
-          />
+        <div className="flex gap-2">
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">2</span>
+          <p>Drag or tap to place them onto a starting player.</p>
+        </div>
+        <div className="flex gap-2">
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">3</span>
+          <p>Each correct sub earns points based on the player multiplier.</p>
+        </div>
+        <div className="flex gap-2">
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">4</span>
+          <p>Lock your prediction slip to submit on-chain.</p>
+        </div>
+      </div>
+      <div className="mt-4 border-t border-surface pt-3">
+        <p className="text-[10px] uppercase tracking-wider text-muted">Team</p>
+        <p className="font-display text-sm text-foreground">{teamName}</p>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="border border-surface bg-background/50 p-2 text-center">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">GK / DEF</p>
+          <div className="mx-auto mt-1 h-3 w-3 border-2 border-purple bg-purple/20" />
+        </div>
+        <div className="border border-surface bg-background/50 p-2 text-center">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">MID</p>
+          <div className="mx-auto mt-1 h-3 w-3 border-2 border-gold bg-gold/10" />
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-1">
+        <div className="border border-surface bg-background/50 p-2 text-center">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">FWD</p>
+          <div className="mx-auto mt-1 h-3 w-3 border-2 border-rose bg-rose/10" />
         </div>
       </div>
     </div>
   );
 }
 
+// ===== Mobile sub detail sheet =====
 function SubDetailSheet({
   player,
   onClose,

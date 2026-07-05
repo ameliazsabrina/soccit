@@ -10,6 +10,7 @@ export const SOCCIT_PROGRAM_ID = "TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v";
 export const SOCCIT_USDC_MINT = "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac";
 
 export type AvatarId =
+  | "avatar-0"
   | "avatar-1"
   | "avatar-2"
   | "avatar-3"
@@ -17,7 +18,10 @@ export type AvatarId =
   | "avatar-5"
   | "avatar-6"
   | "avatar-7"
-  | "avatar-8";
+  | "avatar-8"
+  | "avatar-9"
+  | "avatar-10"
+  | "avatar-11";
 
 export type AvatarDescriptor = {
   id: AvatarId;
@@ -118,6 +122,7 @@ export type Lineup = {
     side: 1 | 2;
     teamId: number;
     teamName: string | null;
+    formation?: string | null;
     players: Array<{
       id: number;
       name: string;
@@ -125,6 +130,9 @@ export type Lineup = {
       starter: boolean;
       positionId: number | null;
       position: string | null;
+      positionCode?: string | null;
+      gridX?: number | null;
+      gridY?: number | null;
       onPitch?: boolean | null;
       warmingUp?: boolean | null;
     }>;
@@ -274,6 +282,38 @@ export function createUserProfile(input: {
   return apiJson<UserProfile>("/api/user", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export function updateAvatar(input: {
+  wallet: string;
+  avatar: AvatarId;
+  message: string;
+  signature: string;
+}) {
+  return apiJson<UserProfile>(`/api/user/${input.wallet}/avatar`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      avatar: input.avatar,
+      message: input.message,
+      signature: input.signature,
+    }),
+  });
+}
+
+export function updateUsername(input: {
+  wallet: string;
+  username: string;
+  message: string;
+  signature: string;
+}) {
+  return apiJson<UserProfile>(`/api/user/${input.wallet}/username`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      username: input.username,
+      message: input.message,
+      signature: input.signature,
+    }),
   });
 }
 

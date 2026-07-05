@@ -109,7 +109,7 @@ function FeaturedMatchTile({
   return (
     <div
       onClick={goToMatch}
-      className="group relative flex min-h-[380px] cursor-pointer flex-col justify-between bg-surface p-8 transition-all hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] lg:col-span-3"
+      className="group relative flex min-h-[420px] cursor-pointer flex-col justify-between bg-surface p-8 transition-all hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] lg:col-span-3"
     >
       <div className="card-shine" />
       <div className="pointer-events-none absolute bottom-0 right-0 z-0 h-80 w-80 origin-bottom transition-transform duration-300 group-hover:scale-150">
@@ -207,7 +207,7 @@ function PortfolioTile({
           onRequireWallet();
         }
       }}
-      className="group relative flex min-h-[380px] flex-col justify-between bg-surface p-8 transition-all hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] lg:col-span-2"
+      className="group relative flex min-h-[420px] flex-col justify-between bg-surface p-8 transition-all hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] lg:col-span-2"
     >
       <div className="card-shine" />
       <div className="pointer-events-none absolute bottom-0 right-0 z-0 h-80 w-80 origin-bottom transition-transform duration-300 group-hover:scale-150">

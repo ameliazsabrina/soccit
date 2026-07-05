@@ -1,0 +1,6 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" fill="none"/>
+  <circle cx="60" cy="60" r="48" stroke="#034694" stroke-width="4"/>
+  <text x="60" y="68" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="28" fill="#034694">SOCCIT</text>
+  <circle cx="60" cy="60" r="56" stroke="#DBA111" stroke-width="2" stroke-dasharray="4 4"/>
+</svg>

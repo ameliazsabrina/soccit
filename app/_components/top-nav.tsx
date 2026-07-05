@@ -32,6 +32,9 @@ export function TopNav({ variant = "default" }: TopNavProps) {
       ? params.slug
       : "worldcup";
 
+  const pathDepth = pathname.split("/").filter(Boolean).length;
+  const isNested = pathDepth > 1;
+
   useEffect(() => {
     if (modalOpen) {
       document.body.style.overflow = "hidden";
@@ -51,6 +54,14 @@ export function TopNav({ variant = "default" }: TopNavProps) {
             <button
               onClick={() => router.push(`/matches?event_exit=${eventSlug}`)}
               className="flex items-center gap-2 border border-white/10 bg-white/5 px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] text-white/70 transition-all hover:border-purple hover:bg-purple hover:text-white"
+            >
+              <ArrowLeft size={14} />
+              Back
+            </button>
+          ) : isNested ? (
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 border border-surface bg-surface px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] text-muted transition-all hover:border-purple hover:bg-purple hover:text-white"
             >
               <ArrowLeft size={14} />
               Back

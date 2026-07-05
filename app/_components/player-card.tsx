@@ -11,6 +11,9 @@ export interface PlayerCardData {
   name: string;
   number: string | null;
   position: string | null;
+  positionCode?: string | null;
+  gridX?: number | null;
+  gridY?: number | null;
   rating?: number;
   multiplier?: number;
   side: 1 | 2;

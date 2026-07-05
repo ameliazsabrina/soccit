@@ -4,21 +4,10 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { X, Loader2, CheckCircle2, User } from "lucide-react";
-import Image from "next/image";
 import bs58 from "bs58";
 import { createUserProfile, type AvatarId } from "../_lib/api";
+import { AvatarPicker } from "./avatar-picker";
 import { cn } from "../_lib/utils";
-
-const AVATARS: AvatarId[] = [
-  "avatar-1",
-  "avatar-2",
-  "avatar-3",
-  "avatar-4",
-  "avatar-5",
-  "avatar-6",
-  "avatar-7",
-  "avatar-8",
-];
 
 interface OnboardingModalProps {
   open: boolean;
@@ -133,30 +122,7 @@ export function OnboardingModal({ open, onClose, onSuccess }: OnboardingModalPro
                 <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-muted">
                   Choose Avatar
                 </label>
-                <div className="grid grid-cols-4 gap-3">
-                  {AVATARS.map((id) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setAvatar(id)}
-                      className={cn(
-                        "relative aspect-square overflow-hidden border-2 transition-all",
-                        avatar === id
-                          ? "border-purple ring-2 ring-purple ring-offset-2 ring-offset-surface"
-                          : "border-surface hover:border-purple/50"
-                      )}
-                    >
-                      <Image
-                        src={`/avatars/${id}.webp`}
-                        alt={id}
-                        fill
-                        sizes="5rem"
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </button>
-                  ))}
-                </div>
+                <AvatarPicker value={avatar} onChange={setAvatar} />
               </div>
 
               {error && (
