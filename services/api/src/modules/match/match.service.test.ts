@@ -43,6 +43,7 @@ function fakeMatch(overrides: Partial<DecodedMatch> = {}): DecodedMatch {
     vaultAuthorityBump: 0,
     bump: 0,
     participantCount: 1,
+    startTime: 0n,
     ...overrides,
   };
 }

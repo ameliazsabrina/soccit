@@ -31,6 +31,7 @@ export const onchainMatchSchema = z.object({
   entryFee: z.string(),
   poolTotal: z.string(),
   participantCount: z.number().int().nonnegative(),
+  startTime: z.number().int(),
   team1Id: z.number().int(),
   team2Id: z.number().int(),
   usdcMint: z.string(),

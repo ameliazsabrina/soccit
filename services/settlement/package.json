@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "create-match": "tsx scripts/create-match.ts",
+    "create-upcoming": "tsx scripts/create-upcoming.ts",
     "place-prediction": "tsx scripts/place-prediction.ts"
   },
   "dependencies": {

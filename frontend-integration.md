@@ -247,6 +247,7 @@ type MatchSummary = {
     entryFee: string; // stringified integer, USDC base units (6 dp → "5000000" = 5 USDC)
     poolTotal: string; // stringified integer, USDC base units
     participantCount: number;
+    startTime: number; // kickoff (unix seconds); 0 = no entry gate. Entries open 10 min before.
     team1Id: number;
     team2Id: number;
     usdcMint: string; // the mint the entry fee must be paid in
@@ -293,6 +294,7 @@ type MatchSummary = {
       "entryFee": "5000000",
       "poolTotal": "0",
       "participantCount": 0,
+      "startTime": 1782446400,
       "team1Id": 3220,
       "team2Id": 1619,
       "usdcMint": "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
@@ -328,6 +330,7 @@ type MatchState = {
     entryFee: string; // stringified integer (lamports/base units)
     poolTotal: string; // stringified integer
     participantCount: number;
+    startTime: number; // kickoff (unix seconds); 0 = no entry gate. Entries open 10 min before.
     team1Id: number;
     team2Id: number;
     usdcMint: string;
@@ -381,6 +384,7 @@ Schema example of a populated success response (no seeded fixture available to f
     "entryFee": "1000000",
     "poolTotal": "5000000",
     "participantCount": 5,
+    "startTime": 1782446400,
     "team1Id": 101,
     "team2Id": 202,
     "usdcMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -436,6 +440,7 @@ type PreparePredictionOutput = {
   usdcMint: string; // the mint the entry fee is charged in
   entryFee: string; // fee THIS tx charges (pay-per-match): full fee on the wallet's first pick, "0" after
   slotIndex: number; // server-derived slot this pick occupies (0 for the first pick)
+  startTime: number; // kickoff (unix seconds); 0 = no entry gate. Entries open 10 min before this.
   blockhash: string; // recent blockhash baked into the tx
   lastValidBlockHeight: number; // submit before this height or the blockhash expires
 };
@@ -455,6 +460,11 @@ type PreparePredictionOutput = {
   it from the response (do not assume mainnet USDC).
 - **Do not track slots client-side** — the server reads the wallet's on-chain entry and returns the
   correct `slotIndex`/`prediction` PDA. Just call `prepare` again for each additional pick.
+- **Entry window (opens 10 min before kickoff):** a match's room becomes entry-able at
+  `startTime − 600s` and stays open in-play (it closes only when the match is resolved). Calling
+  `prepare` earlier than that returns **`409`** (see below) with the `startTime` — use it to render
+  a countdown. `startTime: 0` means the gate is disabled (always open). The on-chain program
+  enforces the same window, so a tx submitted too early is rejected on-chain regardless.
 - The returned `blockhash`/`lastValidBlockHeight` bound the tx's lifetime — sign and submit
   promptly; if it expires, call `prepare` again for a fresh blockhash.
 
@@ -465,6 +475,7 @@ type PreparePredictionOutput = {
 | `400`  | `{ "error": "invalid body" }`                                           | Body fails schema validation (bad wallet/fields).|
 | `404`  | `{ "error": "No match found for fixture <id>" }`                        | No on-chain Match account for that `fixtureId`.  |
 | `409`  | `{ "error": "Match <id> is not open for predictions (status: <label>)" }` | Match exists but status is not `OPEN`.         |
+| `409`  | `{ "error": "Entries for match <id> open 10 minutes before kickoff (starts at <ts>)" }` | Called before the entry window opens (>10 min before kickoff). |
 | `500`  | `Internal Server Error` (plain text)                                    | Solana RPC failed (fetching match / blockhash).  |
 
 **Verified live (validation + open match):**

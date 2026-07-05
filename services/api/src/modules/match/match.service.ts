@@ -38,6 +38,7 @@ export function toOnchainMatch(m: DecodedMatch): OnchainMatch {
     entryFee: m.entryFee.toString(),
     poolTotal: m.poolTotal.toString(),
     participantCount: m.participantCount,
+    startTime: Number(m.startTime),
     team1Id: m.team1Id,
     team2Id: m.team2Id,
     usdcMint: m.usdcMint.toBase58(),

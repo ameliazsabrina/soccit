@@ -22,6 +22,15 @@ async function main(): Promise<void> {
   if (!mintStr) throw new Error("USDC mint required (--mint or USDC_MINT)");
   if (!fixtureId) throw new Error("fixture id required (--fixture or SETTLEMENT_FIXTURE_ID)");
 
+  // Kickoff time (unix seconds); entries open ENTRY_LEAD_SECS before it on-chain.
+  // --start-epoch-ms takes a feed StartTime (ms) and converts; --start-time is
+  // raw unix seconds. Default 0 = entry gate disabled (always open, for tests).
+  const startEpochMs = arg("start-epoch-ms");
+  const startTime =
+    startEpochMs != null
+      ? BigInt(Math.floor(Number(startEpochMs) / 1000))
+      : BigInt(arg("start-time") ?? 0);
+
   const adminPath = arg("admin") ?? config.solana.resolverKeypairPath;
   const admin = loadKeypair(adminPath);
   const resolver = arg("resolver")
@@ -40,6 +49,7 @@ async function main(): Promise<void> {
   console.error(`> admin:      ${admin.publicKey.toBase58()}`);
   console.error(`> resolver:   ${resolver.toBase58()}`);
   console.error(`> fixture:    ${fixtureId}`);
+  console.error(`> start_time: ${startTime}${startTime === 0n ? " (gate disabled)" : ""}`);
   console.error(`> mint:       ${usdcMint.toBase58()}`);
   console.error(`> match PDA:  ${match.toBase58()}`);
   console.error(`> vault auth: ${vaultAuthority.toBase58()}`);
@@ -54,6 +64,7 @@ async function main(): Promise<void> {
     team2Id,
     entryFee,
     resolver,
+    startTime,
   });
 
   const tx = new Transaction().add(ix);
