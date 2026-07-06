@@ -18,10 +18,9 @@ const TABS = [
 
 interface TopNavProps {
   variant?: "default" | "worldcup";
-  compact?: boolean;
 }
 
-export function TopNav({ variant = "default", compact = false }: TopNavProps) {
+export function TopNav({ variant = "default" }: TopNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
@@ -49,7 +48,7 @@ export function TopNav({ variant = "default", compact = false }: TopNavProps) {
 
   return (
     <>
-      <div className={cn("flex items-start justify-between gap-4", compact ? "mb-0" : "mb-6")}>
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div className="flex items-center gap-8">
           <img
             src="/assets/soccit-logo.svg"

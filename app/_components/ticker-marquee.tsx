@@ -17,61 +17,63 @@ interface TickerMarqueeProps {
 export function TickerMarquee({ variant = "default" }: TickerMarqueeProps) {
   const isWorldCup = variant === "worldcup";
   return (
-    <div className="fixed bottom-0 left-0 z-30 w-full px-8 pb-4 lg:px-8">
-      <div
-        className={cn(
-          "relative overflow-hidden border-y py-2",
-          isWorldCup
-            ? "border-white/10 bg-slate-950"
-            : "border-surface bg-background"
-        )}
-      >
+    <div className="fixed bottom-0 left-0 z-30 w-full">
+      <div className="mx-auto w-full max-w-[1200px] px-8 pb-4 lg:px-8">
         <div
           className={cn(
-            "pointer-events-none absolute inset-y-0 left-0 z-20 w-16",
-            isWorldCup ? "bg-gradient-to-r from-slate-950 to-transparent" : "bg-gradient-to-r from-background to-transparent"
+            "relative overflow-hidden border-y py-2",
+            isWorldCup
+              ? "border-white/10 bg-slate-950"
+              : "border-surface bg-surface"
           )}
-        />
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-y-0 right-0 z-20 w-16",
-            isWorldCup ? "bg-gradient-to-l from-slate-950 to-transparent" : "bg-gradient-to-l from-background to-transparent"
-          )}
-        />
-        <div className="animate-marquee flex whitespace-nowrap">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="flex items-center">
-              {TICKER_ITEMS.map((t) => (
-                <span
-                  key={t.name + i}
-                  className={cn(
-                    "inline-block border-l px-8 text-xs font-medium first:border-l-0",
-                    isWorldCup
-                      ? "border-white/10 text-white/80"
-                      : "border-surface text-foreground"
-                  )}
-                >
-                  {t.name} - {t.pos}:{" "}
+        >
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-y-0 left-0 z-20 w-16",
+              isWorldCup ? "bg-gradient-to-r from-slate-950 to-transparent" : "bg-gradient-to-r from-surface to-transparent"
+            )}
+          />
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-y-0 right-0 z-20 w-16",
+              isWorldCup ? "bg-gradient-to-l from-slate-950 to-transparent" : "bg-gradient-to-l from-surface to-transparent"
+            )}
+          />
+          <div className="animate-marquee flex whitespace-nowrap">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="flex items-center">
+                {TICKER_ITEMS.map((t) => (
                   <span
-                    className={
-                      t.up === true
-                        ? isWorldCup
-                          ? "text-wc-cyan"
-                          : "text-cyan"
-                        : t.up === false
-                          ? "text-rose"
-                          : isWorldCup
-                            ? "text-white/50"
-                            : "text-muted"
-                    }
+                    key={t.name + i}
+                    className={cn(
+                      "inline-block border-l px-8 text-xs font-medium first:border-l-0",
+                      isWorldCup
+                        ? "border-white/10 text-white/80"
+                        : "border-surface text-foreground"
+                    )}
                   >
-                    {t.val}{" "}
-                    {t.up === true ? "▲" : t.up === false ? "▼" : "▬"}
+                    {t.name} - {t.pos}:{" "}
+                    <span
+                      className={
+                        t.up === true
+                          ? isWorldCup
+                            ? "text-wc-cyan"
+                            : "text-cyan"
+                          : t.up === false
+                            ? "text-rose"
+                            : isWorldCup
+                              ? "text-white/50"
+                              : "text-muted"
+                      }
+                    >
+                      {t.val}{" "}
+                      {t.up === true ? "▲" : t.up === false ? "▼" : "▬"}
+                    </span>
                   </span>
-                </span>
-              ))}
-            </div>
-          ))}
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

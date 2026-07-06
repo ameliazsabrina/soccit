@@ -6,25 +6,18 @@ import {
   X,
   User,
   ArrowRightLeft,
-  Sparkles,
   Crosshair,
   Trophy,
-  Radio,
-  Info,
+  Activity,
+  CheckCircle2,
+  Lock,
 } from "lucide-react";
 import { type PlayerCardData } from "./player-card";
-import { SlideToLock } from "./slide-to-lock";
 import { LiveMatchFeed } from "./live-match-feed";
-import { LockCelebration } from "./lock-celebration";
+import { ConfirmSubsModal, type SubstitutionPrediction } from "./confirm-subs-modal";
 import { cn } from "../_lib/utils";
 
-export interface SubstitutionPrediction {
-  slotId: string;
-  position: string;
-  outPlayerId: number;
-  inPlayerId: number;
-  side: 1 | 2;
-}
+export type { SubstitutionPrediction } from "./confirm-subs-modal";
 
 export interface PitchArenaProps {
   matchPda: string;
@@ -34,10 +27,12 @@ export interface PitchArenaProps {
   substitutes: PlayerCardData[];
   onLock: (predictions: SubstitutionPrediction[]) => void | Promise<void>;
   locked?: boolean;
+  isSubmitting?: boolean;
+  lockedPredictions?: SubstitutionPrediction[];
   className?: string;
 }
 
-type SidebarTab = "slip" | "feed" | "info";
+type SidebarTab = "events" | "prediction" | "rank";
 
 const POSITION_COLORS: Record<string, string> = {
   Goalkeeper: "bg-purple/20 border-purple/50 text-purple",
@@ -139,6 +134,8 @@ export function PitchArena({
   substitutes,
   onLock,
   locked,
+  isSubmitting = false,
+  lockedPredictions = [],
   className,
 }: PitchArenaProps) {
   const [predictions, setPredictions] = useState<Record<string, SubstitutionPrediction>>({});
@@ -146,9 +143,8 @@ export function PitchArena({
   const [selectedSub, setSelectedSub] = useState<PlayerCardData | null>(null);
   const [showSubDetail, setShowSubDetail] = useState<PlayerCardData | null>(null);
   const [justPlaced, setJustPlaced] = useState<number | null>(null);
-  const [celebrating, setCelebrating] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<SidebarTab>("slip");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<SidebarTab>("events");
 
   useEffect(() => {
     if (justPlaced === null) return;
@@ -187,6 +183,7 @@ export function PitchArena({
     }));
     setSelectedSub(null);
     setJustPlaced(starter.id);
+    setShowConfirmModal(true);
   }
 
   function clearPrediction(playerId: number) {
@@ -216,13 +213,7 @@ export function PitchArena({
   async function handleLock() {
     const predictionList = Object.values(predictions);
     if (predictionList.length === 0 || locked || isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      await Promise.resolve(onLock(predictionList));
-      setCelebrating(true);
-    } finally {
-      setIsSubmitting(false);
-    }
+    await Promise.resolve(onLock(predictionList));
   }
 
   const predictionList = Object.values(predictions);
@@ -240,7 +231,7 @@ export function PitchArena({
       {/* ===== LEFT COLUMN: PitchCard + BenchCard ===== */}
       <div className="flex min-h-0 flex-col gap-6">
         {/* PitchCard */}
-        <div className="relative flex min-h-[320px] flex-1 flex-col border border-surface bg-surface/10 p-6">
+        <div className="relative flex min-h-[240px] flex-1 flex-col border border-surface bg-surface/10 p-6">
           {/* Pitch surface — fills the card body */}
           <div className="relative flex flex-1 items-center justify-center overflow-hidden">
             <div className="relative h-full w-full max-w-full">
@@ -332,7 +323,7 @@ export function PitchArena({
         </div>
 
         {/* BenchCard */}
-        <div className="flex h-56 flex-shrink-0 flex-col border border-surface bg-surface/10 p-6">
+        <div className="flex h-72 flex-shrink-0 flex-col border border-surface bg-surface/10 p-6">
           <div className="mb-3 flex items-center justify-between">
             <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
               <span className="flex h-5 w-5 items-center justify-center bg-surface text-foreground">
@@ -357,10 +348,10 @@ export function PitchArena({
                 onClick={() => handleBenchClick(sub)}
                 onDoubleClick={() => handleBenchDetails(sub)}
                 className={cn(
-                  "h-full max-h-44 flex-1 cursor-pointer transition-transform hover:-translate-y-1",
+                  "h-full max-h-60 flex-1 cursor-pointer transition-transform hover:-translate-y-1",
                   selectedSub?.id === sub.id && "-translate-y-2 scale-105"
                 )}
-                style={{ maxWidth: "160px", minWidth: "90px" }}
+                style={{ maxWidth: "170px", minWidth: "100px" }}
               >
                 <BenchCard
                   player={sub}
@@ -381,9 +372,9 @@ export function PitchArena({
         {/* Tab header */}
         <div className="flex h-16 flex-shrink-0 items-center border-b border-surface">
           {[
-            { key: "slip" as const, label: "Slip", icon: <Sparkles size={14} /> },
-            { key: "feed" as const, label: "Feed", icon: <Radio size={14} /> },
-            { key: "info" as const, label: "Info", icon: <Info size={14} /> },
+            { key: "events" as const, label: "Events", icon: <Activity size={14} /> },
+            { key: "prediction" as const, label: "Prediction", icon: <Crosshair size={14} /> },
+            { key: "rank" as const, label: "Rank", icon: <Trophy size={14} /> },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -397,7 +388,7 @@ export function PitchArena({
             >
               {tab.icon}
               {tab.label}
-              {tab.key === "slip" && predictionList.length > 0 && (
+              {tab.key === "prediction" && predictionList.length > 0 && (
                 <span className="flex h-4 w-4 items-center justify-center bg-purple text-[8px] text-white">
                   {predictionList.length}
                 </span>
@@ -408,28 +399,46 @@ export function PitchArena({
 
         {/* Tab body */}
         <div className="flex-1 overflow-hidden">
-          {activeTab === "slip" && (
-            <SlipTab
-              predictions={predictionList}
-              substitutes={substitutes}
-              potentialPayout={potentialPayout}
-              locked={locked}
-              isSubmitting={isSubmitting}
-              onLock={handleLock}
-              starters={starters}
-            />
-          )}
-          {activeTab === "feed" && (
+          {activeTab === "events" && (
             <LiveMatchFeed
               pda={matchPda}
               isDemo={matchPda === "demo"}
-              className="h-full border-0"
+              view="events"
+              className="h-full"
               showViewLogsLink
             />
           )}
-          {activeTab === "info" && <InfoTab teamName={teamName} />}
+          {activeTab === "prediction" && (
+            <PredictionTab
+              pendingPredictions={predictionList}
+              lockedPredictions={lockedPredictions}
+              starters={starters}
+              substitutes={substitutes}
+            />
+          )}
+          {activeTab === "rank" && (
+            <LiveMatchFeed
+              pda={matchPda}
+              isDemo={matchPda === "demo"}
+              view="leaderboard"
+              className="h-full"
+            />
+          )}
         </div>
       </div>
+
+      {/* Confirm Substitutions Modal */}
+      <ConfirmSubsModal
+        open={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        predictions={predictionList}
+        starters={starters}
+        substitutes={substitutes}
+        potentialPayout={potentialPayout}
+        locked={locked}
+        isSubmitting={isSubmitting}
+        onLock={handleLock}
+      />
 
       {/* Mobile sub detail sheet */}
       <AnimatePresence>
@@ -444,12 +453,6 @@ export function PitchArena({
           />
         )}
       </AnimatePresence>
-
-      <LockCelebration
-        open={celebrating}
-        subtitle={teamName}
-        onDone={() => setCelebrating(false)}
-      />
     </div>
   );
 }
@@ -563,38 +566,48 @@ function BenchCard({
   );
 }
 
-// ===== Slip Tab =====
-function SlipTab({
-  predictions,
-  substitutes,
-  potentialPayout,
-  locked,
-  isSubmitting,
-  onLock,
+// ===== Prediction Tab =====
+function PredictionTab({
+  pendingPredictions,
+  lockedPredictions,
   starters,
+  substitutes,
 }: {
-  predictions: SubstitutionPrediction[];
-  substitutes: PlayerCardData[];
-  potentialPayout: number;
-  locked?: boolean;
-  isSubmitting: boolean;
-  onLock: () => void;
+  pendingPredictions: SubstitutionPrediction[];
+  lockedPredictions: SubstitutionPrediction[];
   starters: PlayerCardData[];
+  substitutes: PlayerCardData[];
 }) {
+  const hasPending = pendingPredictions.length > 0;
+  const hasLocked = lockedPredictions.length > 0;
+
+  if (!hasPending && !hasLocked) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+        <Crosshair size={32} className="mb-3 text-muted/40" />
+        <p className="text-sm text-muted">No predictions yet.</p>
+        <p className="mt-1 text-xs text-muted/60">
+          Drag a bench card onto a player on the pitch to make a substitution.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto p-4">
-        {predictions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Crosshair size={32} className="mb-3 text-muted/40" />
-            <p className="text-sm text-muted">No subs selected yet.</p>
-            <p className="mt-1 text-xs text-muted/60">
-              Drag a bench card onto a player on the pitch.
-            </p>
+    <div className="flex h-full flex-col overflow-y-auto p-4">
+      {/* Pending section */}
+      {hasPending && (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center bg-purple text-[9px] font-bold text-white">
+              {pendingPredictions.length}
+            </span>
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              Pending
+            </h4>
           </div>
-        ) : (
           <div className="space-y-2">
-            {predictions.map((p) => {
+            {pendingPredictions.map((p) => {
               const sub = substitutes.find((s) => s.id === p.inPlayerId);
               const outPlayer = starters.find((s) => s.id === p.outPlayerId);
               return (
@@ -617,70 +630,47 @@ function SlipTab({
                 </div>
               );
             })}
-            <p className="pt-3 text-center text-xs text-muted">
-              Potential payout:{" "}
-              <span className="font-bold text-cyan">{potentialPayout.toFixed(1)}x</span>
-            </p>
           </div>
-        )}
-      </div>
-      <div className="flex-shrink-0 border-t border-surface p-4">
-        <SlideToLock
-          onLock={onLock}
-          disabled={predictions.length === 0 || locked || isSubmitting}
-          label={locked ? "LOCKED" : isSubmitting ? "SUBMITTING…" : "SLIDE TO LOCK"}
-        />
-      </div>
-    </div>
-  );
-}
+        </div>
+      )}
 
-// ===== Info Tab =====
-function InfoTab({ teamName }: { teamName: string }) {
-  return (
-    <div className="h-full overflow-y-auto p-4">
-      <h3 className="mb-3 flex items-center gap-2 font-display text-sm uppercase tracking-wider text-foreground">
-        <Trophy size={14} className="text-gold" />
-        How to Play
-      </h3>
-      <div className="space-y-3 text-xs text-muted">
-        <div className="flex gap-2">
-          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">1</span>
-          <p>Pick a sub from the bench below the pitch.</p>
+      {/* Locked section */}
+      {hasLocked && (
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Lock size={12} className="text-cyan" />
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              Locked
+            </h4>
+          </div>
+          <div className="space-y-2">
+            {lockedPredictions.map((p, i) => {
+              const sub = substitutes.find((s) => s.id === p.inPlayerId);
+              const outPlayer = starters.find((s) => s.id === p.outPlayerId);
+              return (
+                <div
+                  key={`${p.slotId}-locked-${i}`}
+                  className="flex items-center gap-2 border border-cyan/30 bg-cyan/5 p-2.5"
+                >
+                  <CheckCircle2 size={12} className="flex-shrink-0 text-cyan" />
+                  <div className="flex flex-1 items-center gap-2">
+                    <span className="truncate text-xs font-bold text-muted">
+                      {outPlayer?.name.split(" ").pop() ?? "Player"}
+                    </span>
+                    <ArrowRightLeft size={12} className="text-muted" />
+                    <span className="truncate text-xs font-bold text-foreground">
+                      {sub?.name.split(" ").pop() ?? "Sub"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-cyan">
+                    {getMultiplier(sub).toFixed(1)}x
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">2</span>
-          <p>Drag or tap to place them onto a starting player.</p>
-        </div>
-        <div className="flex gap-2">
-          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">3</span>
-          <p>Each correct sub earns points based on the player multiplier.</p>
-        </div>
-        <div className="flex gap-2">
-          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center bg-purple text-[9px] font-bold text-white">4</span>
-          <p>Lock your prediction slip to submit on-chain.</p>
-        </div>
-      </div>
-      <div className="mt-4 border-t border-surface pt-3">
-        <p className="text-[10px] uppercase tracking-wider text-muted">Team</p>
-        <p className="font-display text-sm text-foreground">{teamName}</p>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="border border-surface bg-background/50 p-2 text-center">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">GK / DEF</p>
-          <div className="mx-auto mt-1 h-3 w-3 border-2 border-purple bg-purple/20" />
-        </div>
-        <div className="border border-surface bg-background/50 p-2 text-center">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">MID</p>
-          <div className="mx-auto mt-1 h-3 w-3 border-2 border-gold bg-gold/10" />
-        </div>
-      </div>
-      <div className="mt-2 grid grid-cols-1">
-        <div className="border border-surface bg-background/50 p-2 text-center">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-muted">FWD</p>
-          <div className="mx-auto mt-1 h-3 w-3 border-2 border-rose bg-rose/10" />
-        </div>
-      </div>
+      )}
     </div>
   );
 }

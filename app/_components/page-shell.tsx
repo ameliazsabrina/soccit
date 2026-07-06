@@ -23,28 +23,25 @@ export function PageShell({
     <div
       className={cn(
         "relative flex h-screen flex-col overflow-hidden",
-        variant === "worldcup" ? "bg-slate-950" : "bg-background"
+        variant === "worldcup" ? "bg-slate-950" : "bg-background bg-cover bg-center bg-no-repeat bg-fixed"
       )}
+      style={
+        variant === "worldcup"
+          ? undefined
+          : { backgroundImage: "url('/app-bg.webp')" }
+      }
     >
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div
-          className={cn(
-            "absolute -left-24 -top-24 h-96 w-96 rounded-full blur-[120px]",
-            variant === "worldcup" ? "bg-wc-purple/20" : "bg-purple/15"
-          )}
-        />
-        <div
-          className={cn(
-            "absolute -bottom-16 -right-16 h-80 w-80 rounded-full blur-[100px]",
-            variant === "worldcup" ? "bg-wc-blue/20" : "bg-cyan/15"
-          )}
-        />
-      </div>
+      {variant === "worldcup" && (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-wc-purple/20 blur-[120px]" />
+          <div className="absolute -bottom-16 -right-16 h-80 w-80 rounded-full bg-wc-blue/20 blur-[100px]" />
+        </div>
+      )}
 
       {edgeToEdge ? (
         <>
-          <div className="relative z-20 mx-auto w-full max-w-[1200px] px-8 pt-4 lg:px-8">
-            <TopNav variant={variant} compact />
+          <div className="relative z-20 mx-auto w-full max-w-[1200px] px-8 pt-8 lg:px-8">
+            <TopNav variant={variant} />
           </div>
           <main className="relative z-20 flex w-full flex-1 flex-col">
             {children}

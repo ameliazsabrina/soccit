@@ -6,18 +6,15 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   AlertCircle,
   RefreshCw,
-  Target,
-  BarChart3,
-  Users,
 } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
-import { PitchArena, type SubstitutionPrediction } from "../../../_components/pitch-arena";
+import { PitchArena } from "../../../_components/pitch-arena";
 import { ScorePredictionPanel } from "../../../_components/score-prediction-panel";
 import { GoalscorerPanel } from "../../../_components/goalscorer-panel";
 import { TeamPickerModal } from "../../../_components/team-picker-modal";
-import { LockCelebration } from "../../../_components/lock-celebration";
 import { EventsTransition } from "../../../_components/events-transition";
 import { Notifications, useNotifications } from "../../../_components/notifications";
+import type { SubstitutionPrediction } from "../../../_components/confirm-subs-modal";
 import {
   getMatch,
   getLineup,
@@ -135,12 +132,6 @@ const DEMO_LINEUP: Lineup = {
 
 type ArenaModel = "sub" | "score" | "goalscorer";
 
-const MODEL_META: Record<ArenaModel, { title: string; icon: React.ReactNode; color: string }> = {
-  sub: { title: "Substitute Manager", icon: <Target size={16} />, color: "text-purple" },
-  score: { title: "Final Score", icon: <BarChart3 size={16} />, color: "text-cyan" },
-  goalscorer: { title: "Goalscorer", icon: <Users size={16} />, color: "text-muted" },
-};
-
 export default function ArenaPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -174,7 +165,7 @@ export default function ArenaPage() {
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [celebrating, setCelebrating] = useState(false);
+  const [lockedPredictions, setLockedPredictions] = useState<SubstitutionPrediction[]>([]);
   const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
   const [showEnterTransition, setShowEnterTransition] = useState(true);
   const notifs = useNotifications();
@@ -237,7 +228,6 @@ export default function ArenaPage() {
     setLocked(true);
 
     if (isDemo) {
-      setCelebrating(true);
       notifs.push({
         id: "demo-lock",
         type: "info",
@@ -310,7 +300,6 @@ export default function ArenaPage() {
           kind: input.kind,
         },
       });
-      setCelebrating(true);
       if (submitNotifId.current) notifs.dismiss(submitNotifId.current);
       notifs.push({
         id: `submit-success-${result.signature}`,
@@ -344,6 +333,7 @@ export default function ArenaPage() {
   }
 
   async function handleLockSubstitutions(predictions: SubstitutionPrediction[]) {
+    setLockedPredictions((prev) => [...prev, ...predictions]);
     for (let i = 0; i < predictions.length; i++) {
       const p = predictions[i];
       await handleSubmit({
@@ -399,7 +389,6 @@ export default function ArenaPage() {
     );
   }
 
-  const meta = MODEL_META[model];
   const team1 = lineup.teams.find((t) => t.side === 1);
   const team2 = lineup.teams.find((t) => t.side === 2);
   const selectedTeam = lineup.teams.find((t) => t.side === side);
@@ -415,7 +404,7 @@ export default function ArenaPage() {
         />
       )}
       <PageShell edgeToEdge hideTicker>
-      <div className="flex flex-1 flex-col overflow-hidden px-6 pb-6">
+      <div className="flex flex-1 flex-col overflow-hidden px-8 pb-8 pt-6 lg:px-8">
         {model === "sub" && selectedTeam && sideSelected && (
           <PitchArena
             matchPda={pda}
@@ -447,6 +436,8 @@ export default function ArenaPage() {
               }))}
             onLock={handleLockSubstitutions}
             locked={locked}
+            isSubmitting={submitting}
+            lockedPredictions={lockedPredictions}
             className="min-h-0"
           />
         )}
@@ -499,12 +490,6 @@ export default function ArenaPage() {
         />
       )}
 
-      <LockCelebration
-        open={celebrating}
-        title="LOCKED IN"
-        subtitle={meta.title}
-        onDone={() => setCelebrating(false)}
-      />
       <Notifications items={notifs.items} onDismiss={notifs.dismiss} />
     </PageShell>
     </>

@@ -29,11 +29,13 @@ import {
 } from "../_lib/api";
 
 export type FeedTab = "events" | "leaderboard";
+export type FeedView = FeedTab | "both";
 
 interface LiveMatchFeedProps {
   pda: string;
   isDemo?: boolean;
   defaultTab?: FeedTab;
+  view?: FeedView;
   demoEvents?: EventEntry[];
   demoLeaderboard?: Leaderboard | null;
   className?: string;
@@ -46,14 +48,17 @@ export function LiveMatchFeed({
   pda,
   isDemo = false,
   defaultTab = "events",
+  view = "both",
   demoEvents = [],
   demoLeaderboard = null,
   className,
-  title = "Live Match Feed",
   showViewLogsLink = false,
   poolTotal = "0",
 }: LiveMatchFeedProps) {
-  const [tab, setTab] = useState<FeedTab>(defaultTab);
+  const [tab, setTab] = useState<FeedTab>(
+    view === "leaderboard" ? "leaderboard" : view === "events" ? "events" : defaultTab
+  );
+  const showTabs = view === "both";
   const [events, setEvents] = useState<EventEntry[]>(() => (isDemo ? demoEvents : []));
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(() =>
     isDemo ? demoLeaderboard : null
@@ -116,20 +121,17 @@ export function LiveMatchFeed({
   }, [pda, isDemo]);
 
   return (
-    <div className={cn("flex flex-col border border-surface bg-surface/20", className)}>
+    <div className={cn("flex flex-col", showTabs && "border border-surface bg-surface/20", className)}>
       {/* Header */}
-      <div className="border-b border-surface p-4">
+      <div className={cn("border-b border-surface", showTabs ? "p-4" : "px-4 py-3")}>
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display text-xl text-foreground">{title}</h3>
-            <div className="mt-1 flex items-center gap-2 text-xs uppercase tracking-wider">
-              <ConnectionBadge status={activeStatus} />
-              {activeStatus === "error" && (
-                <span className="text-rose">Reconnecting…</span>
-              )}
-            </div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wider">
+            <ConnectionBadge status={activeStatus} />
+            {activeStatus === "error" && (
+              <span className="text-rose">Reconnecting…</span>
+            )}
             {activeError && (
-              <p className="mt-1 text-xs text-rose">{activeError}</p>
+              <p className="text-xs text-rose">{activeError}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -152,23 +154,25 @@ export function LiveMatchFeed({
         </div>
 
         {/* Tabs */}
-        <div className="mt-4 flex border-b border-surface">
-          <TabButton active={tab === "events"} onClick={() => setTab("events")}>
-            <Activity size={14} className="sm:mr-2" />
-            <span className="hidden sm:inline">Timeline</span>
-            <span className="sm:hidden">Timeline</span>
-            {events.length > 0 && (
-              <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center bg-surface px-1.5 text-[10px] font-bold text-foreground">
-                {events.length}
-              </span>
-            )}
-          </TabButton>
-          <TabButton active={tab === "leaderboard"} onClick={() => setTab("leaderboard")}>
-            <Trophy size={14} className="sm:mr-2" />
-            <span className="hidden sm:inline">Leaderboard</span>
-            <span className="sm:hidden">Ranks</span>
-          </TabButton>
-        </div>
+        {showTabs && (
+          <div className="mt-4 flex border-b border-surface">
+            <TabButton active={tab === "events"} onClick={() => setTab("events")}>
+              <Activity size={14} className="sm:mr-2" />
+              <span className="hidden sm:inline">Timeline</span>
+              <span className="sm:hidden">Timeline</span>
+              {events.length > 0 && (
+                <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center bg-surface px-1.5 text-[10px] font-bold text-foreground">
+                  {events.length}
+                </span>
+              )}
+            </TabButton>
+            <TabButton active={tab === "leaderboard"} onClick={() => setTab("leaderboard")}>
+              <Trophy size={14} className="sm:mr-2" />
+              <span className="hidden sm:inline">Leaderboard</span>
+              <span className="sm:hidden">Ranks</span>
+            </TabButton>
+          </div>
+        )}
       </div>
 
       {/* Body */}
