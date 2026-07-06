@@ -18,9 +18,10 @@ const TABS = [
 
 interface TopNavProps {
   variant?: "default" | "worldcup";
+  compact?: boolean;
 }
 
-export function TopNav({ variant = "default" }: TopNavProps) {
+export function TopNav({ variant = "default", compact = false }: TopNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
@@ -48,8 +49,14 @@ export function TopNav({ variant = "default" }: TopNavProps) {
 
   return (
     <>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <nav className="flex flex-wrap items-center gap-2">
+      <div className={cn("flex items-start justify-between gap-4", compact ? "mb-0" : "mb-6")}>
+        <div className="flex items-center gap-8">
+          <img
+            src="/assets/soccit-logo.svg"
+            alt="Soccit"
+            className="h-10 w-10 flex-shrink-0"
+          />
+          <nav className="flex flex-wrap items-center gap-2">
           {variant === "worldcup" ? (
             <button
               onClick={() => router.push(`/matches?event_exit=${eventSlug}`)}
@@ -89,6 +96,7 @@ export function TopNav({ variant = "default" }: TopNavProps) {
             })
           )}
         </nav>
+        </div>
 
         {connected ? (
           <ProfileDropdown variant={variant} />

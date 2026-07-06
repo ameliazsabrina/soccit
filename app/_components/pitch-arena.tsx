@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
   User,
-  ArrowLeft,
   ArrowRightLeft,
   Sparkles,
   Crosshair,
@@ -31,7 +30,6 @@ export interface PitchArenaProps {
   matchPda: string;
   teamName: string;
   side: 1 | 2;
-  onBack: () => void;
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
   onLock: (predictions: SubstitutionPrediction[]) => void | Promise<void>;
@@ -78,19 +76,65 @@ function posColor(position: string | null): string {
   return "bg-surface border-surface text-muted";
 }
 
-function getSlot(player: PlayerCardData): { gridX: number; gridY: number } {
-  if (player.gridX != null && player.gridY != null) {
-    return { gridX: player.gridX, gridY: player.gridY };
+const POSITION_DERIVED_CODE: Record<string, string> = {
+  goalkeeper: "GK",
+  defender: "CB",
+  back: "CB",
+  midfield: "CM",
+  forward: "ST",
+  striker: "ST",
+  winger: "RW",
+  wing: "RW",
+};
+
+// Index-based 4-3-3 fallback used when neither gridX/gridY nor a recognizable
+// position code is available. Spreads 11 players across a default shape so they
+// never stack on a single point.
+const INDEX_FALLBACK_SLOTS: { gridX: number; gridY: number }[] = [
+  { gridX: 49.6, gridY: 87.2 }, // GK
+  { gridX: 16.5, gridY: 70.5 }, // LB
+  { gridX: 35.1, gridY: 75.6 }, // LCB
+  { gridX: 64.2, gridY: 75.6 }, // RCB
+  { gridX: 82.5, gridY: 65.4 }, // RB
+  { gridX: 36.1, gridY: 41.3 }, // LCM
+  { gridX: 49.6, gridY: 36.2 }, // CDM
+  { gridX: 63.1, gridY: 41.3 }, // RCM
+  { gridX: 19.9, gridY: 31.5 }, // LW
+  { gridX: 49.6, gridY: 4.1 },  // ST
+  { gridX: 79.1, gridY: 31.5 }, // RW
+];
+
+function derivePositionCode(player: PlayerCardData): string {
+  const explicit = (player.positionCode ?? "").toUpperCase();
+  if (explicit && FORMATION_SLOTS[explicit]) return explicit;
+  if (explicit) return explicit;
+  const pos = (player.position ?? "").toLowerCase();
+  for (const [key, code] of Object.entries(POSITION_DERIVED_CODE)) {
+    if (pos.includes(key)) return code;
   }
-  const code = (player.positionCode ?? "").toUpperCase();
-  return FORMATION_SLOTS[code] ?? { gridX: 50, gridY: 50 };
+  return "";
+}
+
+const _slotCache = new WeakMap<PlayerCardData, { gridX: number; gridY: number }>();
+
+export function getSlot(player: PlayerCardData, index = 0): { gridX: number; gridY: number } {
+  const cached = _slotCache.get(player);
+  if (cached) return cached;
+  let slot: { gridX: number; gridY: number };
+  if (player.gridX != null && player.gridY != null) {
+    slot = { gridX: player.gridX, gridY: player.gridY };
+  } else {
+    const code = derivePositionCode(player);
+    slot = FORMATION_SLOTS[code] ?? INDEX_FALLBACK_SLOTS[index % INDEX_FALLBACK_SLOTS.length];
+  }
+  _slotCache.set(player, slot);
+  return slot;
 }
 
 export function PitchArena({
   matchPda,
   teamName,
   side,
-  onBack,
   starters,
   substitutes,
   onLock,
@@ -192,113 +236,104 @@ export function PitchArena({
   const bench = substitutes.slice(0, 5);
 
   return (
-    <div className={cn("grid h-full grid-cols-1 gap-5 lg:grid-cols-[1fr_40%]", className)}>
-      {/* ===== LEFT: Pitch + Bench ===== */}
-      <div className="flex min-h-0 flex-col">
-        {/* Top bar: back + team identity */}
-        <div className="flex h-16 items-center gap-3 px-2">
-          <button
-            onClick={onBack}
-            className="flex h-10 w-10 items-center justify-center border border-surface bg-surface/30 text-foreground transition-colors hover:bg-surface/60"
-            aria-label="Back"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <span className="flex h-10 w-10 items-center justify-center border border-surface bg-surface/30 text-foreground">
-            <User size={18} />
-          </span>
-          <div>
-            <p className="font-display text-lg leading-tight text-foreground">{teamName}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
-              {side === 1 ? "Home" : "Away"} · Sub Manager
-            </p>
-          </div>
-        </div>
-
-        {/* Pitch */}
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden p-2">
-          <div className="relative w-full max-w-full" style={{ aspectRatio: "995 / 449" }}>
-            {/* Trapezoid pitch surface */}
-            <div
-              className="pitch-surface absolute inset-0 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]"
-              style={{
-                clipPath: "polygon(14.5% 0%, 85.5% 0%, 100% 100%, 0% 100%)",
-              }}
-            />
-            {/* Pitch markings */}
-            <svg
-              className="pointer-events-none absolute inset-0 text-pitch-line"
-              viewBox="0 0 995 449"
-              preserveAspectRatio="none"
-            >
-              <polygon
-                points="144,0 851,0 995,449 0,449"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
+    <div className={cn("grid h-full grid-cols-1 gap-6 lg:grid-cols-[1fr_40%]", className)}>
+      {/* ===== LEFT COLUMN: PitchCard + BenchCard ===== */}
+      <div className="flex min-h-0 flex-col gap-6">
+        {/* PitchCard */}
+        <div className="relative flex min-h-[320px] flex-1 flex-col border border-surface bg-surface/10 p-6">
+          {/* Pitch surface — fills the card body */}
+          <div className="relative flex flex-1 items-center justify-center overflow-hidden">
+            <div className="relative h-full w-full max-w-full">
+              {/* Trapezoid pitch surface */}
+              <div
+                className="pitch-surface absolute inset-0 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]"
+                style={{
+                  clipPath: "polygon(14.5% 0%, 85.5% 0%, 100% 100%, 0% 100%)",
+                }}
               />
-              <line x1="497.5" y1="0" x2="497.5" y2="449" stroke="currentColor" strokeWidth="2" />
-              <circle
-                cx="497.5"
-                cy="224.5"
-                r="48"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-            </svg>
+              {/* Pitch markings */}
+              <svg
+                className="pointer-events-none absolute inset-0 h-full w-full text-pitch-line"
+                viewBox="0 0 995 449"
+                preserveAspectRatio="none"
+              >
+                <polygon
+                  points="144,0 851,0 995,449 0,449"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                />
+                <line x1="497.5" y1="0" x2="497.5" y2="449" stroke="currentColor" strokeWidth="2" />
+                <circle
+                  cx="497.5"
+                  cy="224.5"
+                  r="48"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+              </svg>
 
-            {/* Player tokens */}
-            <div className="absolute inset-0" onDragOver={(e) => e.preventDefault()}>
-              {starters.map((starter) => {
-                const predicted = predictions[starter.id];
-                const sub = predicted
-                  ? substitutes.find((s) => s.id === predicted.inPlayerId)
-                  : null;
-                const isDragOver = dragOverPlayer === starter.id;
-                const flashed = justPlaced === starter.id;
-                const slot = getSlot(starter);
-                return (
-                  <div
-                    key={starter.id}
-                    className="absolute -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      left: `${slot.gridX}%`,
-                      top: `${slot.gridY}%`,
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOverPlayer(starter.id);
-                    }}
-                    onDragLeave={() => setDragOverPlayer(null)}
-                    onDrop={(e) => handleDropOnStarter(e, starter)}
-                    onClick={() => handleStarterClick(starter)}
-                  >
-                    <PlayerToken
-                      player={starter}
-                      sub={sub}
-                      isDragOver={isDragOver}
-                      flashed={flashed}
-                      onClear={() => clearPrediction(starter.id)}
-                    />
-                  </div>
-                );
-              })}
+              {/* Player tokens */}
+              <div className="absolute inset-0" onDragOver={(e) => e.preventDefault()}>
+                {starters.map((starter, idx) => {
+                  const predicted = predictions[starter.id];
+                  const sub = predicted
+                    ? substitutes.find((s) => s.id === predicted.inPlayerId)
+                    : null;
+                  const isDragOver = dragOverPlayer === starter.id;
+                  const flashed = justPlaced === starter.id;
+                  const slot = getSlot(starter, idx);
+                  return (
+                    <div
+                      key={starter.id}
+                      className="absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{
+                        left: `${slot.gridX}%`,
+                        top: `${slot.gridY}%`,
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverPlayer(starter.id);
+                      }}
+                      onDragLeave={() => setDragOverPlayer(null)}
+                      onDrop={(e) => handleDropOnStarter(e, starter)}
+                      onClick={() => handleStarterClick(starter)}
+                    >
+                      <PlayerToken
+                        player={starter}
+                        sub={sub}
+                        isDragOver={isDragOver}
+                        flashed={flashed}
+                        onClear={() => clearPrediction(starter.id)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Instruction overlay */}
-          <div className="absolute left-4 top-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
-            <Crosshair size={12} className="text-purple" />
-            {selectedSub
-              ? `Tap a player to swap in ${selectedSub.name.split(" ").pop()}`
-              : "Drag a sub onto a player"}
+          {/* Team name + instruction (top-left) */}
+          <div className="absolute left-6 top-6 flex flex-col gap-1">
+            <p className="font-display text-lg leading-tight text-foreground">
+              {teamName}
+            </p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              {side === 1 ? "Home" : "Away"}
+            </p>
+            <div className="mt-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
+              <Crosshair size={12} className="text-purple" />
+              {selectedSub
+                ? `Tap a player to swap in ${selectedSub.name.split(" ").pop()}`
+                : "Drag a sub onto a player"}
+            </div>
           </div>
         </div>
 
-        {/* Bench strip */}
-        <div className="h-64 flex-shrink-0 border-t border-surface bg-surface/10 px-3 py-3">
-          <div className="mb-2 flex items-center justify-between">
+        {/* BenchCard */}
+        <div className="flex h-56 flex-shrink-0 flex-col border border-surface bg-surface/10 p-6">
+          <div className="mb-3 flex items-center justify-between">
             <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
               <span className="flex h-5 w-5 items-center justify-center bg-surface text-foreground">
                 <User size={10} />
@@ -315,17 +350,17 @@ export function PitchArena({
               </button>
             )}
           </div>
-          <div className="flex h-[calc(100%-2rem)] items-center justify-center gap-3">
+          <div className="flex flex-1 items-center justify-center gap-3">
             {bench.map((sub) => (
               <div
                 key={sub.id}
                 onClick={() => handleBenchClick(sub)}
                 onDoubleClick={() => handleBenchDetails(sub)}
                 className={cn(
-                  "h-full max-h-52 flex-1 cursor-pointer transition-transform hover:-translate-y-1",
+                  "h-full max-h-44 flex-1 cursor-pointer transition-transform hover:-translate-y-1",
                   selectedSub?.id === sub.id && "-translate-y-2 scale-105"
                 )}
-                style={{ maxWidth: "180px", minWidth: "100px" }}
+                style={{ maxWidth: "160px", minWidth: "90px" }}
               >
                 <BenchCard
                   player={sub}
@@ -341,9 +376,10 @@ export function PitchArena({
         </div>
       </div>
 
-      {/* ===== RIGHT: Sidebar with separate tab header ===== */}
-      <div className="flex min-h-0 flex-col">
-        <div className="flex h-16 items-center border-b border-surface">
+      {/* ===== RIGHT COLUMN: SidebarCard ===== */}
+      <div className="flex min-h-0 flex-col border border-surface bg-surface/10">
+        {/* Tab header */}
+        <div className="flex h-16 flex-shrink-0 items-center border-b border-surface">
           {[
             { key: "slip" as const, label: "Slip", icon: <Sparkles size={14} /> },
             { key: "feed" as const, label: "Feed", icon: <Radio size={14} /> },
@@ -370,7 +406,8 @@ export function PitchArena({
           ))}
         </div>
 
-        <div className="flex-1 overflow-hidden bg-surface/20">
+        {/* Tab body */}
+        <div className="flex-1 overflow-hidden">
           {activeTab === "slip" && (
             <SlipTab
               predictions={predictionList}

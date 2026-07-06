@@ -1,14 +1,11 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
-  Loader2,
   AlertCircle,
   RefreshCw,
-  CheckCircle2,
-  ExternalLink,
   Target,
   BarChart3,
   Users,
@@ -20,6 +17,7 @@ import { GoalscorerPanel } from "../../../_components/goalscorer-panel";
 import { TeamPickerModal } from "../../../_components/team-picker-modal";
 import { LockCelebration } from "../../../_components/lock-celebration";
 import { EventsTransition } from "../../../_components/events-transition";
+import { Notifications, useNotifications } from "../../../_components/notifications";
 import {
   getMatch,
   getLineup,
@@ -176,12 +174,26 @@ export default function ArenaPage() {
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [lockMessage, setLockMessage] = useState<string | null>(null);
-  const [lockError, setLockError] = useState<string | null>(null);
-  const [signatures, setSignatures] = useState<string[]>([]);
   const [celebrating, setCelebrating] = useState(false);
   const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
   const [showEnterTransition, setShowEnterTransition] = useState(true);
+  const notifs = useNotifications();
+  const submitNotifId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isDemo && !connected) {
+      notifs.push({
+        id: "wallet-warn",
+        type: "warning",
+        title: "Wallet not connected",
+        message: "Connect your wallet to submit real predictions. Demo mode skips the chain.",
+        duration: 0,
+      });
+    } else {
+      notifs.dismiss("wallet-warn");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo, connected]);
 
   function handleTeamSelected(selectedSide: 1 | 2) {
     const params = new URLSearchParams(searchParams.toString());
@@ -223,36 +235,66 @@ export default function ArenaPage() {
     label: string;
   }) {
     setLocked(true);
-    setLockError(null);
-    setSignatures([]);
-    setLockMessage(`Locking ${input.label}…`);
 
     if (isDemo) {
-      setLockMessage("Demo prediction locked locally. No on-chain transaction.");
       setCelebrating(true);
+      notifs.push({
+        id: "demo-lock",
+        type: "info",
+        title: "Demo locked",
+        message: "Demo prediction locked locally. No on-chain transaction.",
+        duration: 5000,
+      });
       return;
     }
 
     if (!isSeed) {
-      setLockError("No fixture loaded that supports on-chain submission.");
       setLocked(false);
+      notifs.push({
+        id: "submit-error",
+        type: "error",
+        title: "Cannot submit",
+        message: "No fixture loaded that supports on-chain submission.",
+        duration: 6000,
+      });
       return;
     }
 
     if (!connected || !publicKey || !wallet) {
       setLocked(false);
-      setLockError("Connect your wallet to submit a real prediction.");
+      notifs.push({
+        id: "submit-error",
+        type: "error",
+        title: "Wallet not connected",
+        message: "Connect your wallet to submit a real prediction.",
+        duration: 6000,
+      });
       return;
     }
 
     if (Number.isNaN(fixtureId)) {
       setLocked(false);
-      setLockError("Could not resolve fixtureId for this match.");
+      notifs.push({
+        id: "submit-error",
+        type: "error",
+        title: "Missing fixture",
+        message: "Could not resolve fixtureId for this match.",
+        duration: 6000,
+      });
       return;
     }
 
     setSubmitting(true);
     const walletBase58 = publicKey.toBase58();
+
+    if (submitNotifId.current) notifs.dismiss(submitNotifId.current);
+    submitNotifId.current = notifs.push({
+      id: "submit-loading",
+      type: "loading",
+      title: "Submitting",
+      message: `Locking ${input.label}…`,
+      duration: 0,
+    });
 
     try {
       const result = await submitPrediction({
@@ -268,26 +310,40 @@ export default function ArenaPage() {
           kind: input.kind,
         },
       });
-      setSignatures((prev) => [...prev, result.signature]);
-      setLockMessage(`${input.label} locked on Devnet.`);
       setCelebrating(true);
+      if (submitNotifId.current) notifs.dismiss(submitNotifId.current);
+      notifs.push({
+        id: `submit-success-${result.signature}`,
+        type: "success",
+        title: `${input.label} locked`,
+        message: `Locked on Devnet. Signature: ${result.signature.slice(0, 8)}…${result.signature.slice(-4)}`,
+        duration: 6000,
+        link: {
+          href: `${DEVNET_EXPLORER}/${result.signature}?cluster=devnet`,
+          label: "View on Solana Explorer",
+        },
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submission failed.";
       setLocked(false);
-      setLockError(
-        `${msg}${
-          /insufficient funds|0x1|custom program error/i.test(msg)
-            ? " — your wallet may need the Soccit mock USDC to pay the entry fee."
-            : ""
-        }`
-      );
+      const usdcHint = /insufficient funds|0x1|custom program error/i.test(msg)
+        ? " — your wallet may need the Soccit mock USDC to pay the entry fee."
+        : "";
+      if (submitNotifId.current) notifs.dismiss(submitNotifId.current);
+      notifs.push({
+        id: "submit-error",
+        type: "error",
+        title: "Submission failed",
+        message: `${msg}${usdcHint}`,
+        duration: 8000,
+      });
     } finally {
       setSubmitting(false);
+      submitNotifId.current = null;
     }
   }
 
   async function handleLockSubstitutions(predictions: SubstitutionPrediction[]) {
-    setSignatures([]);
     for (let i = 0; i < predictions.length; i++) {
       const p = predictions[i];
       await handleSubmit({
@@ -358,80 +414,13 @@ export default function ArenaPage() {
           onComplete={() => setShowEnterTransition(false)}
         />
       )}
-      <PageShell>
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <div className="mb-3 flex items-center justify-end gap-3">
-          <span className={cn("flex items-center gap-2 text-xs font-bold uppercase tracking-wider", meta.color)}>
-            {meta.icon}
-            {meta.title}
-          </span>
-          {isDemo ? (
-            <span className="text-xs font-bold uppercase tracking-wider text-gold">Demo Mode</span>
-          ) : isSeed ? (
-            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan" />
-              Live Seed
-            </span>
-          ) : null}
-        </div>
-
-        {!isDemo && !connected && (
-          <div className="mb-3 border border-gold/30 bg-gold/5 px-4 py-3 text-center text-sm text-gold">
-            Connect your wallet to submit real predictions. Demo mode skips the chain.
-          </div>
-        )}
-
-        {lockError && (
-          <div className="mb-3 flex items-start gap-2 border border-rose/30 bg-rose/5 px-4 py-3 text-sm text-rose">
-            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-            <span>{lockError}</span>
-          </div>
-        )}
-
-        {submitting && (
-          <div className="mb-3 flex items-center justify-center gap-2 border border-cyan/30 bg-cyan/5 px-4 py-3 text-sm text-cyan">
-            <Loader2 size={16} className="animate-spin" />
-            {lockMessage ?? "Submitting…"}
-          </div>
-        )}
-
-        {!submitting && signatures.length > 0 && (
-          <div className="mb-3 border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
-            <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-emerald-600">
-              <CheckCircle2 size={16} />
-              {lockMessage ?? `${signatures.length} prediction(s) locked`}
-            </div>
-            <ul className="mt-2 space-y-1">
-              {signatures.map((sig) => (
-                <li key={sig} className="flex items-center gap-2">
-                  <span className="truncate font-mono text-xs text-foreground">{sig}</span>
-                  <a
-                    href={`${DEVNET_EXPLORER}/${sig}?cluster=devnet`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-cyan hover:underline"
-                  >
-                    View <ExternalLink size={10} />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {!submitting && isDemo && lockMessage && signatures.length === 0 && (
-          <div className="mb-3 border border-cyan/30 bg-cyan/5 px-4 py-2 text-center text-sm text-cyan">
-            {lockMessage}
-          </div>
-        )}
-
+      <PageShell edgeToEdge hideTicker>
+      <div className="flex flex-1 flex-col overflow-hidden px-6 pb-6">
         {model === "sub" && selectedTeam && sideSelected && (
           <PitchArena
             matchPda={pda}
             teamName={selectedTeam.teamName ?? `Team ${side}`}
             side={side}
-            onBack={() => router.push(`/matches/${pda}`)}
             starters={selectedTeam.players
               .filter((p) => p.starter)
               .map((p) => ({
@@ -516,6 +505,7 @@ export default function ArenaPage() {
         subtitle={meta.title}
         onDone={() => setCelebrating(false)}
       />
+      <Notifications items={notifs.items} onDismiss={notifs.dismiss} />
     </PageShell>
     </>
   );
