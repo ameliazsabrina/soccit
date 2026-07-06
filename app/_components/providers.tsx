@@ -13,6 +13,7 @@ import {
 } from "@solana/wallet-adapter-wallets";
 import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
+import { useSoundEffects } from "../_lib/use-sound-effects";
 
 type Theme = "light" | "dark";
 
@@ -51,6 +52,9 @@ export function Providers({ children }: { children: ReactNode }) {
   }, [theme, mounted]);
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
+
+  // App-wide hover/click sound effects (delegated, no per-component wiring).
+  useSoundEffects();
 
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = clusterApiUrl(network);
