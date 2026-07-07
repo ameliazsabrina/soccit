@@ -404,7 +404,7 @@ export default function ArenaPage() {
         />
       )}
       <PageShell edgeToEdge hideTicker>
-      <div className="flex flex-1 flex-col overflow-hidden px-8 pb-8 pt-6 lg:px-8">
+      <div className="flex flex-1 flex-col overflow-hidden px-8 pb-8 lg:px-8">
         {model === "sub" && selectedTeam && sideSelected && (
           <PitchArena
             matchPda={pda}
