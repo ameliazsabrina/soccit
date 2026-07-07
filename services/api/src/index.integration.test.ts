@@ -13,7 +13,9 @@ import {
   listAvatars,
   registerUser,
   setAvatar,
+  setUsername,
 } from "./modules/user/user.service.js";
+import { issueToken } from "./modules/auth/auth.service.js";
 import {
   InvalidSignatureError,
   UserNotFoundError,
@@ -44,6 +46,7 @@ vi.mock("./modules/user/user.service.js", () => ({
   registerUser: vi.fn(),
   getUser: vi.fn(),
   setAvatar: vi.fn(),
+  setUsername: vi.fn(),
   listAvatars: vi.fn(),
   loadUserProfiles: vi.fn(),
 }));
@@ -250,7 +253,10 @@ describe("POST /api/user", () => {
     vi.mocked(registerUser).mockResolvedValue(profile as never);
     const res = await post(body);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(profile);
+    // Registration now returns the profile plus an immediate session token.
+    const json = await res.json();
+    expect(json).toMatchObject(profile);
+    expect(typeof json.session.token).toBe("string");
     expect(registerUser).toHaveBeenCalledWith(body);
   });
 
@@ -307,62 +313,94 @@ describe("GET /api/user/:wallet", () => {
 });
 
 describe("PATCH /api/user/:wallet/avatar", () => {
-  const patch = (payload: unknown) =>
+  const token = () => issueToken(WALLET).token;
+  const patch = (payload: unknown, auth?: string) =>
     app.request(`/api/user/${WALLET}/avatar`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(auth === undefined ? {} : { authorization: auth }),
+      },
       body: JSON.stringify(payload),
     });
 
-  it("merges the wallet param into the body and updates", async () => {
-    const profile = {
-      wallet: WALLET,
-      username: "keeper_1",
-      avatar: "avatar-3",
-    };
+  it("updates with a valid bearer token", async () => {
+    const profile = { wallet: WALLET, username: "keeper_1", avatar: "avatar-3" };
     vi.mocked(setAvatar).mockResolvedValue(profile as never);
-    const res = await patch({
-      avatar: "avatar-3",
-      message: "m",
-      signature: "s",
-    });
+    const res = await patch({ avatar: "avatar-3" }, `Bearer ${token()}`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(profile);
-    expect(setAvatar).toHaveBeenCalledWith({
-      wallet: WALLET,
-      avatar: "avatar-3",
-      message: "m",
-      signature: "s",
-    });
+    expect(setAvatar).toHaveBeenCalledWith({ wallet: WALLET, avatar: "avatar-3" });
+  });
+
+  it("rejects a missing bearer token with 401", async () => {
+    const res = await patch({ avatar: "avatar-3" });
+    expect(res.status).toBe(401);
+    expect(setAvatar).not.toHaveBeenCalled();
+  });
+
+  it("rejects a token for a different wallet with 401", async () => {
+    const other = issueToken(Keypair.generate().publicKey.toBase58()).token;
+    const res = await patch({ avatar: "avatar-3" }, `Bearer ${other}`);
+    expect(res.status).toBe(401);
+    expect(setAvatar).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown avatar id with 400", async () => {
-    const res = await patch({
-      avatar: "avatar-99",
-      message: "m",
-      signature: "s",
-    });
+    const res = await patch({ avatar: "avatar-99" }, `Bearer ${token()}`);
     expect(res.status).toBe(400);
     expect(setAvatar).not.toHaveBeenCalled();
   });
 
-  it("maps a bad signature to 401", async () => {
-    vi.mocked(setAvatar).mockRejectedValue(new InvalidSignatureError());
-    const res = await patch({
-      avatar: "avatar-3",
-      message: "m",
-      signature: "s",
+  it("maps an unknown wallet to 404", async () => {
+    vi.mocked(setAvatar).mockRejectedValue(new UserNotFoundError(WALLET));
+    const res = await patch({ avatar: "avatar-3" }, `Bearer ${token()}`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("PATCH /api/user/:wallet/username", () => {
+  const token = () => issueToken(WALLET).token;
+  const patch = (payload: unknown, auth?: string) =>
+    app.request(`/api/user/${WALLET}/username`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(auth === undefined ? {} : { authorization: auth }),
+      },
+      body: JSON.stringify(payload),
     });
+
+  it("updates with a valid bearer token", async () => {
+    const profile = { wallet: WALLET, username: "new_name", avatar: "avatar-3" };
+    vi.mocked(setUsername).mockResolvedValue(profile as never);
+    const res = await patch({ username: "new_name" }, `Bearer ${token()}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(profile);
+    expect(setUsername).toHaveBeenCalledWith({ wallet: WALLET, username: "new_name" });
+  });
+
+  it("rejects a missing bearer token with 401", async () => {
+    const res = await patch({ username: "new_name" });
     expect(res.status).toBe(401);
+    expect(setUsername).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid username with 400", async () => {
+    const res = await patch({ username: "no" }, `Bearer ${token()}`);
+    expect(res.status).toBe(400);
+    expect(setUsername).not.toHaveBeenCalled();
+  });
+
+  it("maps a taken username to 409", async () => {
+    vi.mocked(setUsername).mockRejectedValue(new UsernameTakenError("new_name"));
+    const res = await patch({ username: "new_name" }, `Bearer ${token()}`);
+    expect(res.status).toBe(409);
   });
 
   it("maps an unknown wallet to 404", async () => {
-    vi.mocked(setAvatar).mockRejectedValue(new UserNotFoundError(WALLET));
-    const res = await patch({
-      avatar: "avatar-3",
-      message: "m",
-      signature: "s",
-    });
+    vi.mocked(setUsername).mockRejectedValue(new UserNotFoundError(WALLET));
+    const res = await patch({ username: "new_name" }, `Bearer ${token()}`);
     expect(res.status).toBe(404);
   });
 });

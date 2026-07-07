@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const AVATARS = [
+  "avatar-0",
   "avatar-1",
   "avatar-2",
   "avatar-3",
@@ -9,6 +10,9 @@ export const AVATARS = [
   "avatar-6",
   "avatar-7",
   "avatar-8",
+  "avatar-9",
+  "avatar-10",
+  "avatar-11",
 ] as const;
 
 export const avatarSchema = z.enum(AVATARS);
@@ -44,8 +48,11 @@ export const registerInput = z.object({
 export const setAvatarInput = z.object({
   wallet: walletSchema,
   avatar: avatarSchema,
-  message: z.string(),
-  signature: z.string(),
+});
+
+export const setUsernameInput = z.object({
+  wallet: walletSchema,
+  username: usernameSchema,
 });
 
 export const walletInput = z.object({
@@ -61,6 +68,7 @@ export const userProfile = z.object({
 
 export type RegisterInput = z.infer<typeof registerInput>;
 export type SetAvatarInput = z.infer<typeof setAvatarInput>;
+export type SetUsernameInput = z.infer<typeof setUsernameInput>;
 export type WalletInput = z.infer<typeof walletInput>;
 export type UserProfile = z.infer<typeof userProfile>;
 export type Avatar = z.infer<typeof avatarSchema>;

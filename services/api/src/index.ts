@@ -27,6 +27,7 @@ import {
 import {
   registerInput,
   setAvatarInput,
+  setUsernameInput,
   walletInput,
 } from "./modules/user/user.schema.js";
 import {
@@ -35,7 +36,16 @@ import {
   loadUserProfiles,
   registerUser,
   setAvatar,
+  setUsername,
 } from "./modules/user/user.service.js";
+import { sessionInput } from "./modules/auth/auth.schema.js";
+import { createSession, issueToken } from "./modules/auth/auth.service.js";
+import { requireWallet } from "./modules/auth/auth.middleware.js";
+import {
+  InvalidSessionRequestError,
+  SessionConfigError,
+  UnauthorizedError,
+} from "./modules/auth/auth.errors.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
 import { scheduleInput } from "./modules/schedule/schedule.schema.js";
 import { listSchedule } from "./modules/schedule/schedule.service.js";
@@ -139,11 +149,28 @@ app.post("/api/prediction/prepare", async (c) => {
   }
 });
 
+app.post("/api/auth/session", async (c) => {
+  const parsed = sessionInput.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid body" }, 400);
+  try {
+    return c.json(createSession(parsed.data));
+  } catch (err) {
+    if (err instanceof InvalidSessionRequestError)
+      return c.json({ error: err.message }, 401);
+    if (err instanceof SessionConfigError)
+      return c.json({ error: err.message }, 503);
+    throw err;
+  }
+});
+
 app.post("/api/user", async (c) => {
   const parsed = registerInput.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: "invalid body" }, 400);
   try {
-    return c.json(await registerUser(parsed.data));
+    const profile = await registerUser(parsed.data);
+    // Issue a session immediately so a new user needn't re-sign to edit.
+    const session = config.session.secret ? issueToken(profile.wallet) : null;
+    return c.json({ ...profile, session });
   } catch (err) {
     if (err instanceof InvalidSignatureError)
       return c.json({ error: err.message }, 401);
@@ -170,6 +197,13 @@ app.get("/api/user/:wallet", async (c) => {
 });
 
 app.patch("/api/user/:wallet/avatar", async (c) => {
+  try {
+    requireWallet(c);
+  } catch (err) {
+    if (err instanceof UnauthorizedError)
+      return c.json({ error: err.message }, 401);
+    throw err;
+  }
   const body = await c.req.json().catch(() => null);
   const parsed = setAvatarInput.safeParse({
     ...(body ?? {}),
@@ -179,8 +213,31 @@ app.patch("/api/user/:wallet/avatar", async (c) => {
   try {
     return c.json(await setAvatar(parsed.data));
   } catch (err) {
-    if (err instanceof InvalidSignatureError)
+    if (err instanceof UserNotFoundError)
+      return c.json({ error: err.message }, 404);
+    throw err;
+  }
+});
+
+app.patch("/api/user/:wallet/username", async (c) => {
+  try {
+    requireWallet(c);
+  } catch (err) {
+    if (err instanceof UnauthorizedError)
       return c.json({ error: err.message }, 401);
+    throw err;
+  }
+  const body = await c.req.json().catch(() => null);
+  const parsed = setUsernameInput.safeParse({
+    ...(body ?? {}),
+    wallet: c.req.param("wallet"),
+  });
+  if (!parsed.success) return c.json({ error: "invalid body" }, 400);
+  try {
+    return c.json(await setUsername(parsed.data));
+  } catch (err) {
+    if (err instanceof UsernameTakenError)
+      return c.json({ error: err.message }, 409);
     if (err instanceof UserNotFoundError)
       return c.json({ error: err.message }, 404);
     throw err;

@@ -16,6 +16,7 @@ import {
   type ProfileSummary,
   type RegisterInput,
   type SetAvatarInput,
+  type SetUsernameInput,
   type UserDoc,
   type UserProfile,
 } from "./user.schema.js";
@@ -25,7 +26,7 @@ export function onboardingMessage(wallet: string): string {
 }
 
 export function avatarSrc(id: string): string {
-  return `/avatars/${id}.png`;
+  return `/avatars/${id}.webp`;
 }
 
 export function listAvatars(): AvatarDescriptor[] {
@@ -97,7 +98,6 @@ export async function getUser(wallet: string): Promise<UserProfile> {
 }
 
 export async function setAvatar(input: SetAvatarInput): Promise<UserProfile> {
-  verifyOnboarding(input.wallet, input.message, input.signature);
   const doc = await (await getUsersCollection()).findOneAndUpdate(
     { wallet: input.wallet },
     { $set: { avatar: input.avatar } },
@@ -105,4 +105,20 @@ export async function setAvatar(input: SetAvatarInput): Promise<UserProfile> {
   );
   if (!doc) throw new UserNotFoundError(input.wallet);
   return toProfile(doc);
+}
+
+export async function setUsername(input: SetUsernameInput): Promise<UserProfile> {
+  try {
+    const doc = await (await getUsersCollection()).findOneAndUpdate(
+      { wallet: input.wallet },
+      { $set: { username: input.username, usernameLower: input.username.toLowerCase() } },
+      { returnDocument: "after" },
+    );
+    if (!doc) throw new UserNotFoundError(input.wallet);
+    return toProfile(doc);
+  } catch (err) {
+    if (err instanceof MongoServerError && err.code === 11000)
+      throw new UsernameTakenError(input.username);
+    throw err;
+  }
 }

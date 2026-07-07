@@ -89,10 +89,14 @@ describe("registerInput", () => {
 });
 
 describe("avatarSchema", () => {
-  it("accepts provided ids only", () => {
+  it("accepts the full avatar-0..avatar-11 catalog", () => {
+    expect(avatarSchema.safeParse("avatar-0").success).toBe(true);
     expect(avatarSchema.safeParse("avatar-1").success).toBe(true);
-    expect(avatarSchema.safeParse("avatar-8").success).toBe(true);
-    expect(avatarSchema.safeParse("avatar-0").success).toBe(false);
+    expect(avatarSchema.safeParse("avatar-11").success).toBe(true);
+  });
+
+  it("rejects unknown ids", () => {
+    expect(avatarSchema.safeParse("avatar-12").success).toBe(false);
     expect(avatarSchema.safeParse("custom.png").success).toBe(false);
   });
 });
