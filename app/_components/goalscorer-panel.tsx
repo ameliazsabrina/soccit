@@ -1,11 +1,12 @@
 "use client";
 
 import { Lock } from "lucide-react";
+import { type PlayerCardData } from "./player-card";
 
 interface GoalscorerPanelProps {
   team1Name: string;
   team2Name: string;
-  players: never[];
+  players: PlayerCardData[];
 }
 
 export function GoalscorerPanel({}: GoalscorerPanelProps) {

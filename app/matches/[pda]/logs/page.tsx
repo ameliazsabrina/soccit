@@ -6,9 +6,7 @@ import { motion } from "framer-motion";
 import {
   Activity,
   Search,
-  Wifi,
   WifiOff,
-  Loader2,
   Radio,
   ScrollText,
   AlertCircle,
@@ -247,36 +245,7 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
 
   return (
     <PageShell arenaTabs={subNavTabs}>
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 lg:px-8">
-        {/* Header + connection */}
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Immutable Log</p>
-            <h1 className="font-display text-3xl tracking-tight text-foreground">
-              Match Intelligence
-            </h1>
-            <span className="font-mono text-xs text-muted">{isDemo ? "DEMO" : pda}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <ConnectionBadge status={status} />
-            {!isDemo && (
-              <button
-                onClick={openStream}
-                disabled={status === "connecting"}
-                className="flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-foreground disabled:opacity-50"
-                aria-label="Reconnect"
-                title="Reconnect"
-              >
-                {status === "connecting" ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Radio size={16} />
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-
+      <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 lg:px-8">
         {/* Match summary */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <SummaryCard
@@ -458,35 +427,6 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
       <p className="font-display text-lg text-foreground">{value}</p>
     </div>
   );
-}
-
-function ConnectionBadge({ status }: { status: SseStatus }) {
-  switch (status) {
-    case "open":
-      return (
-        <span className="flex items-center gap-1.5 text-xs font-bold uppercase text-cyan">
-          <Wifi size={12} /> Live
-        </span>
-      );
-    case "connecting":
-      return (
-        <span className="flex items-center gap-1.5 text-xs font-bold uppercase text-muted">
-          <Loader2 size={12} className="animate-spin" /> Connecting
-        </span>
-      );
-    case "error":
-      return (
-        <span className="flex items-center gap-1.5 text-xs font-bold uppercase text-rose">
-          <WifiOff size={12} /> Reconnecting
-        </span>
-      );
-    default:
-      return (
-        <span className="flex items-center gap-1.5 text-xs font-bold uppercase text-muted">
-          <Activity size={12} /> Idle
-        </span>
-      );
-  }
 }
 
 function formatType(type: string) {

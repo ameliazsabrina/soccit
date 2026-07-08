@@ -3,20 +3,17 @@
 import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Activity,
   Search,
   Filter,
-  Wifi,
   ScrollText,
   Clock,
 } from "lucide-react";
-import { type EventEntry, type SseStatus } from "../_lib/api";
+import { type EventEntry } from "../_lib/api";
 import { cn } from "../_lib/utils";
 import { PageShell } from "../_components/page-shell";
 
 export default function ExplorerPage() {
   const [events] = useState<EventEntry[]>(() => DEMO_EVENTS);
-  const [status] = useState<SseStatus>("open");
   const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
 
@@ -43,17 +40,7 @@ export default function ExplorerPage() {
 
   return (
     <PageShell>
-      <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 lg:px-8">
-        {/* Header + connection */}
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Immutable Log</p>
-            <h1 className="font-display text-3xl tracking-tight text-foreground">Explorer</h1>
-            <span className="font-mono text-xs text-muted">ALL MATCHES</span>
-          </div>
-          <ConnectionBadge status={status} />
-        </div>
-
+      <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 lg:px-8">
         {/* Summary */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <SummaryCard label="Matches" value="12 tracked" />
@@ -194,23 +181,6 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
       <p className="font-display text-lg text-foreground">{value}</p>
     </div>
   );
-}
-
-function ConnectionBadge({ status }: { status: SseStatus }) {
-  switch (status) {
-    case "open":
-      return (
-        <span className="flex items-center gap-1.5 text-xs font-bold uppercase text-cyan">
-          <Wifi size={12} /> Live
-        </span>
-      );
-    default:
-      return (
-        <span className="flex items-center gap-1.5 text-xs font-bold uppercase text-muted">
-          <Activity size={12} /> Idle
-        </span>
-      );
-  }
 }
 
 function formatType(type: string) {

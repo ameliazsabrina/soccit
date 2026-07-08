@@ -211,8 +211,6 @@ export default function SettlementPage() {
   const poolTotal = match.onchain?.poolTotal ?? "0";
   const participantCount = match.onchain?.participantCount ?? 0;
   const prizes = calculatePrizes(poolTotal);
-  const settled = match.onchain?.settled ?? false;
-  const statusLabel = match.onchain?.statusLabel ?? "UNKNOWN";
 
   let winnerLabel = "Pending";
   if (score.team1 > score.team2) winnerLabel = team1?.teamName ?? "Home";
@@ -224,17 +222,6 @@ export default function SettlementPage() {
   return (
     <PageShell arenaTabs={subNavTabs}>
       <div className="flex flex-1 flex-col gap-6 overflow-hidden">
-        {/* Header */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Match Settlement</p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <h1 className="font-display text-3xl tracking-tight text-foreground">
-              {team1?.teamName ?? "Home"} vs {team2?.teamName ?? "Away"}
-            </h1>
-            <span className="font-mono text-xs text-muted">{settled ? "SETTLED" : statusLabel}</span>
-          </div>
-        </div>
-
         {/* Main grid */}
         <div className="grid auto-rows-min grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Final score */}
