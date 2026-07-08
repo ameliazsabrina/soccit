@@ -152,7 +152,14 @@ export default function MatchEvents() {
     if (!matches) return [];
     if (filter === "all") return matches;
     if (filter === "live") {
-      return matches.filter((m) => m.live?.statusId === 1);
+      // The feed often sends statusId=null while a match is in play, so key off
+      // the presence of live feed data (minute/ts) on a non-settled match.
+      return matches.filter(
+        (m) =>
+          !!m.live &&
+          m.onchain.statusLabel !== "SETTLED" &&
+          ((m.live.minute ?? 0) > 0 || m.live.ts != null)
+      );
     }
     return matches.filter((m) => m.onchain.statusLabel === filter);
   }, [matches, filter]);
@@ -465,7 +472,10 @@ function MatchCard({ match, index = 0 }: { match: MatchSummary; index?: number }
   const team2 = match.teamNames?.team2 ?? `Team ${match.onchain.team2Id}`;
   const score = match.live?.goals ?? { team1: 0, team2: 0 };
   const minute = match.live?.minute;
-  const isLive = match.live?.statusId === 1;
+  const isLive =
+    !!match.live &&
+    match.onchain.statusLabel !== "SETTLED" &&
+    ((match.live.minute ?? 0) > 0 || match.live.ts != null);
   const status = match.onchain.statusLabel;
 
   return (

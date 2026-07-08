@@ -272,6 +272,26 @@ export function getWorldCupBracket() {
   return apiJson<WorldCupBracket>("/api/events/bracket");
 }
 
+// ---- Session auth (off-chain profile edits) ------------------------------
+// A one-time signed message is exchanged for a short-lived JWT; avatar/username
+// edits then authorize with `Authorization: Bearer <token>` (no per-edit popup).
+
+export type SessionResponse = { token: string; expiresAt: number };
+
+export function createSession(input: {
+  wallet: string;
+  message: string;
+  signature: string;
+}) {
+  return apiJson<SessionResponse>("/api/auth/session", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Registration response: the profile plus an immediate session (when enabled). */
+export type RegisterResponse = UserProfile & { session: SessionResponse | null };
+
 export function createUserProfile(input: {
   wallet: string;
   username: string;
@@ -279,7 +299,7 @@ export function createUserProfile(input: {
   message: string;
   signature: string;
 }) {
-  return apiJson<UserProfile>("/api/user", {
+  return apiJson<RegisterResponse>("/api/user", {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -288,32 +308,24 @@ export function createUserProfile(input: {
 export function updateAvatar(input: {
   wallet: string;
   avatar: AvatarId;
-  message: string;
-  signature: string;
+  token: string;
 }) {
   return apiJson<UserProfile>(`/api/user/${input.wallet}/avatar`, {
     method: "PATCH",
-    body: JSON.stringify({
-      avatar: input.avatar,
-      message: input.message,
-      signature: input.signature,
-    }),
+    headers: { authorization: `Bearer ${input.token}` },
+    body: JSON.stringify({ avatar: input.avatar }),
   });
 }
 
 export function updateUsername(input: {
   wallet: string;
   username: string;
-  message: string;
-  signature: string;
+  token: string;
 }) {
   return apiJson<UserProfile>(`/api/user/${input.wallet}/username`, {
     method: "PATCH",
-    body: JSON.stringify({
-      username: input.username,
-      message: input.message,
-      signature: input.signature,
-    }),
+    headers: { authorization: `Bearer ${input.token}` },
+    body: JSON.stringify({ username: input.username }),
   });
 }
 
@@ -365,6 +377,16 @@ export function useLeaderboardStream(pda: string, onUpdate: (data: Leaderboard) 
   return source;
 }
 
+// The events stream emits NAMED SSE events (event: goal|status|substitution|
+// red_card), so we must addEventListener per type — `onmessage` only fires for
+// unnamed ("message") events and would receive nothing.
+export const MATCH_EVENT_TYPES = [
+  "goal",
+  "status",
+  "substitution",
+  "red_card",
+] as const;
+
 export function useMatchEventsStream(
   pda: string,
   onEvent: (entry: EventEntry) => void,
@@ -372,14 +394,14 @@ export function useMatchEventsStream(
 ) {
   const url = `${SOCCIT_API_BASE_URL}/api/events/${pda}?fromId=${fromId}`;
   const source = new EventSource(url);
-  source.onmessage = (event) => {
+  const handle = (event: MessageEvent) => {
     try {
-      const data = JSON.parse(event.data);
-      onEvent(data);
+      onEvent(JSON.parse(event.data));
     } catch {
       // ignore malformed events
     }
   };
+  for (const type of MATCH_EVENT_TYPES) source.addEventListener(type, handle);
   return source;
 }
 
@@ -400,14 +422,16 @@ export function openMatchEventsStream(
 
   source.onopen = () => handlers.onStatus?.("open");
 
-  source.onmessage = (event) => {
+  // Server emits named events (goal/status/substitution/red_card); listen for
+  // each — `onmessage` only fires for unnamed events and would stay silent.
+  const handle = (event: MessageEvent) => {
     try {
-      const entry: EventEntry = JSON.parse(event.data);
-      handlers.onEvent(entry);
+      handlers.onEvent(JSON.parse(event.data) as EventEntry);
     } catch {
       // ignore malformed events
     }
   };
+  for (const type of MATCH_EVENT_TYPES) source.addEventListener(type, handle);
 
   source.onerror = () => {
     // EventSource reconnects automatically unless the error is fatal.

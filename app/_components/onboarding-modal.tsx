@@ -6,6 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { X, Loader2, CheckCircle2, User } from "lucide-react";
 import bs58 from "bs58";
 import { createUserProfile, type AvatarId } from "../_lib/api";
+import { storeSession } from "../_lib/session";
 import { AvatarPicker } from "./avatar-picker";
 import { cn } from "../_lib/utils";
 
@@ -38,13 +39,17 @@ export function OnboardingModal({ open, onClose, onSuccess }: OnboardingModalPro
       const signatureBytes = await signMessage(messageBytes);
       const signature = bs58.encode(signatureBytes);
 
-      await createUserProfile({
+      const result = await createUserProfile({
         wallet,
         username,
         avatar,
         message,
         signature,
       });
+
+      // Onboarding already proved wallet ownership — persist the session so the
+      // user can edit their profile later without signing again.
+      if (result.session) storeSession(wallet, result.session);
 
       onSuccess();
     } catch (err) {

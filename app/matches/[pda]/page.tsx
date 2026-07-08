@@ -340,11 +340,23 @@ export default function MatchDetails() {
     setLoading(true);
     setError(null);
     try {
-      const [m, l] = await Promise.all([getMatch(pda), getLineup(pda)]);
+      // Lineup can lag match ingestion — treat it as optional so a missing
+      // lineup doesn't blank out an otherwise-loadable match.
+      const [m, l] = await Promise.all([
+        getMatch(pda),
+        getLineup(pda).catch(() => null),
+      ]);
       setMatch(m);
       setLineup(l);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load match.");
+      const raw = err instanceof Error ? err.message : "Failed to load match.";
+      // The read API 404s for matches whose fixture hasn't been ingested into
+      // the live feed yet — show a friendly explanation instead of the raw error.
+      setError(
+        /no match found/i.test(raw)
+          ? "This match isn't live yet. It becomes available once the fixture is ingested near kickoff."
+          : raw
+      );
     } finally {
       setLoading(false);
     }
@@ -403,7 +415,7 @@ export default function MatchDetails() {
     );
   }
 
-  if (error || !match || !lineup) {
+  if (error || !match) {
     return (
       <PageShell>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
@@ -415,6 +427,27 @@ export default function MatchDetails() {
             className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
           >
             <RefreshCw size={16} /> Retry
+          </button>
+        </div>
+      </PageShell>
+    );
+  }
+
+  // Match loaded but lineups haven't been published yet — distinct, non-error state.
+  if (!lineup) {
+    return (
+      <PageShell>
+        <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
+          <Users className="mb-4 text-muted" size={48} />
+          <h2 className="font-display text-2xl text-foreground">Lineups Not Out Yet</h2>
+          <p className="mt-2 text-muted">
+            Team sheets are usually published close to kickoff. Check back soon to make your picks.
+          </p>
+          <button
+            onClick={loadMatch}
+            className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+          >
+            <RefreshCw size={16} /> Refresh
           </button>
         </div>
       </PageShell>

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import bs58 from "bs58";
 import {
   User,
   Wallet,
@@ -29,6 +28,7 @@ import {
   type UserMatch,
   type AvatarId,
 } from "../_lib/api";
+import { ensureSession } from "../_lib/session";
 import { cn } from "../_lib/utils";
 
 export default function ProfilePage() {
@@ -284,17 +284,8 @@ function AvatarEditModal({
     setError(null);
 
     try {
-      const message = `Soccit avatar: ${wallet}`;
-      const messageBytes = new TextEncoder().encode(message);
-      const signatureBytes = await signMessage(messageBytes);
-      const signature = bs58.encode(signatureBytes);
-
-      const updated = await updateAvatar({
-        wallet,
-        avatar,
-        message,
-        signature,
-      });
+      const token = await ensureSession(wallet, signMessage);
+      const updated = await updateAvatar({ wallet, avatar, token });
 
       onSuccess(updated);
       onClose();
@@ -436,17 +427,8 @@ function UsernameEditModal({
     setError(null);
 
     try {
-      const message = `Soccit username: ${wallet}`;
-      const messageBytes = new TextEncoder().encode(message);
-      const signatureBytes = await signMessage(messageBytes);
-      const signature = bs58.encode(signatureBytes);
-
-      const updated = await updateUsername({
-        wallet,
-        username,
-        message,
-        signature,
-      });
+      const token = await ensureSession(wallet, signMessage);
+      const updated = await updateUsername({ wallet, username, token });
 
       onSuccess(updated);
       onClose();
