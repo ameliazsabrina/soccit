@@ -1,6 +1,12 @@
 "use client";
 
-import { ReactNode, createContext, useContext, useEffect, useState } from "react";
+import {
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import {
   ConnectionProvider,
@@ -14,6 +20,7 @@ import {
 import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useSoundEffects } from "../_lib/use-sound-effects";
+import { OnboardingGate } from "./onboarding-gate";
 
 type Theme = "light" | "dark";
 
@@ -36,8 +43,6 @@ export function Providers({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Initialize mounted state and read persisted theme. This effect runs once
-    // on the client after hydration to avoid server/client mismatch.
     setMounted(true);
     const saved = window.localStorage.getItem("soccit-theme") as Theme | null;
     if (saved) setTheme(saved);
@@ -53,7 +58,6 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
 
-  // App-wide hover/click sound effects (delegated, no per-component wiring).
   useSoundEffects();
 
   const network = WalletAdapterNetwork.Devnet;
@@ -64,7 +68,10 @@ export function Providers({ children }: { children: ReactNode }) {
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <ConnectionProvider endpoint={endpoint}>
         <WalletProvider wallets={wallets} autoConnect>
-          <WalletModalProvider>{children}</WalletModalProvider>
+          <WalletModalProvider>
+            {children}
+            <OnboardingGate />
+          </WalletModalProvider>
         </WalletProvider>
       </ConnectionProvider>
     </ThemeContext.Provider>
