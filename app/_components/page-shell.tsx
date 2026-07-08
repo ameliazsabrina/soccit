@@ -1,6 +1,6 @@
 "use client";
 
-import { TopNav } from "./top-nav";
+import { TopNav, type ArenaTab } from "./top-nav";
 import { TickerMarquee } from "./ticker-marquee";
 import { cn } from "../_lib/utils";
 
@@ -10,6 +10,7 @@ interface PageShellProps {
   fullWidth?: boolean;
   edgeToEdge?: boolean;
   hideTicker?: boolean;
+  arenaTabs?: ArenaTab[];
 }
 
 export function PageShell({
@@ -18,6 +19,7 @@ export function PageShell({
   fullWidth,
   edgeToEdge,
   hideTicker,
+  arenaTabs,
 }: PageShellProps) {
   return (
     <div
@@ -41,7 +43,7 @@ export function PageShell({
       {edgeToEdge ? (
         <>
           <div className="relative z-20 mx-auto w-full max-w-[1200px] px-8 pt-8 lg:px-8">
-            <TopNav variant={variant} />
+            <TopNav variant={variant} arenaTabs={arenaTabs} />
           </div>
           <main className="relative z-20 flex w-full flex-1 flex-col">
             {children}
@@ -54,7 +56,7 @@ export function PageShell({
             fullWidth ? "px-4 py-4" : "max-w-[1200px] px-8 py-8 lg:px-8"
           )}
         >
-          <TopNav variant={variant} />
+          <TopNav variant={variant} arenaTabs={arenaTabs} />
           {children}
         </main>
       )}

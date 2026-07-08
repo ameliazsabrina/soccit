@@ -18,9 +18,17 @@ const TABS = [
 
 interface TopNavProps {
   variant?: "default" | "worldcup";
+  arenaTabs?: ArenaTab[];
 }
 
-export function TopNav({ variant = "default" }: TopNavProps) {
+export interface ArenaTab {
+  model: string;
+  label: string;
+  href: string;
+  active: boolean;
+}
+
+export function TopNav({ variant = "default", arenaTabs }: TopNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
@@ -65,13 +73,29 @@ export function TopNav({ variant = "default" }: TopNavProps) {
               Back
             </button>
           ) : isNested ? (
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 border border-surface bg-surface px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] text-muted transition-all hover:border-purple hover:bg-purple hover:text-white"
-            >
-              <ArrowLeft size={14} />
-              Back
-            </button>
+            <>
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-2 border border-surface bg-surface px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] text-muted transition-all hover:border-purple hover:bg-purple hover:text-white"
+              >
+                <ArrowLeft size={14} />
+                Back
+              </button>
+              {arenaTabs?.map((tab) => (
+                <Link
+                  key={tab.model}
+                  href={tab.href}
+                  className={cn(
+                    "border px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] transition-all",
+                    tab.active
+                      ? "border-purple bg-purple text-white"
+                      : "border-surface bg-surface text-muted hover:border-purple hover:bg-purple hover:text-white"
+                  )}
+                >
+                  {tab.label}
+                </Link>
+              ))}
+            </>
           ) : (
             TABS.map((tab) => {
               const active =

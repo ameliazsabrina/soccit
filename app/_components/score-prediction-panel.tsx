@@ -44,7 +44,7 @@ export function ScorePredictionPanel({
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-2xl border-2 border-surface bg-surface/10 p-6 md:p-10"
+        className="w-full max-w-2xl bg-purple/10 p-6 md:p-10"
       >
         <div className="mb-8 text-center">
           <h2 className="font-display text-3xl text-foreground md:text-4xl">Call the Score</h2>

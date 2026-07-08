@@ -44,22 +44,42 @@ const POSITION_COLORS: Record<string, string> = {
 // 11-slot formation mapped from ARENASUBS.svg coordinates (1920x1080 wireframe).
 // Pitch bounding box: x=[98,1093] (w=995), y=[148,597] (h=449).
 const FORMATION_SLOTS: Record<string, { gridX: number; gridY: number }> = {
-  GK: { gridX: 49.6, gridY: 87.2 },
-  LB: { gridX: 16.5, gridY: 70.5 },
-  LCB: { gridX: 35.1, gridY: 75.6 },
-  CB: { gridX: 35.1, gridY: 75.6 },
-  RCB: { gridX: 64.2, gridY: 75.6 },
-  RB: { gridX: 82.5, gridY: 65.4 },
-  CDM: { gridX: 49.6, gridY: 36.2 },
-  CM: { gridX: 36.1, gridY: 41.3 },
-  LCM: { gridX: 36.1, gridY: 41.3 },
-  RCM: { gridX: 63.1, gridY: 41.3 },
-  LW: { gridX: 19.9, gridY: 31.5 },
-  LM: { gridX: 19.9, gridY: 31.5 },
-  ST: { gridX: 49.6, gridY: 4.1 },
-  CF: { gridX: 49.6, gridY: 4.1 },
-  RW: { gridX: 79.1, gridY: 31.5 },
-  RM: { gridX: 79.1, gridY: 31.5 },
+  // Goalkeeper — own goal line (bottom)
+  GK: { gridX: 50, gridY: 88 },
+  // Back line — deep, symmetric
+  LB: { gridX: 17, gridY: 70 },
+  LCB: { gridX: 35, gridY: 76 },
+  CB: { gridX: 50, gridY: 78 },
+  RCB: { gridX: 65, gridY: 76 },
+  RB: { gridX: 83, gridY: 70 },
+  // Wing-backs — advanced of fullbacks
+  LWB: { gridX: 12, gridY: 52 },
+  RWB: { gridX: 88, gridY: 52 },
+  // Defensive mids — screen in front of CBs
+  CDM: { gridX: 50, gridY: 58 },
+  LDM: { gridX: 38, gridY: 58 },
+  RDM: { gridX: 62, gridY: 58 },
+  // Central mids
+  CM: { gridX: 50, gridY: 47 },
+  LCM: { gridX: 36, gridY: 42 },
+  RCM: { gridX: 64, gridY: 42 },
+  LM: { gridX: 15, gridY: 47 },
+  RM: { gridX: 85, gridY: 47 },
+  // Attacking mids — behind the striker
+  CAM: { gridX: 50, gridY: 27 },
+  LAM: { gridX: 35, gridY: 27 },
+  RAM: { gridX: 65, gridY: 27 },
+  // Wingers — wide, advanced
+  LW: { gridX: 20, gridY: 32 },
+  RW: { gridX: 80, gridY: 32 },
+  // Forwards — highest line
+  SS: { gridX: 50, gridY: 14 },
+  CF: { gridX: 50, gridY: 12 },
+  ST: { gridX: 50, gridY: 4 },
+  LST: { gridX: 38, gridY: 8 },
+  RST: { gridX: 62, gridY: 8 },
+  LF: { gridX: 30, gridY: 8 },
+  RF: { gridX: 70, gridY: 8 },
 };
 
 function posColor(position: string | null): string {
@@ -86,17 +106,17 @@ const POSITION_DERIVED_CODE: Record<string, string> = {
 // position code is available. Spreads 11 players across a default shape so they
 // never stack on a single point.
 const INDEX_FALLBACK_SLOTS: { gridX: number; gridY: number }[] = [
-  { gridX: 49.6, gridY: 87.2 }, // GK
-  { gridX: 16.5, gridY: 70.5 }, // LB
-  { gridX: 35.1, gridY: 75.6 }, // LCB
-  { gridX: 64.2, gridY: 75.6 }, // RCB
-  { gridX: 82.5, gridY: 65.4 }, // RB
-  { gridX: 36.1, gridY: 41.3 }, // LCM
-  { gridX: 49.6, gridY: 36.2 }, // CDM
-  { gridX: 63.1, gridY: 41.3 }, // RCM
-  { gridX: 19.9, gridY: 31.5 }, // LW
-  { gridX: 49.6, gridY: 4.1 },  // ST
-  { gridX: 79.1, gridY: 31.5 }, // RW
+  { gridX: 50, gridY: 88 },   // GK
+  { gridX: 17, gridY: 70 },   // LB
+  { gridX: 35, gridY: 76 },   // LCB
+  { gridX: 65, gridY: 76 },   // RCB
+  { gridX: 83, gridY: 70 },   // RB
+  { gridX: 36, gridY: 42 },   // LCM
+  { gridX: 50, gridY: 58 },   // CDM
+  { gridX: 64, gridY: 42 },   // RCM
+  { gridX: 20, gridY: 32 },   // LW
+  { gridX: 50, gridY: 4 },    // ST
+  { gridX: 80, gridY: 32 },   // RW
 ];
 
 function derivePositionCode(player: PlayerCardData): string {
@@ -224,17 +244,27 @@ export function PitchArena({
     }, 0);
   }, [predictionList, substitutes]);
 
-  const bench = substitutes.slice(0, 5);
+  const bench = substitutes;
 
   return (
     <div className={cn("grid h-full grid-cols-1 gap-6 lg:grid-cols-[1fr_40%]", className)}>
       {/* ===== LEFT COLUMN: PitchCard + BenchCard ===== */}
-      <div className="flex min-h-0 flex-col gap-6">
+      <div className="flex min-h-0 min-w-0 flex-col gap-6">
         {/* PitchCard */}
-        <div className="relative flex min-h-[240px] flex-1 flex-col border border-surface bg-surface/10 p-6">
-          {/* Pitch surface — fills the card body */}
-          <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-            <div className="relative h-full w-full max-w-full">
+        <div className="relative flex min-h-[240px] flex-1 flex-col overflow-hidden bg-purple/10">
+          {/* Pitch surface — fills the card body top-to-bottom. The sizer
+              takes h-full w-full so the field reaches the card's top and
+              bottom edges; min-w holds a usable size on mobile (scrolls
+              horizontally instead of shrinking). */}
+          <div className="relative flex flex-1 items-center justify-center overflow-auto">
+            {/* TODO(field-webp): replace the SVG surface + clipPath below with
+                <img src="/field.webp" alt="Pitch" className="absolute inset-0 h-full w-full object-cover" />
+                once the field WebP (trapezoid baked in, transparent corners) is
+                dropped in /public. Use object-cover so the image fills the card
+                height edge-to-edge; author the WebP at ~2:1 with the trapezoid
+                filling the bounding box and a small safe margin so cover-crop
+                never cuts the pitch. Token % positions map to the bounding box. */}
+            <div className="relative h-full w-full min-w-[560px]">
               {/* Trapezoid pitch surface */}
               <div
                 className="pitch-surface absolute inset-0 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]"
@@ -306,7 +336,7 @@ export function PitchArena({
           </div>
 
           {/* Team name + instruction (top-left) */}
-          <div className="absolute left-6 top-6 flex flex-col gap-1">
+          <div className="absolute left-6 top-6 z-10 flex flex-col gap-1 rounded bg-background/40 px-2 py-1.5 backdrop-blur-sm">
             <p className="font-display text-lg leading-tight text-foreground">
               {teamName}
             </p>
@@ -323,7 +353,7 @@ export function PitchArena({
         </div>
 
         {/* BenchCard */}
-        <div className="flex h-72 flex-shrink-0 flex-col border border-surface bg-surface/10 p-6">
+        <div className="flex h-[310px] min-w-0 flex-shrink-0 flex-col bg-purple/10 p-6">
           <div className="mb-3 flex items-center justify-between">
             <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
               <span className="flex h-5 w-5 items-center justify-center bg-surface text-foreground">
@@ -341,17 +371,16 @@ export function PitchArena({
               </button>
             )}
           </div>
-          <div className="flex flex-1 items-center justify-center gap-3">
+          <div className="flex flex-1 items-center gap-3 overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             {bench.map((sub) => (
               <div
                 key={sub.id}
                 onClick={() => handleBenchClick(sub)}
                 onDoubleClick={() => handleBenchDetails(sub)}
                 className={cn(
-                  "h-full max-h-60 flex-1 cursor-pointer transition-transform hover:-translate-y-1",
+                  "aspect-[2/3] w-[130px] shrink-0 snap-start cursor-pointer transition-transform hover:-translate-y-1 sm:w-[150px]",
                   selectedSub?.id === sub.id && "-translate-y-2 scale-105"
                 )}
-                style={{ maxWidth: "170px", minWidth: "100px" }}
               >
                 <BenchCard
                   player={sub}
@@ -361,14 +390,14 @@ export function PitchArena({
               </div>
             ))}
             {bench.length === 0 && (
-              <p className="text-xs text-muted">No substitutes available.</p>
+              <p className="m-auto text-xs text-muted">No substitutes available.</p>
             )}
           </div>
         </div>
       </div>
 
       {/* ===== RIGHT COLUMN: SidebarCard ===== */}
-      <div className="flex min-h-0 flex-col border border-surface bg-surface/10">
+      <div className="flex min-h-0 flex-col bg-purple/10">
         {/* Tab header */}
         <div className="flex h-16 flex-shrink-0 items-center border-b border-surface">
           {[

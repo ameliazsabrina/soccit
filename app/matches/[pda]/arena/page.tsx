@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
+import type { ArenaTab } from "../../../_components/top-nav";
 import { PitchArena } from "../../../_components/pitch-arena";
 import { ScorePredictionPanel } from "../../../_components/score-prediction-panel";
 import { GoalscorerPanel } from "../../../_components/goalscorer-panel";
@@ -82,17 +83,17 @@ const DEMO_LINEUP: Lineup = {
       teamName: "Portugal",
       formation: "4-3-3",
       players: [
-        { id: 1001, name: "Diogo Costa", number: "22", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", gridX: 49.6, gridY: 87.2, onPitch: true },
-        { id: 1002, name: "João Cancelo", number: "2", starter: true, positionId: 2, position: "Defender", positionCode: "RB", gridX: 82.5, gridY: 65.4, onPitch: true },
-        { id: 1003, name: "Rúben Dias", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", gridX: 64.2, gridY: 75.6, onPitch: true },
-        { id: 1004, name: "Gonçalo Inácio", number: "14", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", gridX: 35.1, gridY: 75.6, onPitch: true },
-        { id: 1005, name: "Nuno Mendes", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", gridX: 16.5, gridY: 70.5, onPitch: true },
-        { id: 1006, name: "João Neves", number: "6", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", gridX: 49.6, gridY: 36.2, onPitch: true },
-        { id: 1007, name: "Bruno Fernandes", number: "8", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", gridX: 63.1, gridY: 41.3, onPitch: true },
-        { id: 1008, name: "Vitinha", number: "23", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", gridX: 36.1, gridY: 41.3, onPitch: true },
-        { id: 1009, name: "Bernardo Silva", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", gridX: 79.1, gridY: 31.5, onPitch: true },
-        { id: 1010, name: "Cristiano Ronaldo", number: "7", starter: true, positionId: 4, position: "Forward", positionCode: "ST", gridX: 49.6, gridY: 4.1, onPitch: true },
-        { id: 1011, name: "Rafael Leão", number: "17", starter: true, positionId: 4, position: "Forward", positionCode: "LW", gridX: 19.9, gridY: 31.5, onPitch: true },
+        { id: 1001, name: "Diogo Costa", number: "22", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", gridX: 50, gridY: 88, onPitch: true },
+        { id: 1002, name: "João Cancelo", number: "2", starter: true, positionId: 2, position: "Defender", positionCode: "RB", gridX: 83, gridY: 70, onPitch: true },
+        { id: 1003, name: "Rúben Dias", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", gridX: 65, gridY: 76, onPitch: true },
+        { id: 1004, name: "Gonçalo Inácio", number: "14", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", gridX: 35, gridY: 76, onPitch: true },
+        { id: 1005, name: "Nuno Mendes", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", gridX: 17, gridY: 70, onPitch: true },
+        { id: 1006, name: "João Neves", number: "6", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", gridX: 50, gridY: 58, onPitch: true },
+        { id: 1007, name: "Bruno Fernandes", number: "8", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", gridX: 64, gridY: 42, onPitch: true },
+        { id: 1008, name: "Vitinha", number: "23", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", gridX: 36, gridY: 42, onPitch: true },
+        { id: 1009, name: "Bernardo Silva", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", gridX: 80, gridY: 32, onPitch: true },
+        { id: 1010, name: "Cristiano Ronaldo", number: "7", starter: true, positionId: 4, position: "Forward", positionCode: "ST", gridX: 50, gridY: 4, onPitch: true },
+        { id: 1011, name: "Rafael Leão", number: "17", starter: true, positionId: 4, position: "Forward", positionCode: "LW", gridX: 20, gridY: 32, onPitch: true },
         { id: 1101, name: "Rui Patrício", number: "1", starter: false, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: false },
         { id: 1102, name: "Pepe", number: "5", starter: false, positionId: 2, position: "Defender", positionCode: "CB", onPitch: false },
         { id: 1103, name: "Danilo Pereira", number: "13", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
@@ -107,17 +108,17 @@ const DEMO_LINEUP: Lineup = {
       teamName: "Argentina",
       formation: "4-3-3",
       players: [
-        { id: 2001, name: "Emiliano Martínez", number: "23", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", gridX: 49.6, gridY: 87.2, onPitch: true },
-        { id: 2002, name: "Nahuel Molina", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RB", gridX: 82.5, gridY: 65.4, onPitch: true },
-        { id: 2003, name: "Cristian Romero", number: "13", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", gridX: 64.2, gridY: 75.6, onPitch: true },
-        { id: 2004, name: "Nicolás Otamendi", number: "19", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", gridX: 35.1, gridY: 75.6, onPitch: true },
-        { id: 2005, name: "Nicolás Tagliafico", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", gridX: 16.5, gridY: 70.5, onPitch: true },
-        { id: 2006, name: "Rodrigo De Paul", number: "7", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", gridX: 49.6, gridY: 36.2, onPitch: true },
-        { id: 2007, name: "Enzo Fernández", number: "24", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", gridX: 63.1, gridY: 41.3, onPitch: true },
-        { id: 2008, name: "Alexis Mac Allister", number: "20", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", gridX: 36.1, gridY: 41.3, onPitch: true },
-        { id: 2009, name: "Lionel Messi", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", gridX: 79.1, gridY: 31.5, onPitch: true },
-        { id: 2010, name: "Julián Álvarez", number: "9", starter: true, positionId: 4, position: "Forward", positionCode: "ST", gridX: 49.6, gridY: 4.1, onPitch: true },
-        { id: 2011, name: "Ángel Di María", number: "11", starter: true, positionId: 4, position: "Forward", positionCode: "LW", gridX: 19.9, gridY: 31.5, onPitch: true },
+        { id: 2001, name: "Emiliano Martínez", number: "23", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", gridX: 50, gridY: 88, onPitch: true },
+        { id: 2002, name: "Nahuel Molina", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RB", gridX: 83, gridY: 70, onPitch: true },
+        { id: 2003, name: "Cristian Romero", number: "13", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", gridX: 65, gridY: 76, onPitch: true },
+        { id: 2004, name: "Nicolás Otamendi", number: "19", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", gridX: 35, gridY: 76, onPitch: true },
+        { id: 2005, name: "Nicolás Tagliafico", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", gridX: 17, gridY: 70, onPitch: true },
+        { id: 2006, name: "Rodrigo De Paul", number: "7", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", gridX: 50, gridY: 58, onPitch: true },
+        { id: 2007, name: "Enzo Fernández", number: "24", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", gridX: 64, gridY: 42, onPitch: true },
+        { id: 2008, name: "Alexis Mac Allister", number: "20", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", gridX: 36, gridY: 42, onPitch: true },
+        { id: 2009, name: "Lionel Messi", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", gridX: 80, gridY: 32, onPitch: true },
+        { id: 2010, name: "Julián Álvarez", number: "9", starter: true, positionId: 4, position: "Forward", positionCode: "ST", gridX: 50, gridY: 4, onPitch: true },
+        { id: 2011, name: "Ángel Di María", number: "11", starter: true, positionId: 4, position: "Forward", positionCode: "LW", gridX: 20, gridY: 32, onPitch: true },
         { id: 2101, name: "Franco Armani", number: "1", starter: false, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: false },
         { id: 2102, name: "Lisandro Martínez", number: "25", starter: false, positionId: 2, position: "Defender", positionCode: "CB", onPitch: false },
         { id: 2103, name: "Leandro Paredes", number: "5", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
@@ -154,6 +155,17 @@ export default function ArenaPage() {
   const fixtureId = Number(
     searchParams.get("fixtureId") ?? (isSeed ? SOCCIT_SEED_FIXTURE_ID : Number.NaN)
   );
+
+  function buildModelHref(m: string) {
+    const qs = new URLSearchParams(searchParams.toString());
+    qs.set("model", m);
+    return `/matches/${pda}/arena?${qs.toString()}`;
+  }
+  const arenaTabs: ArenaTab[] = [
+    { model: "sub", label: "Pitch", href: buildModelHref("sub"), active: model === "sub" },
+    { model: "score", label: "Score", href: buildModelHref("score"), active: model === "score" },
+    { model: "goalscorer", label: "Goalscorer", href: buildModelHref("goalscorer"), active: model === "goalscorer" },
+  ];
 
   const [match, setMatch] = useState<MatchState | null>(() =>
     isDemo ? DEMO_MATCH : isSeed ? SEED_MATCH : null
@@ -403,7 +415,7 @@ export default function ArenaPage() {
           onComplete={() => setShowEnterTransition(false)}
         />
       )}
-      <PageShell edgeToEdge hideTicker>
+      <PageShell edgeToEdge hideTicker arenaTabs={arenaTabs}>
       <div className="flex flex-1 flex-col overflow-hidden px-8 pb-8 lg:px-8">
         {model === "sub" && selectedTeam && sideSelected && (
           <PitchArena

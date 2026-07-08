@@ -19,7 +19,7 @@ export function GoalscorerPanel({ team1Name, team2Name, players }: GoalscorerPan
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-4xl border-2 border-surface bg-surface/10 p-6 md:p-10"
+        className="w-full max-w-4xl bg-purple/10 p-6 md:p-10"
       >
         <div className="mb-6 text-center">
           <div className="mb-3 inline-flex items-center gap-2 border border-surface bg-background px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted">

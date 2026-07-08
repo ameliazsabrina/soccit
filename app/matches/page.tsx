@@ -33,6 +33,25 @@ type FilterKey = (typeof FILTERS)[number]["key"];
 
 const DEMO_PDA = "demo";
 
+const DEMO_MATCH: MatchSummary = {
+  pda: DEMO_PDA,
+  fixtureId: 999999,
+  onchain: {
+    status: 0,
+    statusLabel: "OPEN",
+    settled: false,
+    entryFee: "1000000",
+    poolTotal: "2500000",
+    participantCount: 2,
+    team1Id: 1,
+    team2Id: 2,
+    usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+    winners: [null, null, null],
+  },
+  live: { statusId: 1, minute: 63, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  teamNames: { team1: "Portugal", team2: "Argentina" },
+};
+
 const DEMO_MATCHES: MatchSummary[] = [
   {
     pda: SOCCIT_SEED_MATCH_PDA,
@@ -52,24 +71,7 @@ const DEMO_MATCHES: MatchSummary[] = [
     live: { statusId: 1, minute: 34, goals: { team1: 1, team2: 0 }, ts: Date.now() },
     teamNames: { team1: "Soccit FC", team2: "Devnet United" },
   },
-  {
-    pda: DEMO_PDA,
-    fixtureId: 999999,
-    onchain: {
-      status: 0,
-      statusLabel: "OPEN",
-      settled: false,
-      entryFee: "1000000",
-      poolTotal: "2500000",
-      participantCount: 2,
-      team1Id: 1,
-      team2Id: 2,
-      usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
-      winners: [null, null, null],
-    },
-    live: null,
-    teamNames: { team1: "Demo City", team2: "Practice Town" },
-  },
+  DEMO_MATCH,
 ];
 
 const MAGNETIC_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -131,7 +133,7 @@ export default function MatchEvents() {
     setError(null);
     try {
       const list = await getMatches();
-      setMatches(list);
+      setMatches([DEMO_MATCH, ...list]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load matches.");
     } finally {
@@ -492,6 +494,11 @@ function MatchCard({ match, index = 0 }: { match: MatchSummary; index?: number }
         {/* Match info */}
         <div className="relative z-10 flex flex-1 flex-col gap-2">
           <div className="flex items-center gap-2">
+            {match.pda === DEMO_PDA && (
+              <span className="border border-purple/40 bg-purple/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple">
+                Demo
+              </span>
+            )}
             {isLive ? (
               <>
                 <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />
