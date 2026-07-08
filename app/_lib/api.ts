@@ -545,8 +545,7 @@ export function playerRarity(rating?: number): "bronze" | "gold" | "iridescent" 
   return "bronze";
 }
 
-export function tcgCardImage(position: string | null, rating?: number): string {
+export function tcgCardImage(position: string | null): string {
   const code = positionCode(position);
-  const rarity = playerRarity(rating);
-  return `/assets/cards/players/${code}-${rarity}.webp`;
+  return `/assets/cards/players/${code}.webp`;
 }

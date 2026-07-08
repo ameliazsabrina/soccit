@@ -70,7 +70,7 @@ export function PlayerCard({
   const rating = player.rating ?? fallbackRating;
   const rarity = playerRarity(rating);
   const multiplier = player.multiplier ?? (rarity === "iridescent" ? 4.0 : rarity === "gold" ? 2.5 : 1.2);
-  const cardImage = tcgCardImage(player.position, rating);
+  const cardImage = tcgCardImage(player.position);
 
   const chamfer = { clipPath: "polygon(10% 0, 90% 0, 100% 10%, 100% 90%, 90% 100%, 10% 100%, 0 90%, 0 10%)" };
 

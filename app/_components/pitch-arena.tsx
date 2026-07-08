@@ -15,6 +15,7 @@ import {
 import { type PlayerCardData } from "./player-card";
 import { LiveMatchFeed } from "./live-match-feed";
 import { ConfirmSubsModal, type SubstitutionPrediction } from "./confirm-subs-modal";
+import { tcgCardImage } from "../_lib/api";
 import { cn } from "../_lib/utils";
 
 export type { SubstitutionPrediction } from "./confirm-subs-modal";
@@ -33,13 +34,6 @@ export interface PitchArenaProps {
 }
 
 type SidebarTab = "events" | "prediction" | "rank";
-
-const POSITION_COLORS: Record<string, string> = {
-  Goalkeeper: "bg-purple/20 border-purple/50 text-purple",
-  Defender: "bg-purple/10 border-purple/30 text-purple/80",
-  Midfielder: "bg-gold/10 border-gold/40 text-gold",
-  Forward: "bg-rose/10 border-rose/40 text-rose",
-};
 
 // 11-slot formation mapped from ARENASUBS.svg coordinates (1920x1080 wireframe).
 // Pitch bounding box: x=[98,1093] (w=995), y=[148,597] (h=449).
@@ -81,15 +75,6 @@ const FORMATION_SLOTS: Record<string, { gridX: number; gridY: number }> = {
   LF: { gridX: 30, gridY: 8 },
   RF: { gridX: 70, gridY: 8 },
 };
-
-function posColor(position: string | null): string {
-  if (!position) return "bg-surface border-surface text-muted";
-  const key = position.charAt(0).toUpperCase() + position.slice(1).toLowerCase();
-  for (const [posKey, cls] of Object.entries(POSITION_COLORS)) {
-    if (key.includes(posKey) || posKey.includes(key)) return cls;
-  }
-  return "bg-surface border-surface text-muted";
-}
 
 const POSITION_DERIVED_CODE: Record<string, string> = {
   goalkeeper: "GK",
@@ -486,7 +471,7 @@ export function PitchArena({
   );
 }
 
-// ===== Player Token (on pitch) =====
+// ===== Player Token (on pitch) — mini TCG WebP =====
 function PlayerToken({
   player,
   sub,
@@ -501,25 +486,28 @@ function PlayerToken({
   onClear: () => void;
 }) {
   const displayPlayer = sub ?? player;
-  const posCls = posColor(displayPlayer.position);
-  const lastName = displayPlayer.name.split(" ").pop() ?? displayPlayer.name;
-  const posCode = displayPlayer.positionCode
-    ?? displayPlayer.position?.slice(0, 2).toUpperCase()
-    ?? "??";
+  const cardImage = tcgCardImage(displayPlayer.position);
+  const shadow = "drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]";
 
   if (sub) {
     return (
       <motion.div
         initial={{ scale: 0.7, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={cn("relative", flashed && "animate-slot-flash")}
+        className={cn("relative aspect-[2/3] w-8 sm:w-10", flashed && "animate-slot-flash")}
       >
-        <div className={cn("flex h-12 w-12 flex-col items-center justify-center border-2 sm:h-14 sm:w-14", posCls)}>
-          <span className="text-[10px] font-bold uppercase">{posCode}</span>
-          <span className="max-w-full truncate px-0.5 text-[7px] font-bold uppercase tracking-tight sm:text-[8px]">
-            {lastName}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={cardImage}
+          alt={displayPlayer.name}
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        />
+        {displayPlayer.number && (
+          <span className={cn("absolute right-[6%] top-[3%] text-[6px] font-bold leading-none text-white sm:text-[8px]", shadow)}>
+            {displayPlayer.number}
           </span>
-        </div>
+        )}
         <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center bg-cyan text-[8px] font-bold text-background">
           {getMultiplier(sub).toFixed(1)}x
         </div>
@@ -540,20 +528,32 @@ function PlayerToken({
   return (
     <div
       className={cn(
-        "flex h-12 w-12 cursor-pointer flex-col items-center justify-center border-2 transition-all sm:h-14 sm:w-14",
-        posCls,
+        "relative aspect-[2/3] w-8 cursor-pointer transition-all sm:w-10",
         isDragOver && "scale-110 ring-2 ring-cyan ring-offset-2 ring-offset-pitch-turf",
       )}
     >
-      <span className="text-[10px] font-bold uppercase">{posCode}</span>
-      <span className="max-w-full truncate px-0.5 text-[7px] font-bold uppercase tracking-tight sm:text-[8px]">
-        {lastName}
-      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={cardImage}
+        alt={displayPlayer.name}
+        draggable={false}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      />
+      {displayPlayer.number && (
+        <span className={cn("absolute right-[6%] top-[3%] text-[6px] font-bold leading-none text-white sm:text-[8px]", shadow)}>
+          {displayPlayer.number}
+        </span>
+      )}
     </div>
   );
 }
 
-// ===== Bench Card (large portrait TCG) =====
+// ===== Bench Card (TCG WebP + text overlay) =====
+// Card layout (from pixel analysis of the WebPs, all 4 positions identical):
+//   - Top-left:  position code (baked into the WebP, no overlay needed)
+//   - Top-right: player number slot (dark area ~75-95% W, ~4-12% H)
+//   - Center:    player picture area (~20-78% H, currently empty)
+//   - Bottom:    name bar (bright band at 82.4%-97.1% H, full width)
 function BenchCard({
   player,
   draggable,
@@ -563,33 +563,47 @@ function BenchCard({
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent, player: PlayerCardData) => void;
 }) {
-  const posCls = posColor(player.position);
+  const cardImage = tcgCardImage(player.position);
   const lastName = player.name.split(" ").pop() ?? player.name;
-  const posCode = player.positionCode
-    ?? player.position?.slice(0, 2).toUpperCase()
-    ?? "??";
-  const multiplier = getMultiplier(player);
+  const textShadow = "drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]";
 
   return (
     <div
       draggable={draggable}
       onDragStart={(e) => onDragStart?.(e, player)}
-      className={cn(
-        "relative flex h-full w-full flex-col items-center justify-between border-2 p-2",
-        posCls,
-      )}
+      className="relative h-full w-full overflow-hidden"
     >
-      <span className="text-xs font-bold uppercase">{posCode}</span>
-      <div className="flex flex-col items-center">
-        <span className="max-w-full truncate text-center text-[10px] font-bold uppercase tracking-tight">
+      {/* TCG card WebP — fills the container 1:1 (2:3 matches 1023×1537) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={cardImage}
+        alt={player.name}
+        draggable={false}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      />
+
+      {/* Player number — top-right slot */}
+      {player.number && (
+        <span
+          className={cn(
+            "absolute right-[8%] top-[5%] font-display text-base font-bold leading-none text-white sm:text-lg",
+            textShadow,
+          )}
+        >
+          {player.number}
+        </span>
+      )}
+
+      {/* Name bar (bottom 82.5%-97%) — centered name only */}
+      <div className="absolute inset-x-[4%] top-[83.5%] bottom-[4%] flex items-center justify-center px-1">
+        <span
+          className={cn(
+            "truncate text-[11px] font-bold uppercase tracking-tight text-white sm:text-sm",
+            textShadow,
+          )}
+        >
           {lastName}
         </span>
-        {player.number && (
-          <span className="text-[9px] text-muted">#{player.number}</span>
-        )}
-      </div>
-      <div className="flex h-5 w-full items-center justify-center bg-background/40 text-[10px] font-bold text-foreground">
-        {multiplier.toFixed(1)}x
       </div>
     </div>
   );
