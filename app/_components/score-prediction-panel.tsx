@@ -118,7 +118,7 @@ function TeamScore({
 }) {
   return (
     <div className="flex flex-col items-center gap-3">
-      <TeamBadge name={name} size="lg" />
+      <TeamBadge name={name} size="xl" />
       <span className="max-w-[120px] text-center font-display text-sm uppercase tracking-wider text-foreground md:text-base">
         {name}
       </span>

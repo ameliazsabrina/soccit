@@ -37,13 +37,13 @@ export function getCountryCode(name: string): string | null {
 
 interface TeamBadgeProps {
   name: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
 export function TeamBadge({ name, size = "md", className }: TeamBadgeProps) {
   const code = getCountryCode(name);
-  const sizeCls = size === "sm" ? "h-6 w-6" : size === "lg" ? "h-10 w-10" : "h-7 w-7";
+  const sizeCls = size === "sm" ? "h-6 w-6" : size === "lg" ? "h-10 w-10" : size === "xl" ? "h-14 w-14 md:h-16 md:w-16 lg:h-20 lg:w-20" : "h-7 w-7";
   
   if (code) {
     return (

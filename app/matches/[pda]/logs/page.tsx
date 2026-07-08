@@ -96,20 +96,47 @@ export default function MatchIntelligencePage() {
   const params = useParams();
   const rawPda = params.pda as string;
   const isDemo = rawPda === DEMO_PDA;
-  const pda = isDemo ? DEMO_PDA : rawPda;
+  const isDemoSettled = rawPda === "demo-settled";
+  const pda = isDemo ? DEMO_PDA : isDemoSettled ? "demo-settled" : rawPda;
 
   const subNavTabs: ArenaTab[] = [
     { model: "logs", label: "Logs", href: `/matches/${pda}/logs`, active: true },
     { model: "settlement", label: "Settlement", href: `/matches/${pda}/settlement`, active: false },
-  ];
+];
 
-  const [match, setMatch] = useState<MatchState | null>(isDemo ? DEMO_MATCH_STATE : null);
-  const [lineup, setLineup] = useState<Lineup | null>(isDemo ? DEMO_LINEUP_STATE : null);
-  const [loading, setLoading] = useState(!isDemo);
+const DEMO_SETTLED_MATCH_STATE: MatchState = {
+  fixtureId: 888888,
+  onchain: { status: 2, statusLabel: "SETTLED", settled: true, entryFee: "1000000", poolTotal: "8000000", participantCount: 8, team1Id: 301, team2Id: 302, usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null] },
+  live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  updatedAt: Date.now(),
+};
+
+const DEMO_SETTLED_LINEUP_STATE: Lineup = {
+  fixtureId: 888888,
+  updatedAt: Date.now(),
+  teams: [
+    { side: 1, teamId: 301, teamName: "France", formation: "4-3-3", players: [] },
+    { side: 2, teamId: 302, teamName: "Spain", formation: "4-3-3", players: [] },
+  ],
+  names: {},
+};
+
+const DEMO_SETTLED_EVENTS: EventEntry[] = [
+  { id: "s1", type: "goal", payload: { minute: 18, side: 1 }, players: { out: null, in: { id: 3001, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "s2", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
+  { id: "s3", type: "goal", payload: { minute: 34, side: 2 }, players: { out: null, in: { id: 4001, name: "Lamine Yamal", number: "19", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "s4", type: "yellow_card", payload: { minute: 52, side: 1 }, players: { out: null, in: { id: 3002, name: "Aurélien Tchouaméni", number: "8", positionId: 3, position: "Midfielder", side: 1 } } },
+  { id: "s5", type: "goal", payload: { minute: 67, side: 1 }, players: { out: null, in: { id: 3003, name: "Antoine Griezmann", number: "7", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "s6", type: "substitution", payload: { minute: 75, side: 2 }, players: { out: { id: 4002, name: "Álvaro Morata", number: "9", positionId: 4, position: "Forward", side: 2 }, in: { id: 4003, name: "Mikel Oyarzabal", number: "21", positionId: 4, position: "Forward", side: 2 } } },
+];
+
+  const [match, setMatch] = useState<MatchState | null>(isDemo ? DEMO_MATCH_STATE : isDemoSettled ? DEMO_SETTLED_MATCH_STATE : null);
+  const [lineup, setLineup] = useState<Lineup | null>(isDemo ? DEMO_LINEUP_STATE : isDemoSettled ? DEMO_SETTLED_LINEUP_STATE : null);
+  const [loading, setLoading] = useState(!isDemo && !isDemoSettled);
   const [error, setError] = useState<string | null>(null);
 
-  const [events, setEvents] = useState<EventEntry[]>(() => (isDemo ? DEMO_EVENTS : []));
-  const [status, setStatus] = useState<SseStatus>(isDemo ? "open" : "idle");
+  const [events, setEvents] = useState<EventEntry[]>(() => (isDemo ? DEMO_EVENTS : isDemoSettled ? DEMO_SETTLED_EVENTS : []));
+  const [status, setStatus] = useState<SseStatus>(isDemo ? "open" : isDemoSettled ? "idle" : "idle");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -117,7 +144,7 @@ export default function MatchIntelligencePage() {
   const sourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    if (isDemo) return;
+    if (isDemo || isDemoSettled) return;
     if (!isValidPda(pda)) {
       setError("Invalid match address.");
       setLoading(false);

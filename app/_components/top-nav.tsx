@@ -14,6 +14,7 @@ const TABS = [
   { label: "match", href: "/matches" },
   { label: "leaderboard", href: "/leaderboard" },
   { label: "profile", href: "/profile" },
+  { label: "explorer", href: "/explorer" },
 ];
 
 interface TopNavProps {

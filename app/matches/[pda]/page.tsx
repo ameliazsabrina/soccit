@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,20 +9,20 @@ import {
   RefreshCw,
   Wallet,
   Target,
-  BarChart3,
   ScrollText,
   Trophy,
   TrendingUp,
   Users,
-  Radio,
   Sparkles,
   Zap,
   ArrowRight,
+  X,
 } from "lucide-react";
 import { PageShell } from "../../_components/page-shell";
 import { PageTransition } from "../../_components/page-transition";
 import { ConnectWalletModal } from "../../_components/connect-wallet-modal";
 import { OnboardingModal } from "../../_components/onboarding-modal";
+import { TeamBadge } from "../../_components/team-badge";
 import {
   getMatch,
   getLineup,
@@ -43,7 +44,6 @@ import {
   type EventEntry,
 } from "../../_lib/api";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { cn } from "../../_lib/utils";
 
 const SEED_MATCH_STATE: MatchState = {
   fixtureId: SOCCIT_SEED_FIXTURE_ID,
@@ -95,45 +95,51 @@ const DEMO_LINEUP: Lineup = {
     {
       side: 1,
       teamId: 101,
-      teamName: "Demo City",
+      teamName: "Portugal",
+      formation: "4-3-3",
       players: [
-        { id: 1001, name: "A. Keeper", number: "1", starter: true, positionId: 1, position: "Goalkeeper" },
-        { id: 1002, name: "B. Right Back", number: "2", starter: true, positionId: 2, position: "Defender" },
-        { id: 1003, name: "C. Center Back", number: "4", starter: true, positionId: 2, position: "Defender" },
-        { id: 1004, name: "D. Center Back", number: "5", starter: true, positionId: 2, position: "Defender" },
-        { id: 1005, name: "E. Left Back", number: "3", starter: true, positionId: 2, position: "Defender" },
-        { id: 1006, name: "F. Midfielder", number: "6", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 1007, name: "G. Midfielder", number: "8", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 1008, name: "H. Winger", number: "7", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 1009, name: "I. Winger", number: "11", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 1010, name: "J. Forward", number: "9", starter: true, positionId: 4, position: "Forward" },
-        { id: 1011, name: "K. Forward", number: "10", starter: true, positionId: 4, position: "Forward" },
-        { id: 1012, name: "L. Sub GK", number: "21", starter: false, positionId: 1, position: "Goalkeeper" },
-        { id: 1013, name: "M. Sub DF", number: "22", starter: false, positionId: 2, position: "Defender" },
-        { id: 1014, name: "N. Sub MF", number: "23", starter: false, positionId: 3, position: "Midfielder" },
-        { id: 1015, name: "O. Sub FW", number: "24", starter: false, positionId: 4, position: "Forward" },
+        { id: 1001, name: "Diogo Costa", number: "22", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: true },
+        { id: 1002, name: "João Cancelo", number: "2", starter: true, positionId: 2, position: "Defender", positionCode: "RB", onPitch: true },
+        { id: 1003, name: "Rúben Dias", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", onPitch: true },
+        { id: 1004, name: "Gonçalo Inácio", number: "14", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", onPitch: true },
+        { id: 1005, name: "Nuno Mendes", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", onPitch: true },
+        { id: 1006, name: "João Neves", number: "6", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", onPitch: true },
+        { id: 1007, name: "Bruno Fernandes", number: "8", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", onPitch: true },
+        { id: 1008, name: "Vitinha", number: "23", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", onPitch: true },
+        { id: 1009, name: "Bernardo Silva", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", onPitch: true },
+        { id: 1010, name: "Cristiano Ronaldo", number: "7", starter: true, positionId: 4, position: "Forward", positionCode: "ST", onPitch: true },
+        { id: 1011, name: "Rafael Leão", number: "17", starter: true, positionId: 4, position: "Forward", positionCode: "LW", onPitch: true },
+        { id: 1101, name: "Rui Patrício", number: "1", starter: false, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: false },
+        { id: 1102, name: "Pepe", number: "5", starter: false, positionId: 2, position: "Defender", positionCode: "CB", onPitch: false },
+        { id: 1103, name: "Danilo Pereira", number: "13", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
+        { id: 1104, name: "Rúben Neves", number: "18", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
+        { id: 1105, name: "Otávio", number: "15", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
+        { id: 1106, name: "Gonçalo Ramos", number: "9", starter: false, positionId: 4, position: "Forward", positionCode: "ST", onPitch: false },
       ],
     },
     {
       side: 2,
       teamId: 202,
-      teamName: "Practice Town",
+      teamName: "Argentina",
+      formation: "4-3-3",
       players: [
-        { id: 2001, name: "P. Keeper", number: "1", starter: true, positionId: 1, position: "Goalkeeper" },
-        { id: 2002, name: "Q. Right Back", number: "2", starter: true, positionId: 2, position: "Defender" },
-        { id: 2003, name: "R. Center Back", number: "4", starter: true, positionId: 2, position: "Defender" },
-        { id: 2004, name: "S. Center Back", number: "5", starter: true, positionId: 2, position: "Defender" },
-        { id: 2005, name: "T. Left Back", number: "3", starter: true, positionId: 2, position: "Defender" },
-        { id: 2006, name: "U. Midfielder", number: "6", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 2007, name: "V. Midfielder", number: "8", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 2008, name: "W. Winger", number: "7", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 2009, name: "X. Winger", number: "11", starter: true, positionId: 3, position: "Midfielder" },
-        { id: 2010, name: "Y. Forward", number: "9", starter: true, positionId: 4, position: "Forward" },
-        { id: 2011, name: "Z. Forward", number: "10", starter: true, positionId: 4, position: "Forward" },
-        { id: 2012, name: "AA. Sub GK", number: "21", starter: false, positionId: 1, position: "Goalkeeper" },
-        { id: 2013, name: "AB. Sub DF", number: "22", starter: false, positionId: 2, position: "Defender" },
-        { id: 2014, name: "AC. Sub MF", number: "23", starter: false, positionId: 3, position: "Midfielder" },
-        { id: 2015, name: "AD. Sub FW", number: "24", starter: false, positionId: 4, position: "Forward" },
+        { id: 2001, name: "Emiliano Martínez", number: "23", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: true },
+        { id: 2002, name: "Nahuel Molina", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RB", onPitch: true },
+        { id: 2003, name: "Cristian Romero", number: "13", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", onPitch: true },
+        { id: 2004, name: "Nicolás Otamendi", number: "19", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", onPitch: true },
+        { id: 2005, name: "Nicolás Tagliafico", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", onPitch: true },
+        { id: 2006, name: "Rodrigo De Paul", number: "7", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", onPitch: true },
+        { id: 2007, name: "Enzo Fernández", number: "24", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", onPitch: true },
+        { id: 2008, name: "Alexis Mac Allister", number: "20", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", onPitch: true },
+        { id: 2009, name: "Lionel Messi", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", onPitch: true },
+        { id: 2010, name: "Julián Álvarez", number: "9", starter: true, positionId: 4, position: "Forward", positionCode: "ST", onPitch: true },
+        { id: 2011, name: "Ángel Di María", number: "11", starter: true, positionId: 4, position: "Forward", positionCode: "LW", onPitch: true },
+        { id: 2101, name: "Franco Armani", number: "1", starter: false, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: false },
+        { id: 2102, name: "Lisandro Martínez", number: "25", starter: false, positionId: 2, position: "Defender", positionCode: "CB", onPitch: false },
+        { id: 2103, name: "Leandro Paredes", number: "5", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
+        { id: 2104, name: "Giovani Lo Celso", number: "16", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
+        { id: 2105, name: "Lautaro Martínez", number: "22", starter: false, positionId: 4, position: "Forward", positionCode: "ST", onPitch: false },
+        { id: 2106, name: "Paulo Dybala", number: "21", starter: false, positionId: 4, position: "Forward", positionCode: "ST", onPitch: false },
       ],
     },
   ],
@@ -178,80 +184,69 @@ const DEMO_LEADERBOARD: Leaderboard = {
 };
 
 const DEMO_EVENTS: EventEntry[] = [
-  { id: "1", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
-  { id: "2", type: "goal", payload: { team: "Demo City", minute: 34 } },
-  { id: "3", type: "prediction", payload: { user: "rivalX", points: 1, kind: 0 } },
-  { id: "4", type: "substitution", payload: { team: "Practice Town", minute: 56 } },
-  { id: "5", type: "prediction", payload: { user: "newbie", points: 3, kind: 3 } },
+  { id: "1", type: "goal", payload: { minute: 24, side: 1 }, players: { out: null, in: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "2", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
+  { id: "3", type: "goal", payload: { minute: 38, side: 2 }, players: { out: null, in: { id: 2009, name: "Lionel Messi", number: "10", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "4", type: "yellow_card", payload: { minute: 41, side: 1 }, players: { out: null, in: { id: 1003, name: "Rúben Dias", number: "4", positionId: 2, position: "Defender", side: 1 } } },
+  { id: "5", type: "prediction", payload: { user: "rivalX", points: 1, kind: 0 } },
+  { id: "6", type: "goal", payload: { minute: 57, side: 1 }, players: { out: null, in: { id: 1009, name: "Bernardo Silva", number: "10", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "7", type: "substitution", payload: { minute: 63, side: 1 }, players: { out: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 }, in: { id: 1106, name: "Gonçalo Ramos", number: "9", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "8", type: "prediction", payload: { user: "newbie", points: 3, kind: 3 } },
 ];
 
-function getCountryCode(name: string): string | null {
-  const map: Record<string, string> = {
-    "USA": "us", "United States": "us", "Canada": "ca", "Mexico": "mx",
-    "Argentina": "ar", "Brazil": "br", "Uruguay": "uy", "Colombia": "co",
-    "Ecuador": "ec", "Paraguay": "py", "Chile": "cl", "Venezuela": "ve",
-    "Bolivia": "bo", "Peru": "pe",
-    "England": "gb-eng", "France": "fr", "Germany": "de", "Spain": "es",
-    "Portugal": "pt", "Netherlands": "nl", "Italy": "it", "Belgium": "be",
-    "Croatia": "hr", "Denmark": "dk", "Switzerland": "ch", "Austria": "at",
-    "Poland": "pl", "Ukraine": "ua", "Turkey": "tr", "Serbia": "rs",
-    "Scotland": "gb-sct", "Wales": "gb-wls", "Norway": "no", "Sweden": "se",
-    "Czech Republic": "cz", "Hungary": "hu", "Slovenia": "si", "Slovakia": "sk",
-    "Bosnia & Herzegovina": "ba", "Bosnia and Herzegovina": "ba", "Romania": "ro",
-    "Bulgaria": "bg", "Finland": "fi", "Ireland": "ie", "Northern Ireland": "gb-nir",
-    "Iceland": "is", "Albania": "al", "North Macedonia": "mk", "Montenegro": "me",
-    "Kosovo": "xk", "Greece": "gr", "Israel": "il",
-    "Japan": "jp", "South Korea": "kr", "Australia": "au", "Iran": "ir",
-    "Saudi Arabia": "sa", "Uzbekistan": "uz", "Jordan": "jo", "UAE": "ae",
-    "United Arab Emirates": "ae", "Qatar": "qa", "Iraq": "iq", "Oman": "om",
-    "Bahrain": "bh", "China": "cn", "India": "in",
-    "Morocco": "ma", "Senegal": "sn", "Egypt": "eg", "Nigeria": "ng",
-    "Tunisia": "tn", "Algeria": "dz", "Cameroon": "cm", "Ghana": "gh",
-    "Ivory Coast": "ci", "Côte d'Ivoire": "ci", "Mali": "ml", "Burkina Faso": "bf",
-    "South Africa": "za", "DR Congo": "cd", "Guinea": "gn", "Zambia": "zm",
-    "Kenya": "ke", "Tanzania": "tz", "Uganda": "ug", "Rwanda": "rw",
-    "New Zealand": "nz", "Costa Rica": "cr", "Panama": "pa", "Honduras": "hn",
-    "Jamaica": "jm", "Guatemala": "gt", "El Salvador": "sv", "Trinidad and Tobago": "tt",
-    "Haiti": "ht", "Dominican Republic": "do",
-  };
-  return map[name] ?? null;
-}
+const DEMO_SETTLED_PDA = "demo-settled";
+
+const DEMO_SETTLED_MATCH: MatchState = {
+  fixtureId: 888888,
+  onchain: {
+    status: 2,
+    statusLabel: "SETTLED",
+    settled: true,
+    entryFee: "1000000",
+    poolTotal: "8000000",
+    participantCount: 8,
+    team1Id: 301,
+    team2Id: 302,
+    usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", "FgTRT58ktiDtXZZw5uZc3NhXgstPbPPTj9R8YVwhZFx7", "24CHvVUj1WHDJo5mNNPTDA7iMtXtAojdND9DpWmqdFWt"],
+  },
+  live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  updatedAt: Date.now(),
+};
+
+const DEMO_SETTLED_LINEUP: Lineup = {
+  fixtureId: 888888,
+  updatedAt: Date.now(),
+  teams: [
+    { side: 1, teamId: 301, teamName: "France", formation: "4-3-3", players: [] },
+    { side: 2, teamId: 302, teamName: "Spain", formation: "4-3-3", players: [] },
+  ],
+  names: {},
+};
+
+const DEMO_SETTLED_LEADERBOARD: Leaderboard = {
+  fixtureId: 888888,
+  updatedAt: Date.now(),
+  final: true,
+  winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", "FgTRT58ktiDtXZZw5uZc3NhXgstPbPPTj9R8YVwhZFx7", "24CHvVUj1WHDJo5mNNPTDA7iMtXtAojdND9DpWmqdFWt"],
+  ranking: [
+    { owner: "EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", points: 15, earliestScoringLockMinute: 18, user: { username: "demoking", avatar: "avatar-1" }, predictions: [] },
+    { owner: "FgTRT58ktiDtXZZw5uZc3NhXgstPbPPTj9R8YVwhZFx7", points: 11, earliestScoringLockMinute: 25, user: { username: "rivalX", avatar: "avatar-3" }, predictions: [] },
+    { owner: "24CHvVUj1WHDJo5mNNPTDA7iMtXtAojdND9DpWmqdFWt", points: 8, earliestScoringLockMinute: 42, user: null, predictions: [] },
+  ],
+};
+
+const DEMO_SETTLED_EVENTS: EventEntry[] = [
+  { id: "s1", type: "goal", payload: { minute: 18, side: 1 }, players: { out: null, in: { id: 3001, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "s2", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
+  { id: "s3", type: "goal", payload: { minute: 34, side: 2 }, players: { out: null, in: { id: 4001, name: "Lamine Yamal", number: "19", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "s4", type: "yellow_card", payload: { minute: 52, side: 1 }, players: { out: null, in: { id: 3002, name: "Aurélien Tchouaméni", number: "8", positionId: 3, position: "Midfielder", side: 1 } } },
+  { id: "s5", type: "goal", payload: { minute: 67, side: 1 }, players: { out: null, in: { id: 3003, name: "Antoine Griezmann", number: "7", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "s6", type: "substitution", payload: { minute: 75, side: 2 }, players: { out: { id: 4002, name: "Álvaro Morata", number: "9", positionId: 4, position: "Forward", side: 2 }, in: { id: 4003, name: "Mikel Oyarzabal", number: "21", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "s7", type: "prediction", payload: { user: "rivalX", points: 1, kind: 0 } },
+];
 
 type ModeKey = "sub" | "score";
-
-const MODES: {
-  key: ModeKey | "result";
-  title: string;
-  description: string;
-  meta: string;
-  icon: React.ReactNode;
-  color: "purple" | "cyan" | "foreground";
-}[] = [
-  {
-    key: "sub",
-    icon: <Target size={28} />,
-    title: "Substitute Manager",
-    description: "Predict who comes in and who goes out.",
-    meta: "1 pt · 3 pts",
-    color: "purple",
-  },
-  {
-    key: "score",
-    icon: <BarChart3 size={28} />,
-    title: "Final Score",
-    description: "Call the exact scoreline or winning side.",
-    meta: "3 pts · 5 pts",
-    color: "cyan",
-  },
-  {
-    key: "result",
-    icon: <ScrollText size={28} />,
-    title: "Match Results",
-    description: "Final score, winners, and prize breakdown.",
-    meta: "Settlement",
-    color: "foreground",
-  },
-];
 
 export default function MatchDetails() {
   const params = useParams();
@@ -261,28 +256,32 @@ export default function MatchDetails() {
   const isDemo = rawPda === DEMO_PDA;
   const isSeed =
     rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
-  const pda = isDemo ? DEMO_PDA : rawPda;
+  const isDemoSettled = rawPda === DEMO_SETTLED_PDA;
+  const pda = isDemo ? DEMO_PDA : isDemoSettled ? DEMO_SETTLED_PDA : rawPda;
   const { connected, publicKey } = useWallet();
 
   const [match, setMatch] = useState<MatchState | null>(() =>
-    isDemo ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : null
+    isDemo ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : isDemoSettled ? DEMO_SETTLED_MATCH : null
   );
   const [lineup, setLineup] = useState<Lineup | null>(() =>
-    isDemo || isSeed ? DEMO_LINEUP : null
+    isDemo || isSeed ? DEMO_LINEUP : isDemoSettled ? DEMO_SETTLED_LINEUP : null
   );
-  const [loading, setLoading] = useState(!isDemo && !isSeed);
-  const [error, setError] = useState<string | null>(isDemo ? null : null);
+  const [loading, setLoading] = useState(!isDemo && !isSeed && !isDemoSettled);
+  const [error, setError] = useState<string | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showVaultModal, setShowVaultModal] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pendingMode, setPendingMode] = useState<ModeKey | null>(null);
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(
-    isDemo ? DEMO_LEADERBOARD : null
+    isDemo ? DEMO_LEADERBOARD : isDemoSettled ? DEMO_SETTLED_LEADERBOARD : null
   );
-  const [events, setEvents] = useState<EventEntry[]>(isDemo ? DEMO_EVENTS : []);
+  const [events, setEvents] = useState<EventEntry[]>(
+    isDemo ? DEMO_EVENTS : isDemoSettled ? DEMO_SETTLED_EVENTS : []
+  );
 
   useEffect(() => {
-    if (isDemo || isSeed) return;
+    if (isDemo || isSeed || isDemoSettled) return;
     if (!isValidPda(pda)) {
       setError("Invalid match address.");
       setLoading(false);
@@ -464,10 +463,11 @@ export default function MatchDetails() {
   const entryFee = match.onchain?.entryFee ?? "0";
   const participantCount = match.onchain?.participantCount ?? 0;
   const prizes = calculatePrizes(poolTotal);
+  const settled = match.onchain?.settled ?? false;
 
   return (
     <PageShell>
-      <div className="flex flex-1 flex-col gap-4 overflow-hidden">
+      <div className="flex flex-1 flex-col gap-6">
         <MatchHero
           team1={team1}
           team2={team2}
@@ -484,24 +484,46 @@ export default function MatchDetails() {
           prizes={prizes}
         />
 
-        {/* Mode selector */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {MODES.map((mode, i) => (
-            <ModeCard
-              key={mode.key}
-              mode={mode}
-              delay={i * 0.05}
-              onClick={() => handleSelectMode(mode.key)}
+        {settled ? (
+          /* Settled: 2 cards — logs preview + match results preview */
+          <div className="grid flex-1 min-h-0 grid-cols-1 gap-4 sm:grid-cols-2">
+            <LogsPreviewCard events={events} pda={pda} />
+            <ResultsPreviewCard
+              leaderboard={leaderboard}
+              prizes={prizes}
+              pda={pda}
+              team1Name={team1?.teamName ?? "Home"}
+              team2Name={team2?.teamName ?? "Away"}
+              score={score}
             />
-          ))}
-        </div>
-
-        {/* Info cards */}
-        <div className="grid flex-1 min-h-0 grid-cols-1 gap-3 lg:grid-cols-2">
-          <LeaderboardCard leaderboard={leaderboard} poolTotal={poolTotal} />
-          <EventsCard events={events} />
-        </div>
+          </div>
+        ) : (
+          /* Open/Live: 2 cards — vault details + enter match */
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <VaultCard
+              poolTotal={poolTotal}
+              entryFee={entryFee}
+              participantCount={participantCount}
+              prizes={prizes}
+              onClick={() => setShowVaultModal(true)}
+            />
+            <EnterCard
+              isLive={isLive}
+              isDemo={isDemo}
+              onClick={() => handleSelectMode("score")}
+            />
+          </div>
+        )}
       </div>
+
+      <VaultModal
+        open={showVaultModal}
+        onClose={() => setShowVaultModal(false)}
+        poolTotal={poolTotal}
+        entryFee={entryFee}
+        participantCount={participantCount}
+        prizes={prizes}
+      />
 
       <ConnectWalletModal
         open={showWalletModal}
@@ -566,7 +588,7 @@ function MatchHero({
 
         <div className="flex items-center justify-center gap-6 md:gap-12 lg:gap-16">
           <div className="flex flex-1 flex-col items-center gap-2">
-            <TeamFlagBadge name={team1?.teamName ?? "Home"} side={1} size="lg" />
+            <TeamBadge name={team1?.teamName ?? "Home"} size="xl" />
             <span className="max-w-[140px] text-center font-display text-xs uppercase tracking-wider text-foreground md:text-sm">
               {team1?.teamName ?? "Home"}
             </span>
@@ -577,7 +599,7 @@ function MatchHero({
             <span>{score.team2}</span>
           </div>
           <div className="flex flex-1 flex-col items-center gap-2">
-            <TeamFlagBadge name={team2?.teamName ?? "Away"} side={2} size="lg" />
+            <TeamBadge name={team2?.teamName ?? "Away"} size="xl" />
             <span className="max-w-[140px] text-center font-display text-xs uppercase tracking-wider text-foreground md:text-sm">
               {team2?.teamName ?? "Away"}
             </span>
@@ -635,168 +657,337 @@ function MatchHero({
   );
 }
 
-function ModeCard({
-  mode,
-  delay,
+function VaultCard({
+  poolTotal,
+  entryFee,
+  participantCount,
+  prizes,
   onClick,
 }: {
-  mode: (typeof MODES)[number];
-  delay: number;
+  poolTotal: string;
+  entryFee: string;
+  participantCount: number;
+  prizes: { total: number; first: number; second: number; third: number };
   onClick: () => void;
 }) {
-  const colorStyles = {
-    purple: "border-purple/30 bg-surface text-foreground hover:border-purple hover:bg-purple hover:text-white",
-    cyan: "border-cyan/30 bg-surface text-foreground hover:border-cyan hover:bg-cyan hover:text-background",
-    foreground: "border-foreground/30 bg-surface text-foreground hover:border-foreground hover:bg-foreground hover:text-background",
-  };
-
-  const iconColors = {
-    purple: "text-purple group-hover:text-white",
-    cyan: "text-cyan group-hover:text-background",
-    foreground: "text-foreground group-hover:text-background",
-  };
-
   return (
     <PageTransition
-      delay={delay}
+      delay={0.1}
       onClick={onClick}
-      className={cn(
-        "group relative flex flex-col items-start gap-3 overflow-hidden border p-5 text-left transition-all sm:p-6",
-        colorStyles[mode.color]
-      )}
+      className="group relative flex cursor-pointer flex-col gap-4 overflow-hidden bg-surface p-5 transition-all hover:bg-surface-elevated sm:p-6"
     >
-      <div className="card-shine" />
-      <div className={cn("transition-colors", iconColors[mode.color])}>{mode.icon}</div>
-      <div className="relative z-10">
-        <h3 className="font-display text-base uppercase tracking-wider">{mode.title}</h3>
-        <p className="mt-1 text-xs text-muted group-hover:text-current/80">{mode.description}</p>
-        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-muted group-hover:text-current/70">
-          {mode.meta}
-        </p>
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-gold via-gold/50 to-gold" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center bg-background text-gold">
+            <Wallet size={18} />
+          </div>
+          <h2 className="font-display text-lg text-foreground">Vault</h2>
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Details →</span>
       </div>
-      <div className="mt-auto flex w-full items-center justify-end">
-        <ArrowRight
-          size={16}
-          className="transition-transform group-hover:translate-x-1"
-        />
+
+      <div className="flex-1 space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted">Pool</span>
+          <span className="font-mono font-bold text-cyan">${formatUsdc(poolTotal)}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted">Entry</span>
+          <span className="font-mono font-bold text-foreground">${formatUsdc(entryFee)}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted">Players</span>
+          <span className="font-mono font-bold text-foreground">{participantCount}</span>
+        </div>
+        <div className="border-t border-surface pt-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted">1st</span>
+            <span className="font-mono font-bold text-gold">${formatUsdc(String(Math.round(prizes.first)))}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between text-xs">
+            <span className="text-muted">2nd</span>
+            <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.second)))}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between text-xs">
+            <span className="text-muted">3rd</span>
+            <span className="font-mono font-bold text-bronze">${formatUsdc(String(Math.round(prizes.third)))}</span>
+          </div>
+        </div>
       </div>
     </PageTransition>
   );
 }
 
-function LeaderboardCard({
-  leaderboard,
-  poolTotal,
+function EnterCard({
+  isLive,
+  isDemo,
+  onClick,
 }: {
-  leaderboard: Leaderboard | null;
-  poolTotal: string;
+  isLive: boolean;
+  isDemo: boolean;
+  onClick: () => void;
 }) {
-  const prizes = calculatePrizes(poolTotal);
   return (
     <PageTransition
-      delay={0.2}
+      delay={0.15}
+      className="group relative flex flex-col items-center justify-center gap-6 overflow-hidden bg-surface p-5 sm:p-6"
+    >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple via-cyan to-purple" />
+      <div className="flex flex-col items-center gap-2 text-center">
+        <div className="flex h-12 w-12 items-center justify-center bg-background text-purple transition-colors group-hover:bg-purple group-hover:text-white">
+          <Target size={24} />
+        </div>
+        <h2 className="font-display text-xl text-foreground">
+          {isLive ? "Enter Live Match" : "Enter Match"}
+        </h2>
+        <p className="max-w-xs text-sm text-muted">
+          {isLive
+            ? "Predict the score, subs, and goalscorers as the match unfolds."
+            : "Lock your predictions before kickoff."}
+        </p>
+      </div>
+      <button
+        onClick={onClick}
+        className="btn-gradient flex h-12 items-center px-10 font-display text-sm uppercase tracking-[0.1em] text-white"
+      >
+        {isDemo ? "Try Demo" : "Enter"}
+        <ArrowRight size={16} className="ml-2" />
+      </button>
+    </PageTransition>
+  );
+}
+
+function VaultModal({
+  open,
+  onClose,
+  poolTotal,
+  entryFee,
+  participantCount,
+  prizes,
+}: {
+  open: boolean;
+  onClose: () => void;
+  poolTotal: string;
+  entryFee: string;
+  participantCount: number;
+  prizes: { total: number; first: number; second: number; third: number };
+}) {
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    if (open) {
+      document.addEventListener("keydown", handleKey);
+      return () => document.removeEventListener("keydown", handleKey);
+    }
+  }, [open, onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.12 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          onClick={onClose}
+        >
+          <div className="absolute inset-0 bg-foreground/60" />
+          <motion.div
+            layout
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            exit={{ scaleX: 0 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            style={{ originX: 0.5 }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-md overflow-hidden border border-cyan/40 bg-background shadow-[0_20px_40px_-10px_rgba(15,23,42,0.15)]"
+          >
+            <button
+              onClick={onClose}
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-foreground"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+            <div className="px-8 py-8">
+              <h2 className="font-display text-2xl text-foreground">Vault Details</h2>
+              <p className="mt-1 text-xs uppercase tracking-wider text-muted">Prize pool breakdown</p>
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted">Total Pool</span>
+                  <span className="font-mono font-bold text-cyan">${formatUsdc(poolTotal)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted">Entry Fee</span>
+                  <span className="font-mono font-bold text-foreground">${formatUsdc(entryFee)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted">Participants</span>
+                  <span className="font-mono font-bold text-foreground">{participantCount}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted">Platform Fee</span>
+                  <span className="font-mono font-bold text-foreground">20%</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-surface pt-3 text-sm">
+                  <span className="text-muted">Net Prize Pool</span>
+                  <span className="font-mono font-bold text-cyan">${formatUsdc(String(Math.round(prizes.total)))}</span>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Prize Distribution</p>
+                <div className="flex items-center justify-between bg-surface p-3 text-sm">
+                  <span className="flex items-center gap-2 font-bold text-gold">
+                    <span className="flex h-5 w-5 items-center justify-center bg-gold text-[10px] text-background">1</span>
+                    1st Place
+                  </span>
+                  <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.first)))}</span>
+                </div>
+                <div className="flex items-center justify-between bg-surface p-3 text-sm">
+                  <span className="flex items-center gap-2 font-bold text-foreground">
+                    <span className="flex h-5 w-5 items-center justify-center bg-foreground text-[10px] text-background">2</span>
+                    2nd Place
+                  </span>
+                  <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.second)))}</span>
+                </div>
+                <div className="flex items-center justify-between bg-surface p-3 text-sm">
+                  <span className="flex items-center gap-2 font-bold text-bronze">
+                    <span className="flex h-5 w-5 items-center justify-center bg-bronze text-[10px] text-background">3</span>
+                    3rd Place
+                  </span>
+                  <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.third)))}</span>
+                </div>
+              </div>
+
+              {participantCount < 3 && (
+                <p className="mt-4 text-center text-[10px] font-bold uppercase tracking-wider text-gold">
+                  Winner Takes All (fewer than 3 participants)
+                </p>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function LogsPreviewCard({
+  events,
+  pda,
+}: {
+  events: EventEntry[];
+  pda: string;
+}) {
+  return (
+    <PageTransition
+      delay={0.1}
       className="group relative flex min-h-0 flex-col gap-4 overflow-hidden bg-surface p-5"
     >
-      <div className="card-shine" />
-      <div className="relative flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center bg-background text-gold">
-            <Users size={18} />
+          <div className="flex h-9 w-9 items-center justify-center bg-background text-foreground">
+            <ScrollText size={18} />
           </div>
-          <h2 className="font-display text-lg text-foreground">Leaderboard</h2>
+          <h2 className="font-display text-lg text-foreground">Match Logs</h2>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
-          Top {Math.min(5, leaderboard?.ranking.length ?? 0)}
+          {events.length} events
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {!leaderboard || leaderboard.ranking.length === 0 ? (
-          <p className="text-sm text-muted">No rankings yet. Be the first to predict.</p>
-        ) : (
-          <div className="space-y-2">
-            {leaderboard.ranking.slice(0, 5).map((r, i) => {
-              const label = r.user?.username ?? formatWallet(r.owner);
-              const prize =
-                i === 0 ? prizes.first : i === 1 ? prizes.second : i === 2 ? prizes.third : 0;
-              return (
-                <div
-                  key={r.owner + i}
-                  className="flex items-center justify-between bg-background/50 p-2.5 text-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "flex h-5 w-5 items-center justify-center text-[10px] font-bold",
-                        i === 0
-                          ? "bg-gold text-background"
-                          : i === 1
-                          ? "bg-foreground text-background"
-                          : i === 2
-                          ? "bg-bronze text-background"
-                          : "bg-surface text-foreground"
-                      )}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className="truncate font-bold text-foreground">{label}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block font-mono font-bold text-cyan">{r.points} pts</span>
-                    {prize > 0 && (
-                      <span className="text-[10px] font-bold text-gold">
-                        ${formatUsdc(String(Math.round(prize)))}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+      <div className="flex-1 space-y-2 overflow-hidden">
+        {events.slice(0, 5).map((entry) => (
+          <div key={entry.id} className="flex items-center justify-between bg-background/50 p-2 text-[10px]">
+            <span className="font-bold uppercase tracking-wider text-foreground">{formatType(entry.type)}</span>
+            <span className="truncate text-muted">{formatEventPayload(entry)}</span>
           </div>
-        )}
+        ))}
+        {events.length === 0 && <p className="text-sm text-muted">No events recorded.</p>}
       </div>
+
+      <Link
+        href={`/matches/${pda}/logs`}
+        className="mt-auto flex items-center justify-center gap-2 border border-surface bg-background py-3 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:border-purple hover:text-foreground"
+      >
+        View Full Logs <ArrowRight size={14} />
+      </Link>
     </PageTransition>
   );
 }
 
-function EventsCard({ events }: { events: EventEntry[] }) {
+function ResultsPreviewCard({
+  leaderboard,
+  prizes,
+  pda,
+  team1Name,
+  team2Name,
+  score,
+}: {
+  leaderboard: Leaderboard | null;
+  prizes: { total: number; first: number; second: number; third: number };
+  pda: string;
+  team1Name: string;
+  team2Name: string;
+  score: { team1: number; team2: number };
+}) {
+  const winner = score.team1 > score.team2 ? team1Name : score.team2 > score.team1 ? team2Name : "Draw";
+  const topRanks = leaderboard?.ranking.slice(0, 3) ?? [];
+
   return (
     <PageTransition
-      delay={0.25}
+      delay={0.15}
       className="group relative flex min-h-0 flex-col gap-4 overflow-hidden bg-surface p-5"
     >
-      <div className="card-shine" />
-      <div className="relative flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center bg-background text-foreground">
-          <Radio size={18} />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center bg-background text-gold">
+            <Trophy size={18} />
+          </div>
+          <h2 className="font-display text-lg text-foreground">Match Results</h2>
         </div>
-        <h2 className="font-display text-lg text-foreground">Live Events</h2>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Settled</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {events.length === 0 ? (
-          <p className="text-sm text-muted">No events yet.</p>
-        ) : (
-          <div className="space-y-2">
-            <AnimatePresence mode="popLayout">
-              {events.slice(0, 6).map((entry) => (
-                <motion.div
-                  key={entry.id}
-                  layout
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center justify-between bg-background/50 p-2 text-[10px]"
-                >
-                  <span className="font-bold uppercase tracking-wider text-foreground">
-                    {entry.type}
-                  </span>
-                  <span className="text-muted">{formatEventPayload(entry)}</span>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+      <div className="flex-1 space-y-3">
+        <div className="flex items-center justify-between bg-background/50 p-3 text-sm">
+          <span className="text-muted">Final Score</span>
+          <span className="font-display text-lg text-foreground">{score.team1} - {score.team2}</span>
+        </div>
+        <div className="flex items-center justify-between bg-background/50 p-3 text-sm">
+          <span className="text-muted">Winner</span>
+          <span className="font-bold text-cyan">{winner}</span>
+        </div>
+        <div className="flex items-center justify-between bg-background/50 p-3 text-sm">
+          <span className="text-muted">Prize Pool</span>
+          <span className="font-mono font-bold text-gold">${formatUsdc(String(Math.round(prizes.total)))}</span>
+        </div>
+        {topRanks.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Top Winners</p>
+            {topRanks.map((r, i) => (
+              <div key={r.owner + i} className="flex items-center justify-between bg-background/50 p-2 text-xs">
+                <span className="truncate font-bold text-foreground">
+                  {r.user?.username ?? formatWallet(r.owner)}
+                </span>
+                <span className="font-mono font-bold text-cyan">{r.points} pts</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
+
+      <Link
+        href={`/matches/${pda}/settlement`}
+        className="mt-auto flex items-center justify-center gap-2 border border-surface bg-background py-3 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:border-purple hover:text-foreground"
+      >
+        View Full Results <ArrowRight size={14} />
+      </Link>
     </PageTransition>
   );
 }
@@ -807,10 +998,14 @@ function formatEventPayload(entry: EventEntry): string {
   if (p.user && typeof p.points === "number") {
     return `${p.user} +${p.points} pts`;
   }
-  if (p.team && typeof p.minute === "number") {
-    return `${p.team} ${p.minute}'`;
+  if (p.minute && (p.side || p.team)) {
+    return `${p.minute}'`;
   }
   return Object.values(p).slice(0, 2).join(" ");
+}
+
+function formatType(type: string): string {
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatStatus(status: string) {
@@ -824,44 +1019,4 @@ function formatStatus(status: string) {
     default:
       return status;
   }
-}
-
-function TeamFlagBadge({
-  name,
-  side,
-  size = "md",
-}: {
-  name: string;
-  side: 1 | 2;
-  size?: "md" | "lg";
-}) {
-  const code = getCountryCode(name);
-  const sizeClass = size === "lg" ? "h-14 w-14 md:h-16 md:w-16 lg:h-20 lg:w-20" : "h-12 w-12 md:h-14 md:w-14";
-  if (code) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={`https://flagcdn.com/${code}.svg`}
-        alt={name}
-        className={cn(
-          "object-cover shadow-lg",
-          sizeClass,
-          side === 1 ? "border-2 border-purple" : "border-2 border-cyan"
-        )}
-      />
-    );
-  }
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-center border-2 text-lg font-bold md:text-xl",
-        sizeClass,
-        side === 1
-          ? "border-purple/50 bg-purple/10 text-purple"
-          : "border-cyan/50 bg-cyan/10 text-cyan"
-      )}
-    >
-      {name.slice(0, 2).toUpperCase()}
-    </div>
-  );
 }

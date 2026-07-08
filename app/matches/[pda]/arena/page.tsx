@@ -13,7 +13,6 @@ import { PitchArena } from "../../../_components/pitch-arena";
 import { ScorePredictionPanel } from "../../../_components/score-prediction-panel";
 import { GoalscorerPanel } from "../../../_components/goalscorer-panel";
 import { TeamPickerModal } from "../../../_components/team-picker-modal";
-import { EventsTransition } from "../../../_components/events-transition";
 import { Notifications, useNotifications } from "../../../_components/notifications";
 import type { SubstitutionPrediction } from "../../../_components/confirm-subs-modal";
 import {
@@ -147,7 +146,7 @@ export default function ArenaPage() {
   const modelParam = searchParams.get("model");
   const model: ArenaModel = ["sub", "score", "goalscorer"].includes(modelParam ?? "")
     ? (modelParam as ArenaModel)
-    : "sub";
+    : "score";
 
   const sideParam = searchParams.get("side");
   const sideSelected = sideParam === "1" || sideParam === "2";
@@ -162,8 +161,8 @@ export default function ArenaPage() {
     return `/matches/${pda}/arena?${qs.toString()}`;
   }
   const arenaTabs: ArenaTab[] = [
-    { model: "sub", label: "Pitch", href: buildModelHref("sub"), active: model === "sub" },
     { model: "score", label: "Score", href: buildModelHref("score"), active: model === "score" },
+    { model: "sub", label: "Pitch", href: buildModelHref("sub"), active: model === "sub" },
     { model: "goalscorer", label: "Goalscorer", href: buildModelHref("goalscorer"), active: model === "goalscorer" },
   ];
 
@@ -173,15 +172,19 @@ export default function ArenaPage() {
   const [lineup, setLineup] = useState<Lineup | null>(() =>
     isDemo || isSeed ? DEMO_LINEUP : null
   );
-  const [loading, setLoading] = useState(!isDemo && !isSeed);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [lockedPredictions, setLockedPredictions] = useState<SubstitutionPrediction[]>([]);
   const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
-  const [showEnterTransition, setShowEnterTransition] = useState(true);
   const notifs = useNotifications();
   const submitNotifId = useRef<string | null>(null);
+
+  // Sync team picker when model/side changes (e.g. switching from Score to Pitch tab)
+  useEffect(() => {
+    setShowTeamPicker(model === "sub" && !sideSelected);
+  }, [model, sideSelected]);
 
   useEffect(() => {
     if (!isDemo && !connected) {
@@ -206,7 +209,11 @@ export default function ArenaPage() {
   }
 
   useEffect(() => {
-    if (isDemo || isSeed) return;
+    if (isDemo || isSeed) {
+      // Brief loading screen for demo/seed too — shows the logo + loading bar
+      const timer = setTimeout(() => setLoading(false), 800);
+      return () => clearTimeout(timer);
+    }
     if (!isValidPda(pda)) {
       setError("Invalid match address.");
       setLoading(false);
@@ -371,12 +378,18 @@ export default function ArenaPage() {
   if (loading) {
     return (
       <PageShell>
-        <div className="flex h-full flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
-          <div className="font-tech text-xs font-bold uppercase tracking-[0.2em] text-muted">
-            Loading Arena
-          </div>
+        <div className="flex h-full flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/soccit-logo-black.webp"
+            alt="Soccit"
+            className="h-24 w-auto object-contain sm:h-32"
+          />
           <div className="relative h-3 w-full max-w-xs overflow-hidden border border-surface bg-surface/30">
             <div className="loading-bar-fill absolute inset-y-0 left-0 bg-purple" />
+          </div>
+          <div className="font-tech text-[10px] uppercase tracking-widest text-muted/60">
+            Loading match
           </div>
         </div>
       </PageShell>
@@ -407,14 +420,6 @@ export default function ArenaPage() {
 
   return (
     <>
-      {showEnterTransition && (
-        <EventsTransition
-          mode="enter"
-          logoEnter="/assets/soccit-logo.svg"
-          titleEnter="Loading The Field"
-          onComplete={() => setShowEnterTransition(false)}
-        />
-      )}
       <PageShell edgeToEdge hideTicker arenaTabs={arenaTabs}>
       <div className="flex flex-1 flex-col overflow-hidden px-8 pb-8 lg:px-8">
         {model === "sub" && selectedTeam && sideSelected && (
@@ -498,7 +503,7 @@ export default function ArenaPage() {
           team1={team1?.teamName ?? "Team 1"}
           team2={team2?.teamName ?? "Team 2"}
           onSelect={handleTeamSelected}
-          onClose={() => router.push(`/matches/${pda}`)}
+          onClose={() => router.push(`/matches/${pda}/arena?model=score`)}
         />
       )}
 

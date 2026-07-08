@@ -72,6 +72,24 @@ const DEMO_MATCHES: MatchSummary[] = [
     teamNames: { team1: "Soccit FC", team2: "Devnet United" },
   },
   DEMO_MATCH,
+  {
+    pda: "demo-settled",
+    fixtureId: 888888,
+    onchain: {
+      status: 2,
+      statusLabel: "SETTLED",
+      settled: true,
+      entryFee: "1000000",
+      poolTotal: "8000000",
+      participantCount: 8,
+      team1Id: 301,
+      team2Id: 302,
+      usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+      winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null],
+    },
+    live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+    teamNames: { team1: "France", team2: "Spain" },
+  },
 ];
 
 const MAGNETIC_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];

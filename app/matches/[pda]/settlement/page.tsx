@@ -123,8 +123,9 @@ export default function SettlementPage() {
   const searchParams = useSearchParams();
   const rawPda = params.pda as string;
   const isDemo = rawPda === DEMO_PDA;
+  const isDemoSettled = rawPda === "demo-settled";
   const isSeed = rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
-  const pda = isDemo ? DEMO_PDA : rawPda;
+  const pda = isDemo ? DEMO_PDA : isDemoSettled ? "demo-settled" : rawPda;
 
   const subNavTabs: ArenaTab[] = [
     { model: "logs", label: "Logs", href: `/matches/${pda}/logs`, active: false },
@@ -132,17 +133,17 @@ export default function SettlementPage() {
   ];
 
   const [match, setMatch] = useState<MatchState | null>(() =>
-    isDemo ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : null
+    isDemo || isDemoSettled ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : null
   );
-  const [lineup, setLineup] = useState<Lineup | null>(() => (isDemo || isSeed ? DEMO_LINEUP : null));
+  const [lineup, setLineup] = useState<Lineup | null>(() => (isDemo || isSeed || isDemoSettled ? DEMO_LINEUP : null));
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(() =>
-    isDemo || isSeed ? DEMO_LEADERBOARD : null
+    isDemo || isSeed || isDemoSettled ? DEMO_LEADERBOARD : null
   );
-  const [loading, setLoading] = useState(!isDemo && !isSeed);
+  const [loading, setLoading] = useState(!isDemo && !isSeed && !isDemoSettled);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isDemo || isSeed) return;
+    if (isDemo || isSeed || isDemoSettled) return;
     if (!isValidPda(pda)) {
       setError("Invalid match address.");
       setLoading(false);
