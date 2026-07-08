@@ -42,6 +42,9 @@ export function TopNav({ variant = "default", arenaTabs }: TopNavProps) {
 
   const pathDepth = pathname.split("/").filter(Boolean).length;
   const isNested = pathDepth > 1;
+  // Back button goes to the parent route (strip last segment):
+  // /matches/demo/arena → /matches/demo, /matches/demo → /matches
+  const parentPath = "/" + pathname.split("/").filter(Boolean).slice(0, -1).join("/");
 
   useEffect(() => {
     if (modalOpen) {
@@ -75,7 +78,7 @@ export function TopNav({ variant = "default", arenaTabs }: TopNavProps) {
           ) : isNested ? (
             <>
               <button
-                onClick={() => router.back()}
+                onClick={() => router.push(parentPath)}
                 className="flex items-center gap-2 border border-surface bg-surface px-5 py-2.5 font-tech text-xs font-bold uppercase tracking-[0.15em] text-muted transition-all hover:border-purple hover:bg-purple hover:text-white"
               >
                 <ArrowLeft size={14} />

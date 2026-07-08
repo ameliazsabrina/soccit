@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Minus, Plus, Trophy, TrendingUp } from "lucide-react";
 import { SlideToLock } from "./slide-to-lock";
+import { TeamBadge } from "./team-badge";
 
 interface ScorePredictionPanelProps {
   team1Name: string;
@@ -44,7 +45,7 @@ export function ScorePredictionPanel({
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-2xl bg-purple/10 p-6 md:p-10"
+        className="w-full max-w-2xl bg-surface p-6 md:p-10"
       >
         <div className="mb-8 text-center">
           <h2 className="font-display text-3xl text-foreground md:text-4xl">Call the Score</h2>
@@ -117,6 +118,7 @@ function TeamScore({
 }) {
   return (
     <div className="flex flex-col items-center gap-3">
+      <TeamBadge name={name} size="lg" />
       <span className="max-w-[120px] text-center font-display text-sm uppercase tracking-wider text-foreground md:text-base">
         {name}
       </span>

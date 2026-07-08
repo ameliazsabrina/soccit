@@ -62,29 +62,34 @@ export function OnboardingModal({ open, onClose, onSuccess }: OnboardingModalPro
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
             onClick={onClose}
-            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-foreground/60"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            className="relative z-10 w-full max-w-lg border border-surface bg-surface/95 p-6 shadow-2xl"
+            layout
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            exit={{ scaleX: 0 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            style={{ originX: 0.5 }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg overflow-hidden border border-cyan/40 bg-background shadow-[0_20px_40px_-10px_rgba(15,23,42,0.15)]"
           >
             <button
               onClick={onClose}
-              className="absolute right-4 top-4 text-muted transition-colors hover:text-foreground"
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-foreground"
               aria-label="Close"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
 
-            <div className="mb-6">
+            <div className="mb-6 px-8 pt-8">
               <p className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-muted">
                 Step 2 of 2
               </p>
@@ -94,7 +99,7 @@ export function OnboardingModal({ open, onClose, onSuccess }: OnboardingModalPro
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6 px-8 pb-8">
               <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-muted">
                   Username

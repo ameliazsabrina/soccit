@@ -1,8 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Lock, Users, Clock, Trophy } from "lucide-react";
-import { PlayerCard, type PlayerCardData } from "./player-card";
+import { Lock, Trophy } from "lucide-react";
+import { type PlayerCardData } from "./player-card";
+import { TeamBadge } from "./team-badge";
+import { tcgCardImage } from "../_lib/api";
+import { cn } from "../_lib/utils";
 
 interface GoalscorerPanelProps {
   team1Name: string;
@@ -11,69 +14,82 @@ interface GoalscorerPanelProps {
 }
 
 export function GoalscorerPanel({ team1Name, team2Name, players }: GoalscorerPanelProps) {
-  const team1Players = players.filter((p) => p.side === 1);
-  const team2Players = players.filter((p) => p.side === 2);
+  const team1Players = players.filter((p) => p.side === 1 && !(p.position ?? "").match(/goal|keeper/i));
+  const team2Players = players.filter((p) => p.side === 2 && !(p.position ?? "").match(/goal|keeper/i));
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center p-4">
+    <div className="flex flex-1 flex-col p-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-4xl bg-purple/10 p-6 md:p-10"
+        className="flex flex-1 flex-col"
       >
-        <div className="mb-6 text-center">
-          <div className="mb-3 inline-flex items-center gap-2 border border-surface bg-background px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-muted">
-            <Lock size={14} />
-            Coming Soon
-          </div>
-          <h2 className="font-display text-3xl text-foreground md:text-4xl">Goalscorer</h2>
-          <p className="mt-2 text-sm text-muted">
-            Pick the players who will score. Each correct prediction earns 2 points.
-          </p>
-        </div>
-
-        <div className="pointer-events-none mb-8 grid grid-cols-2 gap-4 opacity-40">
-          <div className="border border-gold/30 bg-gold/5 p-4 text-center">
-            <div className="mb-1 flex items-center justify-center gap-2 text-gold">
-              <Trophy size={16} />
-              <span className="text-xs font-bold uppercase tracking-wider">Per Scorer</span>
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <div className="mb-1 inline-flex items-center gap-2 border border-surface bg-background px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted">
+              <Lock size={12} />
+              Coming Soon
             </div>
-            <p className="font-display text-2xl text-foreground">2 pts</p>
+            <h2 className="font-display text-xl text-foreground md:text-2xl">Goalscorer</h2>
           </div>
-          <div className="border border-cyan/30 bg-cyan/5 p-4 text-center">
-            <div className="mb-1 flex items-center justify-center gap-2 text-cyan">
-              <Clock size={16} />
-              <span className="text-xs font-bold uppercase tracking-wider">Live Grading</span>
-            </div>
-            <p className="font-display text-2xl text-foreground">Goal by Goal</p>
+          <div className="flex items-center gap-2 border border-gold/30 bg-gold/5 px-3 py-1.5">
+            <Trophy size={14} className="text-gold" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gold">2 pts per scorer</span>
           </div>
         </div>
 
-        <div className="pointer-events-none space-y-6 opacity-40">
-          <div>
-            <h3 className="mb-3 flex items-center gap-2 font-display text-lg text-foreground">
-              <Users size={18} className="text-purple" />
-              {team1Name}
-            </h3>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {team1Players.slice(0, 5).map((p) => (
-                <PlayerCard key={p.id} player={p} compact />
-              ))}
-            </div>
-          </div>
-          <div>
-            <h3 className="mb-3 flex items-center gap-2 font-display text-lg text-foreground">
-              <Users size={18} className="text-cyan" />
-              {team2Name}
-            </h3>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {team2Players.slice(0, 5).map((p) => (
-                <PlayerCard key={p.id} player={p} compact />
-              ))}
-            </div>
-          </div>
+        {/* Two team columns side-by-side */}
+        <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
+          <TeamColumn name={team1Name} players={team1Players} />
+          <TeamColumn name={team2Name} players={team2Players} />
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function TeamColumn({ name, players }: { name: string; players: PlayerCardData[] }) {
+  return (
+    <div className="flex flex-col gap-3 bg-purple/10 p-4">
+      <div className="flex items-center gap-2">
+        <TeamBadge name={name} size="sm" />
+        <h3 className="font-display text-sm uppercase tracking-wider text-foreground">{name}</h3>
+        <span className="ml-auto text-[10px] font-bold text-muted">{players.length}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        {players.map((p) => (
+          <MiniTCGCard key={p.id} player={p} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniTCGCard({ player }: { player: PlayerCardData }) {
+  const cardImage = tcgCardImage(player.position);
+  const lastName = player.name.split(" ").pop() ?? player.name;
+  const shadow = "drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]";
+
+  return (
+    <div className="relative aspect-[2/3] w-full overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={cardImage}
+        alt={player.name}
+        draggable={false}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      />
+      {player.number && (
+        <span className={cn("absolute right-[6%] top-[3%] text-[7px] font-bold leading-none text-white sm:text-[9px]", shadow)}>
+          {player.number}
+        </span>
+      )}
+      <div className="absolute inset-x-[4%] top-[83.5%] bottom-[4%] flex items-center justify-center px-0.5">
+        <span className={cn("truncate text-[5px] font-bold uppercase tracking-tight text-white sm:text-[7px]", shadow)}>
+          {lastName}
+        </span>
+      </div>
     </div>
   );
 }

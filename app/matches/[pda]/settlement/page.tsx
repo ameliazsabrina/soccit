@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Trophy, TrendingUp, Medal, AlertCircle, RefreshCw } from "lucide-react";
+import { Trophy, TrendingUp, Medal, AlertCircle, RefreshCw } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
+import type { ArenaTab } from "../../../_components/top-nav";
 import {
   getMatch,
   getLineup,
@@ -78,8 +78,8 @@ const DEMO_LINEUP: Lineup = {
   fixtureId: 999999,
   updatedAt: Date.now(),
   teams: [
-    { side: 1, teamId: 101, teamName: "Demo City", players: [] },
-    { side: 2, teamId: 202, teamName: "Practice Town", players: [] },
+    { side: 1, teamId: 101, teamName: "Portugal", formation: "4-3-3", players: [] },
+    { side: 2, teamId: 202, teamName: "Argentina", formation: "4-3-3", players: [] },
   ],
   names: {},
 };
@@ -126,6 +126,11 @@ export default function SettlementPage() {
   const isSeed = rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
   const pda = isDemo ? DEMO_PDA : rawPda;
 
+  const subNavTabs: ArenaTab[] = [
+    { model: "logs", label: "Logs", href: `/matches/${pda}/logs`, active: false },
+    { model: "settlement", label: "Settlement", href: `/matches/${pda}/settlement`, active: true },
+  ];
+
   const [match, setMatch] = useState<MatchState | null>(() =>
     isDemo ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : null
   );
@@ -168,7 +173,7 @@ export default function SettlementPage() {
 
   if (loading) {
     return (
-      <PageShell>
+      <PageShell arenaTabs={subNavTabs}>
         <div className="flex h-full flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
           <div className="font-tech text-xs font-bold uppercase tracking-[0.2em] text-muted">
             Loading Settlement
@@ -183,7 +188,7 @@ export default function SettlementPage() {
 
   if (error || !match || !lineup) {
     return (
-      <PageShell>
+      <PageShell arenaTabs={subNavTabs}>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
           <h2 className="font-display text-2xl text-foreground">Settlement Not Available</h2>
@@ -216,26 +221,17 @@ export default function SettlementPage() {
   const topRanks = leaderboard?.ranking.slice(0, 3) ?? [];
 
   return (
-    <PageShell>
+    <PageShell arenaTabs={subNavTabs}>
       <div className="flex flex-1 flex-col gap-6 overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Match Settlement</p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <h1 className="font-display text-3xl tracking-tight text-foreground">
-                {team1?.teamName ?? "Home"} vs {team2?.teamName ?? "Away"}
-              </h1>
-              <span className="font-mono text-xs text-muted">{settled ? "SETTLED" : statusLabel}</span>
-            </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Match Settlement</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <h1 className="font-display text-3xl tracking-tight text-foreground">
+              {team1?.teamName ?? "Home"} vs {team2?.teamName ?? "Away"}
+            </h1>
+            <span className="font-mono text-xs text-muted">{settled ? "SETTLED" : statusLabel}</span>
           </div>
-          <Link
-            href={`/matches/${pda}`}
-            className="inline-flex flex-shrink-0 items-center gap-2 bg-surface px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground"
-          >
-            <ArrowLeft size={14} />
-            Back
-          </Link>
         </div>
 
         {/* Main grid */}

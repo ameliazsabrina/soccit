@@ -1,10 +1,9 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   Activity,
   Search,
   Wifi,
@@ -19,6 +18,8 @@ import {
   ShieldAlert,
   Trophy,
 } from "lucide-react";
+import { PageShell } from "../../../_components/page-shell";
+import type { ArenaTab } from "../../../_components/top-nav";
 import {
   getMatch,
   getLineup,
@@ -33,15 +34,77 @@ import { cn } from "../../../_lib/utils";
 
 const DEMO_PDA = "demo";
 
+const DEMO_MATCH_STATE: MatchState = {
+  fixtureId: 999999,
+  onchain: {
+    status: 0,
+    statusLabel: "OPEN",
+    settled: false,
+    entryFee: "1000000",
+    poolTotal: "2500000",
+    participantCount: 2,
+    team1Id: 101,
+    team2Id: 202,
+    usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    winners: [null, null, null],
+  },
+  live: { statusId: 1, minute: 63, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  updatedAt: Date.now(),
+};
+
+const DEMO_LINEUP_STATE: Lineup = {
+  fixtureId: 999999,
+  updatedAt: Date.now(),
+  teams: [
+    { side: 1, teamId: 101, teamName: "Portugal", formation: "4-3-3", players: [] },
+    { side: 2, teamId: 202, teamName: "Argentina", formation: "4-3-3", players: [] },
+  ],
+  names: {},
+};
+
+const DEMO_EVENTS: EventEntry[] = [
+  {
+    id: "1719662400000-0",
+    type: "goal",
+    payload: { minute: 24, side: 1, scorerId: 1010 },
+    players: {
+      out: null,
+      in: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 },
+    },
+  },
+  {
+    id: "1719662400001-0",
+    type: "yellow_card",
+    payload: { minute: 41, side: 1, playerId: 1003 },
+    players: {
+      out: null,
+      in: { id: 1003, name: "Rúben Dias", number: "4", positionId: 2, position: "Defender", side: 1 },
+    },
+  },
+  {
+    id: "1719662400002-0",
+    type: "substitution",
+    payload: { minute: 63, side: 1, playerOutId: 1010, playerInId: 1106 },
+    players: {
+      out: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 },
+      in: { id: 1106, name: "Gonçalo Ramos", number: "9", positionId: 4, position: "Forward", side: 1 },
+    },
+  },
+];
+
 export default function MatchIntelligencePage() {
   const params = useParams();
-  const router = useRouter();
   const rawPda = params.pda as string;
   const isDemo = rawPda === DEMO_PDA;
   const pda = isDemo ? DEMO_PDA : rawPda;
 
-  const [match, setMatch] = useState<MatchState | null>(null);
-  const [lineup, setLineup] = useState<Lineup | null>(null);
+  const subNavTabs: ArenaTab[] = [
+    { model: "logs", label: "Logs", href: `/matches/${pda}/logs`, active: true },
+    { model: "settlement", label: "Settlement", href: `/matches/${pda}/settlement`, active: false },
+  ];
+
+  const [match, setMatch] = useState<MatchState | null>(isDemo ? DEMO_MATCH_STATE : null);
+  const [lineup, setLineup] = useState<Lineup | null>(isDemo ? DEMO_LINEUP_STATE : null);
   const [loading, setLoading] = useState(!isDemo);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +115,6 @@ export default function MatchIntelligencePage() {
   const [search, setSearch] = useState("");
 
   const sourceRef = useRef<EventSource | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (isDemo) return;
@@ -125,7 +187,7 @@ export default function MatchIntelligencePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <PageShell arenaTabs={subNavTabs}>
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 text-center">
           <div className="font-tech text-xs font-bold uppercase tracking-[0.2em] text-muted">
             Loading Intelligence
@@ -133,17 +195,14 @@ export default function MatchIntelligencePage() {
           <div className="relative h-3 w-full max-w-xs overflow-hidden border border-surface bg-surface/30">
             <div className="loading-bar-fill absolute inset-y-0 left-0 bg-purple" />
           </div>
-          <div className="font-tech text-[10px] uppercase tracking-widest text-muted/60">
-            Please wait
-          </div>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <PageShell arenaTabs={subNavTabs}>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
           <h2 className="font-display text-2xl text-foreground">Data Unavailable</h2>
@@ -155,47 +214,39 @@ export default function MatchIntelligencePage() {
             <Radio size={16} /> Retry
           </button>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-      <div className="flex items-center justify-between border-b border-surface bg-surface/20 px-4 py-3 lg:px-8">
-        <button
-          onClick={() => router.push(`/matches/${pda}`)}
-          className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground"
-        >
-          <ArrowLeft size={18} /> Back to Match
-        </button>
-        <div className="flex items-center gap-3">
-          <ConnectionBadge status={status} />
-          {!isDemo && (
-            <button
-              onClick={openStream}
-              disabled={status === "connecting"}
-              className="flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-foreground disabled:opacity-50"
-              aria-label="Reconnect"
-              title="Reconnect"
-            >
-              {status === "connecting" ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Radio size={16} />
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <main className="relative z-10 mx-auto w-full max-w-3xl flex-1 px-4 py-8 lg:px-8">
-        <div className="mb-6">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Immutable Log</p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <PageShell arenaTabs={subNavTabs}>
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 lg:px-8">
+        {/* Header + connection */}
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Immutable Log</p>
             <h1 className="font-display text-3xl tracking-tight text-foreground">
               Match Intelligence
             </h1>
             <span className="font-mono text-xs text-muted">{isDemo ? "DEMO" : pda}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <ConnectionBadge status={status} />
+            {!isDemo && (
+              <button
+                onClick={openStream}
+                disabled={status === "connecting"}
+                className="flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-foreground disabled:opacity-50"
+                aria-label="Reconnect"
+                title="Reconnect"
+              >
+                {status === "connecting" ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Radio size={16} />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -211,7 +262,7 @@ export default function MatchIntelligencePage() {
           />
           <SummaryCard
             label="Minute"
-            value={match?.live?.minute !== null ? `${match?.live?.minute ?? 0}'` : "—"}
+            value={match?.live?.minute != null ? `${match.live.minute}'` : "—"}
           />
         </div>
 
@@ -223,7 +274,7 @@ export default function MatchIntelligencePage() {
         )}
 
         {/* Filters */}
-        <div className="mb-4 flex flex-col gap-3 border border-surface bg-surface/20 p-3 sm:flex-row sm:items-center">
+        <div className="mb-4 flex flex-col gap-3 bg-surface p-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
             <input
@@ -257,7 +308,7 @@ export default function MatchIntelligencePage() {
         </div>
 
         {/* Timeline */}
-        <div className="border border-surface bg-surface/10 p-4">
+        <div className="bg-surface p-4">
           {filteredEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
               <ScrollText size={36} className="mb-4 opacity-30" />
@@ -276,10 +327,9 @@ export default function MatchIntelligencePage() {
               ))}
             </div>
           )}
-          <div ref={bottomRef} />
         </div>
-      </main>
-    </div>
+      </div>
+    </PageShell>
   );
 }
 
@@ -376,7 +426,7 @@ function TimelineRow({ entry }: { entry: EventEntry }) {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-surface bg-surface/20 p-4">
+    <div className="bg-surface p-4">
       <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted">{label}</p>
       <p className="font-display text-lg text-foreground">{value}</p>
     </div>
@@ -465,33 +515,3 @@ function getEventMeta(type: string) {
       };
   }
 }
-
-const DEMO_EVENTS: EventEntry[] = [
-  {
-    id: "1719662400000-0",
-    type: "goal",
-    payload: { minute: 24, side: 1, scorerId: 5009 },
-    players: {
-      out: null,
-      in: { id: 5009, name: "I. Forward", number: "9", positionId: 4, position: "Forward", side: 1 },
-    },
-  },
-  {
-    id: "1719662400001-0",
-    type: "yellow_card",
-    payload: { minute: 41, side: 1, playerId: 5004 },
-    players: {
-      out: null,
-      in: { id: 5004, name: "D. Center Back", number: "5", positionId: 2, position: "Defender", side: 1 },
-    },
-  },
-  {
-    id: "1719662400002-0",
-    type: "substitution",
-    payload: { minute: 63, side: 1, playerOutId: 5009, playerInId: 5002 },
-    players: {
-      out: { id: 5009, name: "J. Forward", number: "9", positionId: 4, position: "Forward", side: 1 },
-      in: { id: 5002, name: "M. Smith", number: "17", positionId: 4, position: "Forward", side: 1 },
-    },
-  },
-];

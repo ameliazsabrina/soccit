@@ -1,61 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 995 449" preserveAspectRatio="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="none">
   <defs>
-    <!-- Pitch surface gradient: top (far) = lighter turf, bottom (near) = deeper -->
     <linearGradient id="pitchGradient" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#122b1e"/>
       <stop offset="100%" stop-color="#081a12"/>
     </linearGradient>
-    <!-- Trapezoid clip: top narrow (14.5%-85.5%), bottom full (0%-100%) -->
     <clipPath id="trapezoidClip">
-      <polygon points="144,0 851,0 995,449 0,449"/>
+      <polygon points="174,0 1026,0 1200,800 0,800"/>
     </clipPath>
   </defs>
 
-  <!-- ===== Pitch surface (trapezoid, clipped) ===== -->
   <g clip-path="url(#trapezoidClip)">
-    <rect x="0" y="0" width="995" height="449" fill="url(#pitchGradient)"/>
+    <rect x="0" y="0" width="1200" height="800" fill="url(#pitchGradient)"/>
 
-    <!-- All pitch markings: rgba(248,250,252,0.45) = #f8fafc with 45% opacity -->
     <g stroke="rgba(248,250,252,0.45)" fill="none">
+      <!-- Pitch outline -->
+      <polygon points="174,0 1026,0 1200,800 0,800" stroke-width="4"/>
+      <!-- Halfway line -->
+      <line x1="600" y1="0" x2="600" y2="800" stroke-width="3"/>
+      <!-- Center circle + spot -->
+      <circle cx="600" cy="400" r="86" stroke-width="3"/>
+      <circle cx="600" cy="400" r="4" fill="rgba(248,250,252,0.45)" stroke="none"/>
 
-      <!-- Pitch outline (trapezoid border) -->
-      <polygon points="144,0 851,0 995,449 0,449" stroke-width="3"/>
+      <!-- BOTTOM (near) penalty area -->
+      <rect x="244" y="674" width="712" height="126" stroke-width="3"/>
+      <rect x="439" y="758" width="323" height="42" stroke-width="3"/>
+      <circle cx="600" cy="716" r="4" fill="rgba(248,250,252,0.45)" stroke="none"/>
+      <path d="M 514,716 A 86,86 0 0 1 686,716" stroke-width="3"/>
+      <rect x="540" y="794" width="120" height="8" fill="rgba(248,250,252,0.6)" stroke="none"/>
 
-      <!-- Halfway line (vertical center) -->
-      <line x1="497.5" y1="0" x2="497.5" y2="449" stroke-width="2"/>
-
-      <!-- Center circle -->
-      <circle cx="497.5" cy="224.5" r="48" stroke-width="2"/>
-      <!-- Center spot -->
-      <circle cx="497.5" cy="224.5" r="2" fill="rgba(248,250,252,0.45)" stroke="none"/>
-
-      <!-- ===== BOTTOM (near) penalty area ===== -->
-      <!-- Penalty area box: 59.3% width × 15.7% depth -->
-      <rect x="202.5" y="378.5" width="590" height="70.5" stroke-width="2"/>
-      <!-- Goal area box: 26.9% width × 5.2% depth -->
-      <rect x="363.7" y="425.7" width="267.7" height="23.3" stroke-width="2"/>
-      <!-- Penalty spot: 10.5% from goal line -->
-      <circle cx="497.5" cy="401.9" r="2" fill="rgba(248,250,252,0.45)" stroke="none"/>
-      <!-- Penalty arc (semicircle, r=48, top half only) -->
-      <path d="M 449.5,401.9 A 48,48 0 0 1 545.5,401.9" stroke-width="2"/>
-      <!-- Goal -->
-      <rect x="447.75" y="446" width="99.5" height="6" fill="rgba(248,250,252,0.6)" stroke="none"/>
-
-      <!-- ===== TOP (far) penalty area ===== -->
-      <!-- Penalty area box: 59.3% of top width × 15.7% depth -->
-      <rect x="288" y="0" width="419" height="70.5" stroke-width="2"/>
-      <!-- Goal area box -->
-      <rect x="402.4" y="0" width="190.2" height="23.3" stroke-width="2"/>
-      <!-- Penalty spot -->
-      <circle cx="497.5" cy="47.1" r="2" fill="rgba(248,250,252,0.45)" stroke="none"/>
-      <!-- Penalty arc (semicircle, bottom half only) -->
-      <path d="M 449.5,47.1 A 48,48 0 0 0 545.5,47.1" stroke-width="2"/>
-      <!-- Goal -->
-      <rect x="462.15" y="-3" width="70.7" height="6" fill="rgba(248,250,252,0.6)" stroke="none"/>
-
+      <!-- TOP (far) penalty area -->
+      <rect x="347" y="0" width="506" height="126" stroke-width="3"/>
+      <rect x="485" y="0" width="230" height="42" stroke-width="3"/>
+      <circle cx="600" cy="84" r="4" fill="rgba(248,250,252,0.45)" stroke="none"/>
+      <path d="M 514,84 A 86,86 0 0 0 686,84" stroke-width="3"/>
+      <rect x="517" y="-4" width="166" height="8" fill="rgba(248,250,252,0.6)" stroke="none"/>
     </g>
   </g>
-
-  <!-- Drop shadow (applied to trapezoid shape) -->
-  <polygon points="144,0 851,0 995,449 0,449" fill="none" stroke="rgba(0,0,0,0.3)" stroke-width="0" filter="url(#shadow)"/>
 </svg>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -39,7 +39,7 @@ type SidebarTab = "events" | "prediction" | "rank";
 // Pitch bounding box: x=[98,1093] (w=995), y=[148,597] (h=449).
 const FORMATION_SLOTS: Record<string, { gridX: number; gridY: number }> = {
   // Goalkeeper — own goal line (bottom)
-  GK: { gridX: 50, gridY: 88 },
+  GK: { gridX: 50, gridY: 82 },
   // Back line — deep, symmetric
   LB: { gridX: 17, gridY: 70 },
   LCB: { gridX: 35, gridY: 76 },
@@ -66,14 +66,14 @@ const FORMATION_SLOTS: Record<string, { gridX: number; gridY: number }> = {
   // Wingers — wide, advanced
   LW: { gridX: 20, gridY: 32 },
   RW: { gridX: 80, gridY: 32 },
-  // Forwards — highest line
-  SS: { gridX: 50, gridY: 14 },
-  CF: { gridX: 50, gridY: 12 },
-  ST: { gridX: 50, gridY: 4 },
-  LST: { gridX: 38, gridY: 8 },
-  RST: { gridX: 62, gridY: 8 },
-  LF: { gridX: 30, gridY: 8 },
-  RF: { gridX: 70, gridY: 8 },
+  // Forwards — highest line (kept below the top edge so tokens don't crop)
+  SS: { gridX: 50, gridY: 20 },
+  CF: { gridX: 50, gridY: 18 },
+  ST: { gridX: 50, gridY: 16 },
+  LST: { gridX: 38, gridY: 16 },
+  RST: { gridX: 62, gridY: 16 },
+  LF: { gridX: 30, gridY: 16 },
+  RF: { gridX: 70, gridY: 16 },
 };
 
 const POSITION_DERIVED_CODE: Record<string, string> = {
@@ -91,7 +91,7 @@ const POSITION_DERIVED_CODE: Record<string, string> = {
 // position code is available. Spreads 11 players across a default shape so they
 // never stack on a single point.
 const INDEX_FALLBACK_SLOTS: { gridX: number; gridY: number }[] = [
-  { gridX: 50, gridY: 88 },   // GK
+  { gridX: 50, gridY: 82 },   // GK
   { gridX: 17, gridY: 70 },   // LB
   { gridX: 35, gridY: 76 },   // LCB
   { gridX: 65, gridY: 76 },   // RCB
@@ -100,7 +100,7 @@ const INDEX_FALLBACK_SLOTS: { gridX: number; gridY: number }[] = [
   { gridX: 50, gridY: 58 },   // CDM
   { gridX: 64, gridY: 42 },   // RCM
   { gridX: 20, gridY: 32 },   // LW
-  { gridX: 50, gridY: 4 },    // ST
+  { gridX: 50, gridY: 16 },   // ST
   { gridX: 80, gridY: 32 },   // RW
 ];
 
@@ -222,63 +222,28 @@ export function PitchArena({
   }
 
   const predictionList = Object.values(predictions);
-  const potentialPayout = useMemo(() => {
-    return predictionList.reduce((sum, p) => {
-      const sub = substitutes.find((s) => s.id === p.inPlayerId);
-      return sum + (sub ? getMultiplier(sub) : 1);
-    }, 0);
-  }, [predictionList, substitutes]);
+  // Pts system: each prediction can score 3 pts max (both correct).
+  const potentialPts = predictionList.length * 3;
 
   const bench = substitutes;
 
   return (
     <div className={cn("grid h-full grid-cols-1 gap-6 lg:grid-cols-[1fr_40%]", className)}>
       {/* ===== LEFT COLUMN: PitchCard + BenchCard ===== */}
-      <div className="flex min-h-0 min-w-0 flex-col gap-6">
+      <div className="flex min-h-0 min-w-0 flex-col gap-4">
         {/* PitchCard */}
-        <div className="relative flex min-h-[240px] flex-1 flex-col overflow-hidden bg-purple/10">
-          {/* Pitch surface — fills the card body top-to-bottom. The sizer
-              takes h-full w-full so the field reaches the card's top and
-              bottom edges; min-w holds a usable size on mobile (scrolls
-              horizontally instead of shrinking). */}
+        <div className="relative flex h-[300px] flex-shrink-0 flex-col overflow-hidden bg-purple/10 sm:h-[380px] lg:h-[440px]">
+          {/* Pitch surface — fills the card body top-to-bottom. */}
           <div className="relative flex flex-1 items-center justify-center overflow-auto">
-            {/* TODO(field-webp): replace the SVG surface + clipPath below with
-                <img src="/field.webp" alt="Pitch" className="absolute inset-0 h-full w-full object-cover" />
-                once the field WebP (trapezoid baked in, transparent corners) is
-                dropped in /public. Use object-cover so the image fills the card
-                height edge-to-edge; author the WebP at ~2:1 with the trapezoid
-                filling the bounding box and a small safe margin so cover-crop
-                never cuts the pitch. Token % positions map to the bounding box. */}
             <div className="relative h-full w-full min-w-[560px]">
-              {/* Trapezoid pitch surface */}
-              <div
-                className="pitch-surface absolute inset-0 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]"
-                style={{
-                  clipPath: "polygon(14.5% 0%, 85.5% 0%, 100% 100%, 0% 100%)",
-                }}
+              {/* Field WebP — trapezoid baked in, fills edge-to-edge */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/field.webp"
+                alt="Pitch"
+                draggable={false}
+        className="pointer-events-none absolute inset-0 h-full w-full object-fill"
               />
-              {/* Pitch markings */}
-              <svg
-                className="pointer-events-none absolute inset-0 h-full w-full text-pitch-line"
-                viewBox="0 0 995 449"
-                preserveAspectRatio="none"
-              >
-                <polygon
-                  points="144,0 851,0 995,449 0,449"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                />
-                <line x1="497.5" y1="0" x2="497.5" y2="449" stroke="currentColor" strokeWidth="2" />
-                <circle
-                  cx="497.5"
-                  cy="224.5"
-                  r="48"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </svg>
 
               {/* Player tokens */}
               <div className="absolute inset-0" onDragOver={(e) => e.preventDefault()}>
@@ -337,9 +302,9 @@ export function PitchArena({
           </div>
         </div>
 
-        {/* BenchCard */}
-        <div className="flex h-[310px] min-w-0 flex-shrink-0 flex-col bg-purple/10 p-6">
-          <div className="mb-3 flex items-center justify-between">
+        {/* Bench — label + scrollable TCG cards, no card box */}
+        <div className="flex min-w-0 flex-shrink-0 flex-col gap-2">
+          <div className="flex items-center justify-between">
             <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
               <span className="flex h-5 w-5 items-center justify-center bg-surface text-foreground">
                 <User size={10} />
@@ -356,7 +321,7 @@ export function PitchArena({
               </button>
             )}
           </div>
-          <div className="flex flex-1 items-center gap-3 overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+          <div className="flex items-center gap-3 overflow-x-auto py-1.5 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
             {bench.map((sub) => (
               <div
                 key={sub.id}
@@ -375,7 +340,7 @@ export function PitchArena({
               </div>
             ))}
             {bench.length === 0 && (
-              <p className="m-auto text-xs text-muted">No substitutes available.</p>
+              <p className="py-4 text-xs text-muted">No substitutes available.</p>
             )}
           </div>
         </div>
@@ -448,7 +413,7 @@ export function PitchArena({
         predictions={predictionList}
         starters={starters}
         substitutes={substitutes}
-        potentialPayout={potentialPayout}
+        potentialPts={potentialPts}
         locked={locked}
         isSubmitting={isSubmitting}
         onLock={handleLock}
@@ -487,6 +452,7 @@ function PlayerToken({
 }) {
   const displayPlayer = sub ?? player;
   const cardImage = tcgCardImage(displayPlayer.position);
+  const lastName = displayPlayer.name.split(" ").pop() ?? displayPlayer.name;
   const shadow = "drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]";
 
   if (sub) {
@@ -494,7 +460,7 @@ function PlayerToken({
       <motion.div
         initial={{ scale: 0.7, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={cn("relative aspect-[2/3] w-8 sm:w-10", flashed && "animate-slot-flash")}
+        className={cn("relative aspect-[2/3] w-16 sm:w-20", flashed && "animate-slot-flash")}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -504,11 +470,17 @@ function PlayerToken({
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
         {displayPlayer.number && (
-          <span className={cn("absolute right-[6%] top-[3%] text-[6px] font-bold leading-none text-white sm:text-[8px]", shadow)}>
+          <span className={cn("absolute right-[6%] top-[3%] font-display text-[10px] font-bold leading-none text-white sm:text-xs", shadow)}>
             {displayPlayer.number}
           </span>
         )}
-        <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center bg-cyan text-[8px] font-bold text-background">
+        {/* Name bar */}
+        <div className="absolute inset-x-[4%] top-[83.5%] bottom-[4%] flex items-center justify-center px-0.5">
+          <span className={cn("truncate text-[6px] font-bold uppercase tracking-tight text-white sm:text-[8px]", shadow)}>
+            {lastName}
+          </span>
+        </div>
+        <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center bg-cyan text-[9px] font-bold text-background">
           {getMultiplier(sub).toFixed(1)}x
         </div>
         <button
@@ -516,10 +488,10 @@ function PlayerToken({
             e.stopPropagation();
             onClear();
           }}
-          className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center bg-rose text-white shadow-lg transition-transform hover:scale-110"
+          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center bg-rose text-white shadow-lg transition-transform hover:scale-110"
           aria-label="Clear prediction"
         >
-          <X size={11} />
+          <X size={12} />
         </button>
       </motion.div>
     );
@@ -528,7 +500,7 @@ function PlayerToken({
   return (
     <div
       className={cn(
-        "relative aspect-[2/3] w-8 cursor-pointer transition-all sm:w-10",
+        "relative aspect-[2/3] w-16 cursor-pointer transition-all sm:w-20",
         isDragOver && "scale-110 ring-2 ring-cyan ring-offset-2 ring-offset-pitch-turf",
       )}
     >
@@ -540,10 +512,16 @@ function PlayerToken({
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
       {displayPlayer.number && (
-        <span className={cn("absolute right-[6%] top-[3%] text-[6px] font-bold leading-none text-white sm:text-[8px]", shadow)}>
+        <span className={cn("absolute right-[6%] top-[3%] font-display text-[10px] font-bold leading-none text-white sm:text-xs", shadow)}>
           {displayPlayer.number}
         </span>
       )}
+      {/* Name bar */}
+      <div className="absolute inset-x-[4%] top-[83.5%] bottom-[4%] flex items-center justify-center px-0.5">
+        <span className={cn("truncate text-[6px] font-bold uppercase tracking-tight text-white sm:text-[8px]", shadow)}>
+          {lastName}
+        </span>
+      </div>
     </div>
   );
 }

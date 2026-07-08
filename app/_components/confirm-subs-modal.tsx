@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle2, ArrowRightLeft } from "lucide-react";
-import { PlayerCard, type PlayerCardData } from "./player-card";
+import { type PlayerCardData } from "./player-card";
 import { SlideToLock } from "./slide-to-lock";
+import { tcgCardImage } from "../_lib/api";
+import { cn } from "../_lib/utils";
 
 export interface SubstitutionPrediction {
   slotId: string;
@@ -20,7 +22,7 @@ interface ConfirmSubsModalProps {
   predictions: SubstitutionPrediction[];
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
-  potentialPayout: number;
+  potentialPts: number;
   locked?: boolean;
   isSubmitting?: boolean;
   onLock: () => void;
@@ -32,7 +34,7 @@ export function ConfirmSubsModal({
   predictions,
   starters,
   substitutes,
-  potentialPayout,
+  potentialPts,
   locked,
   isSubmitting,
   onLock,
@@ -102,7 +104,7 @@ export function ConfirmSubsModal({
                 </h2>
                 <p className="mt-1 text-xs uppercase tracking-wider text-muted">
                   {predictions.length} swap{predictions.length !== 1 ? "s" : ""} ·{" "}
-                  <span className="text-cyan">{potentialPayout.toFixed(1)}x</span> potential payout
+                  <span className="text-cyan">{potentialPts} pts</span> potential
                 </p>
 
                 {/* Swap cards */}
@@ -114,16 +116,16 @@ export function ConfirmSubsModal({
                     return (
                       <div key={p.slotId} className="flex items-center justify-center gap-4">
                         <div className="flex flex-col items-center gap-2">
-                          <PlayerCard player={outPlayer} compact />
+                          <ModalTCGCard player={outPlayer} />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
                             OUT
                           </span>
                         </div>
                         <ArrowRightLeft size={20} className="flex-shrink-0 text-purple" />
                         <div className="flex flex-col items-center gap-2">
-                          <PlayerCard player={inPlayer} compact />
+                          <ModalTCGCard player={inPlayer} />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-cyan">
-                            IN · {(inPlayer.multiplier ?? 1).toFixed(1)}x
+                            IN
                           </span>
                         </div>
                       </div>
@@ -152,6 +154,35 @@ export function ConfirmSubsModal({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ===== Modal TCG card (WebP + overlays, larger than bench) =====
+function ModalTCGCard({ player }: { player: PlayerCardData }) {
+  const cardImage = tcgCardImage(player.position);
+  const lastName = player.name.split(" ").pop() ?? player.name;
+  const shadow = "drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]";
+
+  return (
+    <div className="relative aspect-[2/3] w-28 overflow-hidden sm:w-32">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={cardImage}
+        alt={player.name}
+        draggable={false}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      />
+      {player.number && (
+        <span className={cn("absolute right-[8%] top-[5%] font-display text-lg font-bold leading-none text-white sm:text-xl", shadow)}>
+          {player.number}
+        </span>
+      )}
+      <div className="absolute inset-x-[4%] top-[83.5%] bottom-[4%] flex items-center justify-center px-1">
+        <span className={cn("truncate text-xs font-bold uppercase tracking-tight text-white sm:text-sm", shadow)}>
+          {lastName}
+        </span>
+      </div>
+    </div>
   );
 }
 
