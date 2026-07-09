@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
 import type { ArenaTab } from "../../../_components/top-nav";
+import { EventsTransition } from "../../../_components/events-transition";
 import { PitchArena } from "../../../_components/pitch-arena";
 import { ScorePredictionPanel } from "../../../_components/score-prediction-panel";
 import { GoalscorerPanel } from "../../../_components/goalscorer-panel";
@@ -178,6 +179,7 @@ export default function ArenaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [lockedPredictions, setLockedPredictions] = useState<SubstitutionPrediction[]>([]);
   const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
+  const [showLoadingTransition, setShowLoadingTransition] = useState(true);
   const notifs = useNotifications();
   const submitNotifId = useRef<string | null>(null);
 
@@ -373,6 +375,20 @@ export default function ArenaPage() {
       inPlayerId: score2,
       label: `score ${score1}-${score2}`,
     });
+  }
+
+  if (showLoadingTransition) {
+    return (
+      <EventsTransition
+        mode="enter"
+        logoEnter="/assets/soccit-logo-black.webp"
+        titleEnter="Loading Match"
+        onComplete={() => {
+          setShowLoadingTransition(false);
+          setLoading(false);
+        }}
+      />
+    );
   }
 
   if (loading) {

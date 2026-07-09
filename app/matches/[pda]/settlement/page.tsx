@@ -275,35 +275,12 @@ export default function SettlementPage() {
             </div>
           </motion.div>
 
-          {/* Prize breakdown */}
+          {/* Top finishers — now first (wider) */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
             className="bg-surface p-8 md:col-span-2 lg:col-span-2"
-          >
-            <div className="mb-6 flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center bg-background text-cyan">
-                <Trophy size={20} />
-              </div>
-              <h2 className="font-display text-xl text-foreground">Prize Breakdown</h2>
-            </div>
-            <div className="space-y-3">
-              <PrizeRow rank={1} pct={50} amount={prizes.first} />
-              <PrizeRow rank={2} pct={30} amount={prizes.second} />
-              <PrizeRow rank={3} pct={20} amount={prizes.third} />
-            </div>
-            <p className="mt-4 text-xs text-muted">
-              Net pool after 20% platform fee: ${formatUsdc(String(Math.round(prizes.total)))}
-            </p>
-          </motion.div>
-
-          {/* Top finishers */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-surface p-8 md:col-span-2 lg:col-span-1"
           >
             <div className="mb-6 flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center bg-background text-gold">
@@ -347,6 +324,29 @@ export default function SettlementPage() {
             ) : (
               <p className="text-sm text-muted">No rankings available for this match.</p>
             )}
+          </motion.div>
+
+          {/* Prize breakdown — now second (narrower) */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-surface p-8 md:col-span-2 lg:col-span-1"
+          >
+            <div className="mb-6 flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center bg-background text-cyan">
+                <Trophy size={20} />
+              </div>
+              <h2 className="font-display text-xl text-foreground">Prize Breakdown</h2>
+            </div>
+            <div className="space-y-3">
+              <PrizeRow rank={1} pct={50} amount={prizes.first} />
+              <PrizeRow rank={2} pct={30} amount={prizes.second} />
+              <PrizeRow rank={3} pct={20} amount={prizes.third} />
+            </div>
+            <p className="mt-4 text-xs text-muted">
+              Net pool after 20% platform fee: ${formatUsdc(String(Math.round(prizes.total)))}
+            </p>
           </motion.div>
         </div>
       </div>

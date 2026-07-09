@@ -8,10 +8,8 @@ import {
   AlertCircle,
   RefreshCw,
   Wallet,
-  Target,
   ScrollText,
   Trophy,
-  TrendingUp,
   Users,
   Sparkles,
   Zap,
@@ -288,10 +286,6 @@ export default function MatchDetails() {
           isDemo={isDemo}
           isSeed={isSeed}
           connected={connected}
-          poolTotal={poolTotal}
-          entryFee={entryFee}
-          participantCount={participantCount}
-          prizes={prizes}
         />
 
         {settled ? (
@@ -359,10 +353,6 @@ function MatchHero({
   isDemo,
   isSeed,
   connected,
-  poolTotal,
-  entryFee,
-  participantCount,
-  prizes,
 }: {
   team1?: Lineup["teams"][number];
   team2?: Lineup["teams"][number];
@@ -373,20 +363,16 @@ function MatchHero({
   isDemo: boolean;
   isSeed: boolean;
   connected: boolean;
-  poolTotal: string;
-  entryFee: string;
-  participantCount: number;
-  prizes: { total: number; first: number; second: number; third: number };
 }) {
   return (
     <PageTransition
-      className="group relative flex min-h-[260px] flex-col justify-between overflow-hidden bg-surface p-6 sm:min-h-[300px] sm:p-8"
+      className="group relative flex min-h-[260px] flex-col justify-center overflow-hidden bg-surface p-6 sm:min-h-[300px] sm:p-8"
     >
       <div className="card-shine" />
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple via-cyan to-purple" />
 
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <div className="mb-3 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan">
           {isLive && (
             <span className="relative flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose opacity-75" />
@@ -396,10 +382,10 @@ function MatchHero({
           <span>{isLive ? `${minute}' LIVE` : formatStatus(status)}</span>
         </div>
 
-        <div className="flex items-center justify-center gap-6 md:gap-12 lg:gap-16">
-          <div className="flex flex-1 flex-col items-center gap-2">
-            <TeamBadge name={team1?.teamName ?? "Home"} size="xl" />
-            <span className="max-w-[140px] text-center font-display text-xs uppercase tracking-wider text-foreground md:text-sm">
+        <div className="flex items-center justify-center gap-8 md:gap-16">
+          <div className="flex flex-1 flex-col items-center gap-3">
+            <TeamBadge name={team1?.teamName ?? "Home"} size="xl" className="h-20 w-20 md:h-24 md:w-24" />
+            <span className="max-w-[160px] text-center font-display text-sm uppercase tracking-wider text-foreground md:text-base">
               {team1?.teamName ?? "Home"}
             </span>
           </div>
@@ -408,59 +394,30 @@ function MatchHero({
             <span className="text-muted">-</span>
             <span>{score.team2}</span>
           </div>
-          <div className="flex flex-1 flex-col items-center gap-2">
-            <TeamBadge name={team2?.teamName ?? "Away"} size="xl" />
-            <span className="max-w-[140px] text-center font-display text-xs uppercase tracking-wider text-foreground md:text-sm">
+          <div className="flex flex-1 flex-col items-center gap-3">
+            <TeamBadge name={team2?.teamName ?? "Away"} size="xl" className="h-20 w-20 md:h-24 md:w-24" />
+            <span className="max-w-[160px] text-center font-display text-sm uppercase tracking-wider text-foreground md:text-base">
               {team2?.teamName ?? "Away"}
             </span>
           </div>
         </div>
-      </div>
 
-      {/* Match details bar */}
-      <div className="relative z-10 mt-4 border-t border-surface pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-wider text-muted">
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <span className="inline-flex items-center gap-1.5">
-              <Trophy size={12} className="text-cyan" />
-              Pool <span className="text-foreground">${formatUsdc(poolTotal)}</span>
+        <div className="flex items-center gap-3">
+          {isDemo && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-gold">
+              <Sparkles size={12} /> Demo
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Wallet size={12} className="text-cyan" />
-              Entry <span className="text-foreground">${formatUsdc(entryFee)}</span>
+          )}
+          {isSeed && !isDemo && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan">
+              <Zap size={12} /> Devnet
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Users size={12} className="text-cyan" />
-              Players <span className="text-foreground">{participantCount}</span>
+          )}
+          {!isDemo && !connected && (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-gold">
+              <Wallet size={12} /> Connect
             </span>
-            {participantCount < 3 ? (
-              <span className="inline-flex items-center gap-1.5 text-gold">
-                <TrendingUp size={12} />
-                Winner Takes All
-              </span>
-            ) : (
-              <span className="text-foreground">
-                Net ${formatUsdc(String(Math.round(prizes.total)))}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {isDemo && (
-              <span className="inline-flex items-center gap-1.5 text-gold">
-                <Sparkles size={12} /> Demo
-              </span>
-            )}
-            {isSeed && !isDemo && (
-              <span className="inline-flex items-center gap-1.5 text-cyan">
-                <Zap size={12} /> Devnet
-              </span>
-            )}
-            {!isDemo && !connected && (
-              <span className="inline-flex items-center gap-1.5 text-gold">
-                <Wallet size={12} /> Connect
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </PageTransition>
@@ -541,29 +498,22 @@ function EnterCard({
   return (
     <PageTransition
       delay={0.15}
-      className="group relative flex flex-col items-center justify-center gap-6 overflow-hidden bg-surface p-5 sm:p-6"
+      onClick={onClick}
+      className="group relative flex cursor-pointer flex-col items-center justify-center gap-4 overflow-hidden bg-surface p-5 transition-all hover:bg-surface-elevated sm:p-6"
     >
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple via-cyan to-purple" />
-      <div className="flex flex-col items-center gap-2 text-center">
-        <div className="flex h-12 w-12 items-center justify-center bg-background text-purple transition-colors group-hover:bg-purple group-hover:text-white">
-          <Target size={24} />
-        </div>
-        <h2 className="font-display text-xl text-foreground">
-          {isLive ? "Enter Live Match" : "Enter Match"}
-        </h2>
-        <p className="max-w-xs text-sm text-muted">
-          {isLive
-            ? "Predict the score, subs, and goalscorers as the match unfolds."
-            : "Lock your predictions before kickoff."}
-        </p>
-      </div>
-      <button
-        onClick={onClick}
-        className="btn-gradient flex h-12 items-center px-10 font-display text-sm uppercase tracking-[0.1em] text-white"
-      >
+      <h2 className="font-display text-xl text-foreground">
+        {isLive ? "Enter Live Match" : "Enter Match"}
+      </h2>
+      <p className="max-w-xs text-center text-sm text-muted">
+        {isLive
+          ? "Predict the score, subs, and goalscorers as the match unfolds."
+          : "Lock your predictions before kickoff."}
+      </p>
+      <span className="btn-gradient flex h-12 items-center px-10 font-display text-sm uppercase tracking-[0.1em] text-white transition-transform group-hover:scale-105">
         {isDemo ? "Try Demo" : "Enter"}
         <ArrowRight size={16} className="ml-2" />
-      </button>
+      </span>
     </PageTransition>
   );
 }

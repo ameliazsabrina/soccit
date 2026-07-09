@@ -303,10 +303,10 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
           </span>
         </div>
 
-        {/* Timeline */}
-        <div className="bg-surface p-4">
+        {/* Timeline — scrollable so it doesn't overlap the ticker */}
+        <div className="max-h-[50vh] overflow-y-auto bg-surface p-4">
           {filteredEvents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
+            <div className="flex flex-col items-center justify-center py-12 text-center text-muted">
               <ScrollText size={36} className="mb-4 opacity-30" />
               <p className="text-sm font-medium">No events match your filters.</p>
               <p className="mt-1 text-xs">
@@ -317,7 +317,7 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
             </div>
           ) : (
             <div className="relative space-y-0 pl-6">
-              <div className="absolute bottom-0 left-[27px] top-4 w-px bg-surface" />
+              <div className="absolute bottom-0 left-[27px] top-4 w-px bg-surface-elevated" />
               {filteredEvents.map((entry) => (
                 <TimelineRow key={entry.id} entry={entry} />
               ))}

@@ -1,23 +1,26 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Search,
   Filter,
   ScrollText,
   Clock,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { type EventEntry } from "../_lib/api";
 import { cn } from "../_lib/utils";
 import { PageShell } from "../_components/page-shell";
 
+const PAGE_SIZE = 20;
+
 export default function ExplorerPage() {
   const [events] = useState<EventEntry[]>(() => DEMO_EVENTS);
   const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [page, setPage] = useState(0);
 
   const eventTypes = useMemo(
     () => Array.from(new Set(events.map((e) => e.type))).sort(),
@@ -38,6 +41,13 @@ export default function ExplorerPage() {
     });
   }, [events, filter, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageEvents = filteredEvents.slice(
+    currentPage * PAGE_SIZE,
+    currentPage * PAGE_SIZE + PAGE_SIZE
+  );
+
   return (
     <PageShell>
       <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 lg:px-8">
@@ -54,7 +64,7 @@ export default function ExplorerPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
               placeholder="Search events, players, payloads…"
               className="h-10 w-full bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-purple"
             />
@@ -63,7 +73,7 @@ export default function ExplorerPage() {
             <Filter size={16} className="text-muted" />
             <select
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={(e) => { setFilter(e.target.value); setPage(0); }}
               className="h-10 bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan"
             >
               <option value="all">All types</option>
@@ -76,20 +86,20 @@ export default function ExplorerPage() {
           </div>
         </div>
 
-        {/* Event count */}
+        {/* Event count + pagination info */}
         <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wider text-muted">
           <span>
             {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-2">
             <Clock size={12} />
-            Updated live
+            Page {currentPage + 1}/{totalPages}
           </span>
         </div>
 
         {/* Logs table */}
-        <div className="bg-surface">
-          <div className="hidden grid-cols-12 gap-4 border-b border-surface px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-muted sm:grid">
+        <div className="max-h-[55vh] overflow-y-auto bg-surface">
+          <div className="hidden grid-cols-12 gap-4 border-b border-surface-elevated px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-muted sm:grid sticky top-0 bg-surface z-10">
             <div className="col-span-2">Time</div>
             <div className="col-span-2">Type</div>
             <div className="col-span-3">Players</div>
@@ -97,20 +107,44 @@ export default function ExplorerPage() {
             <div className="col-span-3">Payload</div>
           </div>
 
-          {filteredEvents.length === 0 ? (
+          {pageEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
               <ScrollText size={36} className="mb-4 opacity-30" />
               <p className="text-sm font-medium">No events match your filters.</p>
             </div>
           ) : (
-            <div className="divide-y divide-surface">
-              {filteredEvents.map((entry) => (
+            <div className="divide-y divide-surface-elevated">
+              {pageEvents.map((entry) => (
                 <LogRow key={entry.id} entry={entry} />
               ))}
             </div>
           )}
-          <div ref={bottomRef} />
         </div>
+
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-4">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="flex h-9 w-9 items-center justify-center border border-surface bg-surface text-muted transition-colors hover:border-purple hover:text-foreground disabled:opacity-30 disabled:hover:border-surface disabled:hover:text-muted"
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted">
+              {currentPage + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="flex h-9 w-9 items-center justify-center border border-surface bg-surface text-muted transition-colors hover:border-purple hover:text-foreground disabled:opacity-30 disabled:hover:border-surface disabled:hover:text-muted"
+              aria-label="Next page"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </PageShell>
   );
@@ -134,7 +168,7 @@ function LogRow({ entry }: { entry: EventEntry }) {
         )}
       </div>
       <div className="sm:col-span-2">
-        <span className="inline-flex items-center border border-surface bg-background px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-foreground">
+        <span className="inline-flex items-center border border-surface-elevated bg-background px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-foreground">
           {formatType(entry.type)}
         </span>
       </div>
@@ -166,7 +200,7 @@ function LogRow({ entry }: { entry: EventEntry }) {
         )}
       </div>
       <div className="sm:col-span-3">
-        <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted">
+        <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted">
           {JSON.stringify(entry.payload, null, 2)}
         </pre>
       </div>
