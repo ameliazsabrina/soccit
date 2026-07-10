@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, useMotionValue, useSpring, useReducedMotion } from "framer-motion";
-import { gsap, SplitText, useGSAP } from "./gsap-setup";
+import { gsap, ScrollTrigger, SplitText, useGSAP } from "./gsap-setup";
+import { HoverRevealButton, HoverRevealLink } from "./hover-reveal";
 
 export function CTASection() {
   const container = useRef<HTMLElement>(null);
@@ -165,14 +166,16 @@ export function CTASection() {
           onMouseMove={handleBtnMove}
           onMouseLeave={handleBtnLeave}
         >
-          <Link
+            <Link
             ref={buttonRef}
             href="/matches"
             onClick={handleBtnClick}
             className="btn-gradient relative inline-flex items-center gap-3 overflow-hidden px-12 py-6 font-display text-xl uppercase tracking-[0.1em] text-white shadow-[0_0_30px_rgba(219,161,17,0.25)] transition-shadow hover:shadow-[0_0_50px_rgba(219,161,17,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <span className="relative z-10">Enter the Arena</span>
-            <span className="material-symbols-outlined relative z-10 text-2xl">arrow_forward</span>
+            <HoverRevealButton className="relative z-10 flex items-center gap-3">
+              <span>Enter the Arena</span>
+              <span className="material-symbols-outlined text-2xl">arrow_forward</span>
+            </HoverRevealButton>
             {ripples.map((ripple) => (
               <span
                 key={ripple.id}
@@ -232,12 +235,13 @@ export function CTASection() {
             >
               <span className="material-symbols-outlined">code</span>
             </a>
-            <a
+            <HoverRevealLink
               href="#top"
               className="font-tech text-xs uppercase tracking-wider text-muted transition-colors hover:text-foreground"
+              underline
             >
               Back to top
-            </a>
+            </HoverRevealLink>
           </div>
         </div>
       </footer>

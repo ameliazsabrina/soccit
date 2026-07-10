@@ -6,6 +6,8 @@ import { LeaderboardTeaser } from "./_components/leaderboard-teaser";
 import { CTASection } from "./_components/cta-section";
 import { ScrollProgress } from "./_components/scroll-progress";
 import { PageLoader } from "./_components/page-loader";
+import { SmoothScroll } from "./_components/smooth-scroll";
+import { BottomNav } from "./_components/bottom-nav";
 
 export const metadata: Metadata = {
   title: "Soccit — Gamified Football Prediction Market on Solana",
@@ -17,13 +19,16 @@ export default function LandingPage() {
     <>
       <PageLoader />
       <ScrollProgress />
-      <main id="top" className="relative bg-background text-foreground overflow-x-hidden">
-        <LandingHero />
-        <HowItWorks />
-        <CardsGallery />
-        <LeaderboardTeaser />
-        <CTASection />
-      </main>
+      <SmoothScroll>
+        <main id="top" className="relative bg-background text-foreground overflow-x-hidden">
+          <LandingHero />
+          <HowItWorks />
+          <CardsGallery />
+          <LeaderboardTeaser />
+          <CTASection />
+        </main>
+      </SmoothScroll>
+      <BottomNav />
     </>
   );
 }

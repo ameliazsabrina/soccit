@@ -367,6 +367,28 @@ body {
   animation: celebration-burst 2.2s ease-out forwards;
 }
 
+/* Hover-reveal text effect */
+.hover-reveal-line {
+  display: inline-block;
+}
+
+.hover-reveal-underline::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform-origin: left;
+  transition: transform 1s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.hover-reveal-underline:hover::before {
+  transform: scaleX(0);
+  transform-origin: right;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,

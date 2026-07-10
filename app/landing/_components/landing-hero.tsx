@@ -11,6 +11,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { gsap, SplitText, useGSAP } from "./gsap-setup";
+import { HoverRevealLink, HoverRevealButton } from "./hover-reveal";
 
 export function LandingHero() {
   const container = useRef<HTMLElement>(null);
@@ -74,7 +75,7 @@ export function LandingHero() {
         return;
       }
 
-      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
 
       const split = SplitText.create(headlineRef.current, {
         type: "words",
@@ -84,26 +85,26 @@ export function LandingHero() {
           tl.from(
             self.words,
             {
-              yPercent: 110,
-              rotationX: 45,
+              yPercent: 120,
+              rotationX: 35,
               autoAlpha: 0,
-              duration: 0.8,
-              stagger: 0.08,
+              duration: 1,
+              stagger: 0.06,
               transformOrigin: "bottom",
-              ease: "power3.out",
+              ease: "power4.out",
             },
             0
           );
         },
       });
 
-      tl.from("[data-hero-eyebrow]", { y: 20, autoAlpha: 0, duration: 0.6 }, 0.2);
-      tl.from("[data-hero-subhead]", { y: 20, autoAlpha: 0, duration: 0.6 }, 0.4);
-      tl.from("[data-hero-cta]", { y: 30, autoAlpha: 0, duration: 0.6 }, 0.55);
+      tl.from("[data-hero-eyebrow]", { y: 24, autoAlpha: 0, duration: 0.8 }, 0.25);
+      tl.from("[data-hero-subhead]", { y: 24, autoAlpha: 0, duration: 0.8 }, 0.4);
+      tl.from("[data-hero-cta]", { y: 36, autoAlpha: 0, duration: 0.8 }, 0.55);
       tl.from(
         "[data-hero-flag]",
-        { scale: 0, autoAlpha: 0, duration: 0.5, stagger: 0.15, ease: "back.out(1.7)" },
-        0.6
+        { scale: 0, autoAlpha: 0, duration: 0.6, stagger: 0.12, ease: "back.out(1.7)" },
+        0.7
       );
 
       // Score count-up with 3D reveal
@@ -245,18 +246,20 @@ export function LandingHero() {
                 href="/matches"
                 className="btn-gradient relative inline-flex items-center gap-2 overflow-hidden px-8 py-4 font-display text-sm uppercase tracking-[0.1em] text-white transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <span className="relative z-10">Enter the Arena</span>
-                <span className="material-symbols-outlined relative z-10 text-xl">arrow_forward</span>
+                <HoverRevealButton className="relative z-10 flex items-center gap-2">
+                  <span>Enter the Arena</span>
+                  <span className="material-symbols-outlined text-xl">arrow_forward</span>
+                </HoverRevealButton>
               </Link>
             </motion.div>
 
-            <motion.a
+            <HoverRevealLink
               href="#how-it-works"
               className="font-tech text-xs uppercase tracking-[0.15em] text-muted transition-colors hover:text-foreground"
-              whileHover={{ x: 4 }}
+              underline
             >
               Watch how it works
-            </motion.a>
+            </HoverRevealLink>
           </div>
         </div>
 
