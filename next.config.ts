@@ -7,7 +7,20 @@ const nextConfig: NextConfig = {
   images: {
     localPatterns: [
       {
-        pathname: "/assets/cards/**",
+        pathname: "/assets/**",
+      },
+      {
+        pathname: "/avatars/**",
+      },
+      {
+        pathname: "/field.webp",
+      },
+    ],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "flagcdn.com",
+        pathname: "/**",
       },
     ],
   },
