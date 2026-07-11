@@ -15,17 +15,24 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import { AlertCircle, Loader2 as Spinner } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PageShell } from "../_components/page-shell";
 import { AvatarPicker } from "../_components/avatar-picker";
+import { PositionCard } from "../_components/position-card";
 import {
   getUser,
   getUserMatches,
+  getMatches,
+  getPortfolio,
   updateAvatar,
   updateUsername,
   formatWallet,
+  formatUsdcAmount,
   type UserProfile,
   type UserMatch,
+  type MatchSummary,
+  type Portfolio,
   type AvatarId,
 } from "../_lib/api";
 import { ensureSession } from "../_lib/session";
@@ -38,6 +45,19 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showUsernameModal, setShowUsernameModal] = useState(false);
+
+  // Portfolio (USDC balance + active positions) loads independently of the
+  // profile/points fetch so an RPC hiccup on one doesn't blank the other.
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [portfolioStatus, setPortfolioStatus] = useState<
+    "idle" | "loading" | "error" | "ready"
+  >("idle");
+  // /api/matches summaries, keyed by fixtureId — lends team names + final
+  // scores to positions (the portfolio feed carries neither).
+  const [matchesByFixture, setMatchesByFixture] = useState<
+    Map<number, MatchSummary>
+  >(new Map());
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!connected || !publicKey) {
@@ -55,8 +75,42 @@ export default function ProfilePage() {
       .finally(() => setLoading(false));
   }, [connected, publicKey]);
 
+  useEffect(() => {
+    if (!connected || !publicKey) {
+      setPortfolio(null);
+      setPortfolioStatus("idle");
+      setMatchesByFixture(new Map());
+      return;
+    }
+    const wallet = publicKey.toBase58();
+    let active = true;
+    setPortfolioStatus("loading");
+    // Enrich positions with team names/final scores when available, but never
+    // let a /api/matches failure fail the portfolio itself.
+    getMatches()
+      .then((rows) => {
+        if (active) setMatchesByFixture(new Map(rows.map((r) => [r.fixtureId, r])));
+      })
+      .catch(() => {
+        if (active) setMatchesByFixture(new Map());
+      });
+    getPortfolio(wallet)
+      .then((p) => {
+        if (!active) return;
+        setPortfolio(p);
+        setPortfolioStatus("ready");
+      })
+      .catch(() => {
+        if (active) setPortfolioStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [connected, publicKey, reloadKey]);
+
   const totalPoints = matches.reduce((sum, m) => sum + m.points, 0);
-  const active = matches.filter((m) => !m.final).length;
+  const decimals = portfolio?.usdcDecimals ?? 6;
+  const activeCount = portfolio?.activeCount ?? 0;
 
   function handleDisconnect() {
     if (window.confirm("Disconnect your wallet?")) {
@@ -79,12 +133,31 @@ export default function ProfilePage() {
             <Wallet size={24} />
           </div>
           <div>
-            <p className="font-display text-5xl text-foreground">$0.00</p>
+            {portfolioStatus === "loading" ? (
+              <div className="h-12 w-40 animate-pulse bg-background" />
+            ) : portfolioStatus === "error" ? (
+              <button
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="flex items-center gap-2 font-display text-2xl text-rose transition-colors hover:text-rose/80"
+              >
+                <Spinner size={20} />
+                Retry
+              </button>
+            ) : portfolioStatus === "ready" && portfolio ? (
+              <p className="font-display text-5xl tabular-nums text-foreground">
+                ${formatUsdcAmount(portfolio.portfolioValue, decimals)}
+              </p>
+            ) : (
+              <p className="font-display text-5xl text-muted">$0.00</p>
+            )}
             <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">
               Portfolio Value
             </p>
-            {connected && (
-              <p className="mt-1 text-xs text-muted">Across {matches.length} entries</p>
+            {portfolioStatus === "ready" && portfolio && (
+              <p className="mt-1 text-xs tabular-nums text-muted">
+                ${formatUsdcAmount(portfolio.lockedStake, decimals)} at stake ·{" "}
+                {activeCount} active
+              </p>
             )}
           </div>
         </motion.div>
@@ -189,7 +262,15 @@ export default function ProfilePage() {
             <History size={24} />
           </div>
           <div>
-            <p className="font-display text-5xl text-foreground">{active}</p>
+            {portfolioStatus === "loading" ? (
+              <div className="h-12 w-16 animate-pulse bg-background" />
+            ) : portfolioStatus === "ready" ? (
+              <p className="font-display text-5xl tabular-nums text-foreground">
+                {activeCount}
+              </p>
+            ) : (
+              <p className="font-display text-5xl text-muted">—</p>
+            )}
             <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">
               Active Positions
             </p>
@@ -232,6 +313,63 @@ export default function ProfilePage() {
           </motion.button>
         )}
       </div>
+
+      {connected && (
+        <section className="mt-6">
+          <h2 className="mb-3 font-display text-2xl uppercase tracking-wider text-foreground">
+            Your Positions
+          </h2>
+
+          {portfolioStatus === "loading" ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[0, 1].map((i) => (
+                <div
+                  key={i}
+                  className="h-32 animate-pulse border border-surface bg-surface/40"
+                />
+              ))}
+            </div>
+          ) : portfolioStatus === "error" ? (
+            <div className="flex flex-col items-center justify-center border border-rose/30 bg-rose/5 p-8 text-center text-rose">
+              <AlertCircle size={32} className="mb-3" />
+              <p className="font-bold uppercase tracking-wider">
+                Portfolio unavailable
+              </p>
+              <p className="mt-1 text-sm">
+                The balance service is temporarily unreachable.
+              </p>
+              <button
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="mt-5 flex items-center gap-2 border border-rose/30 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-rose/10"
+              >
+                <Spinner size={14} />
+                Retry
+              </button>
+            </div>
+          ) : portfolio && portfolio.positions.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {portfolio.positions.map((position) => (
+                <PositionCard
+                  key={position.pda}
+                  position={position}
+                  match={matchesByFixture.get(position.fixtureId) ?? null}
+                  usdcDecimals={decimals}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center border border-dashed border-surface py-16 text-center text-muted">
+              <p className="font-display text-xl tracking-wider">
+                No Active Positions
+              </p>
+              <p className="mt-2 max-w-sm text-sm">
+                Enter a match to open your first position. Your live stakes will
+                show up here.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       <AvatarEditModal
         open={showAvatarModal}

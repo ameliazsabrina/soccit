@@ -202,6 +202,59 @@ export type UserMatch = {
   predictions: UserMatchPrediction[];
 };
 
+// ---- Portfolio (USDC balance + active positions) -------------------------
+// GET /api/user/:wallet/portfolio. Every monetary field is a USDC base-unit
+// string (BigInt-safe) — format with `formatUsdcAmount`, never float-math the
+// raw strings. There is deliberately no 24h-change field (no historical
+// snapshots exist), so don't derive a fake delta client-side.
+
+// The portfolio feed can report a mid-lifecycle FINISHED phase that the lighter
+// MatchSummary shape collapses away, so keep it as its own union.
+export type PortfolioPhase =
+  | "UPCOMING"
+  | "OPEN"
+  | "LIVE"
+  | "FINISHED"
+  | "RESOLVED"
+  | "SETTLED";
+
+export type PortfolioPosition = {
+  pda: string;
+  fixtureId: number;
+  status: number;
+  statusLabel: "OPEN" | "RESOLVED";
+  entryFee: string; // USDC base units
+  side: number;
+  slotsUsed: number;
+  team1Id: number;
+  team2Id: number;
+  startTime: number; // unix SECONDS
+  phase: PortfolioPhase;
+  // Non-null only while the fixture is in-play (mirrors MatchSummary.live).
+  live: null | {
+    statusId: number | null;
+    minute: number | null;
+    goals: Score;
+    ts: number | null;
+  };
+};
+
+export type Portfolio = {
+  wallet: string;
+  usdcMint: string | null;
+  usdcBalance: string; // base units
+  lockedStake: string; // Σ entry fees across active positions
+  portfolioValue: string; // usdcBalance + lockedStake — the headline number
+  usdcDecimals: number; // 6
+  activeCount: number;
+  positions: PortfolioPosition[];
+  updatedAt: number;
+};
+
+export function getPortfolio(wallet: string) {
+  return apiJson<Portfolio>(`/api/user/${wallet}/portfolio`);
+}
+
 export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -522,6 +575,28 @@ export function formatUsdc(lamports: string) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/**
+ * Format a USDC base-unit amount for display, e.g. `("14093500000", 6)` →
+ * `"14,093.50"`. BigInt-safe: no float math on the raw string, so large
+ * balances never lose precision. Always renders 2 fraction digits with grouped
+ * thousands. Invalid/empty input → `"--"`. Never emits a signed zero.
+ */
+export function formatUsdcAmount(base: string, decimals = 6): string {
+  if (base == null) return "--";
+  const negative = base.trim().startsWith("-");
+  const digits = base.replace(/[^0-9]/g, "");
+  if (digits === "") return "--";
+  const padded = digits.padStart(decimals + 1, "0");
+  const whole = padded.slice(0, padded.length - decimals);
+  const fraction = decimals > 0 ? padded.slice(padded.length - decimals) : "";
+  // Truncate (not round) to 2dp so a displayed balance never overstates funds.
+  const cents = `${fraction}00`.slice(0, 2);
+  const grouped = BigInt(whole).toLocaleString("en-US");
+  const isZero = /^0+$/.test(digits);
+  const sign = negative && !isZero ? "-" : "";
+  return `${sign}${grouped}.${cents}`;
 }
 
 /** Prize pool after 20% platform fee is deducted. */
