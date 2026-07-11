@@ -13,6 +13,10 @@ function arg(name: string): string | undefined {
   return i !== -1 ? process.argv[i + 1] : undefined;
 }
 
+function flag(name: string): boolean {
+  return process.argv.includes(`--${name}`);
+}
+
 async function main(): Promise<void> {
   const fixtureId = BigInt(arg("fixture") ?? (config.fixtureId ?? ""));
   const team1Id = Number(arg("team1") ?? 0);
@@ -24,12 +28,30 @@ async function main(): Promise<void> {
 
   // Kickoff time (unix seconds); entries open ENTRY_LEAD_SECS before it on-chain.
   // --start-epoch-ms takes a feed StartTime (ms) and converts; --start-time is
-  // raw unix seconds. Default 0 = entry gate disabled (always open, for tests).
+  // raw unix seconds. start_time 0 disables the entry gate (always open) — a
+  // real match must NOT be created that way, so require an explicit time and
+  // only allow the gate-off sentinel behind --no-entry-gate (tests/local only).
   const startEpochMs = arg("start-epoch-ms");
-  const startTime =
-    startEpochMs != null
-      ? BigInt(Math.floor(Number(startEpochMs) / 1000))
-      : BigInt(arg("start-time") ?? 0);
+  const startTimeArg = arg("start-time");
+  const noEntryGate = flag("no-entry-gate");
+  let startTime: bigint;
+  if (startEpochMs != null) {
+    startTime = BigInt(Math.floor(Number(startEpochMs) / 1000));
+  } else if (startTimeArg != null) {
+    startTime = BigInt(startTimeArg);
+  } else if (noEntryGate) {
+    startTime = 0n;
+  } else {
+    throw new Error(
+      "kickoff time required: pass --start-epoch-ms <feed ms> or --start-time <unix secs>. " +
+        "Only use --no-entry-gate to intentionally disable the entry window (tests/local).",
+    );
+  }
+  if (startTime === 0n && !noEntryGate) {
+    throw new Error(
+      "start_time 0 disables the entry gate; pass --no-entry-gate to confirm this is intentional.",
+    );
+  }
 
   const adminPath = arg("admin") ?? config.solana.resolverKeypairPath;
   const admin = loadKeypair(adminPath);
