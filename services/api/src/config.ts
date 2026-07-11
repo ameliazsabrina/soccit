@@ -33,6 +33,7 @@ const Schema = z.object({
   TXLINE_BASE_URL: z.string().url().default("https://txline.txodds.com"),
   TXLINE_API_TOKEN: z.string().optional(),
   LOG_LEVEL: z.string().default("info"),
+  EXCLUDED_MATCH_PDAS: z.string().default(""),
 });
 
 const env = Schema.parse(process.env);
@@ -81,6 +82,11 @@ export const config = {
     apiToken: env.TXLINE_API_TOKEN || undefined,
   },
   logLevel: env.LOG_LEVEL,
+  excludedMatchPdas: new Set(
+    env.EXCLUDED_MATCH_PDAS.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ),
 } as const;
 
 export type Config = typeof config;

@@ -1,5 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { config } from "../../config.js";
 import type { DecodedMatch } from "../../onchain/program.js";
 import { MatchNotFoundError } from "./match.errors.js";
 import {
@@ -132,6 +133,20 @@ describe("listMatches", () => {
 
     const order = (await listMatches()).map((m) => m.pda);
     expect(order).toEqual(["o2", "o1", "r", "s"]);
+  });
+
+  it("drops matches whose PDA is in config.excludedMatchPdas", async () => {
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "keep", match: fakeMatch({ matchId: 1n, status: 0 }) },
+      { pda: "drop", match: fakeMatch({ matchId: 2n, status: 0 }) },
+    ]);
+    config.excludedMatchPdas.add("drop");
+    try {
+      const pdas = (await listMatches()).map((m) => m.pda);
+      expect(pdas).toEqual(["keep"]);
+    } finally {
+      config.excludedMatchPdas.delete("drop");
+    }
   });
 
   it("features the soonest-upcoming OPEN match", async () => {

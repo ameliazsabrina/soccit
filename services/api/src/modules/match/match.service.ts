@@ -1,3 +1,4 @@
+import { config } from "../../config.js";
 import { getRedis } from "../../redis.js";
 import {
   type DecodedMatch,
@@ -116,7 +117,9 @@ function pickFeaturedPda(
 }
 
 export async function listMatches(): Promise<MatchSummary[]> {
-  const matches = await fetchAllMatches();
+  const matches = (await fetchAllMatches()).filter(
+    ({ pda }) => !config.excludedMatchPdas.has(pda),
+  );
   const redis = getRedis();
   const nowSecs = Math.floor(Date.now() / 1000);
   const summaries = await Promise.all(
