@@ -57,6 +57,10 @@ export class Store {
     }
   }
 
+  writeProvisionalLineup(snap: LineupSnapshot): Promise<boolean> {
+    return this.redis.writeProvisionalLineup(snap);
+  }
+
   getLastEventId(): Promise<string | undefined> {
     return this.redis.getLastEventId();
   }

@@ -98,6 +98,29 @@ export class RedisStore {
       .exec();
   }
 
+  async writeProvisionalLineup(snap: LineupSnapshot): Promise<boolean> {
+    const existing = await this.redis.get(lineupKey(snap.fixtureId));
+    if (existing) {
+      try {
+        const parsed = JSON.parse(existing) as LineupSnapshot;
+        const hasPlayers = parsed.teams?.some((t) => t.players?.length > 0);
+        if (hasPlayers) {
+          await this.redis.set(
+            matchPdaKey(matchPda(snap.fixtureId)),
+            String(snap.fixtureId),
+          );
+          return false;
+        }
+      } catch {}
+    }
+    await this.redis
+      .pipeline()
+      .set(lineupKey(snap.fixtureId), JSON.stringify(snap))
+      .set(matchPdaKey(matchPda(snap.fixtureId)), String(snap.fixtureId))
+      .exec();
+    return true;
+  }
+
   async close(): Promise<void> {
     await this.redis.quit();
   }

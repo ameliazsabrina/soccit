@@ -48,6 +48,7 @@ const Schema = z.object({
     .int()
     .positive()
     .default(21_600),
+  MATCH_CREATE_POLL_MS: z.coerce.number().int().positive().default(60_000),
 });
 
 const env = Schema.parse(process.env);
@@ -85,6 +86,7 @@ export const config = {
   matchCreation: {
     scheduleApiUrl: env.SCHEDULE_API_URL,
     lookaheadSecs: env.MATCH_CREATE_LOOKAHEAD_SECS,
+    pollMs: env.MATCH_CREATE_POLL_MS,
   },
 } as const;
 
