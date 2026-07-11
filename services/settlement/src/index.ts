@@ -25,6 +25,7 @@ function startMatchCreationLoop(
         programId,
         resolver,
         usdcMint,
+        cluster: config.solana.cluster,
         entryFee: config.entryFeeBaseUnits,
         scheduleApiUrl,
         lookaheadSecs,

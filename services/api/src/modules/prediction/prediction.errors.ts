@@ -17,3 +17,38 @@ export class EntryNotOpenYetError extends Error {
     this.startTime = startTime;
   }
 }
+
+export class MatchMintMismatchError extends Error {
+  readonly expectedMint: string;
+  readonly actualMint: string;
+  constructor(fixtureId: number, expectedMint: string, actualMint: string) {
+    super(
+      `Match ${fixtureId} was created against USDC mint ${actualMint}, not the ` +
+        `supported mint ${expectedMint}; it cannot accept predictions and must be recreated`,
+    );
+    this.name = "MatchMintMismatchError";
+    this.expectedMint = expectedMint;
+    this.actualMint = actualMint;
+  }
+}
+
+export class InsufficientEntryBalanceError extends Error {
+  readonly required: string;
+  readonly available: string;
+  readonly mint: string;
+  constructor(
+    fixtureId: number,
+    required: bigint,
+    available: bigint,
+    mint: string,
+  ) {
+    super(
+      `Insufficient USDC balance to enter match ${fixtureId}: need ${required} ` +
+        `base units of ${mint} but wallet holds ${available}`,
+    );
+    this.name = "InsufficientEntryBalanceError";
+    this.required = required.toString();
+    this.available = available.toString();
+    this.mint = mint;
+  }
+}

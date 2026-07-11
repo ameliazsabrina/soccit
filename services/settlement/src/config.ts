@@ -2,13 +2,9 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
+import { CANONICAL_USDC_MINT } from "@soccit/onchain/program";
 
 loadDotenv();
-
-const USDC_MINT_DEFAULT = {
-  devnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-  "mainnet-beta": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-} as const;
 
 const HELIUS_SUBDOMAIN = {
   devnet: "devnet",
@@ -53,6 +49,20 @@ const Schema = z.object({
 
 const env = Schema.parse(process.env);
 
+// The USDC mint is a single source of truth: matches must be created against
+// the canonical per-cluster mint (see @soccit/onchain CANONICAL_USDC_MINT).
+// A stale USDC_MINT override (e.g. a mock mint left on a box .env) previously
+// leaked mock-mint matches into prod, making predictions fail with 0x1. Only
+// accept USDC_MINT as an explicit confirmation of the canonical value; refuse
+// to start on divergence rather than silently mint broken matches.
+const canonicalUsdcMint = CANONICAL_USDC_MINT[env.SOLANA_CLUSTER];
+if (env.USDC_MINT && env.USDC_MINT !== canonicalUsdcMint) {
+  throw new Error(
+    `USDC_MINT=${env.USDC_MINT} is not the canonical ${env.SOLANA_CLUSTER} USDC mint ` +
+      `${canonicalUsdcMint}. Matches must use the canonical mint — unset USDC_MINT or correct it.`,
+  );
+}
+
 function resolveRpcUrl(): string {
   if (env.SOLANA_RPC_URL) return env.SOLANA_RPC_URL;
   const key =
@@ -74,7 +84,7 @@ export const config = {
     programId: env.PROGRAM_ID,
     resolverKeypairPath: expandHome(env.RESOLVER_KEYPAIR_PATH),
     platformWallet: env.PLATFORM_WALLET,
-    usdcMint: env.USDC_MINT || USDC_MINT_DEFAULT[env.SOLANA_CLUSTER],
+    usdcMint: canonicalUsdcMint,
   },
   entryFeeBaseUnits: env.ENTRY_FEE_BASE_UNITS,
   fixtureId: env.SETTLEMENT_FIXTURE_ID

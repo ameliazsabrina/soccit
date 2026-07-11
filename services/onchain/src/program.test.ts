@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
+  CANONICAL_USDC_MINT,
   ENTRY_ACCOUNT_LEN,
   MATCH_ACCOUNT_LEN,
   STATUS_RESOLVED,
+  assertCanonicalMint,
   buildCreateMatchInstruction,
   buildPlacePredictionInstruction,
   buildResolveInstruction,
@@ -25,19 +27,21 @@ const CREATE_DISC = Buffer.from([107, 2, 184, 145, 70, 142, 17, 165]);
 const PLACE_DISC = Buffer.from([79, 46, 195, 197, 50, 91, 88, 229]);
 const MATCH_DISC = Buffer.from([236, 63, 169, 38, 15, 56, 196, 162]);
 
-function encodeMatch(over: Partial<{
-  matchId: bigint;
-  status: number;
-  settled: boolean;
-  resolver: PublicKey;
-  usdcMint: PublicKey;
-  vault: PublicKey;
-  winner1: PublicKey;
-  winner2: PublicKey;
-  winner3: PublicKey;
-  participantCount: number;
-  startTime: bigint;
-}> = {}): Buffer {
+function encodeMatch(
+  over: Partial<{
+    matchId: bigint;
+    status: number;
+    settled: boolean;
+    resolver: PublicKey;
+    usdcMint: PublicKey;
+    vault: PublicKey;
+    winner1: PublicKey;
+    winner2: PublicKey;
+    winner3: PublicKey;
+    participantCount: number;
+    startTime: bigint;
+  }> = {},
+): Buffer {
   const buf = Buffer.alloc(MATCH_ACCOUNT_LEN);
   MATCH_DISC.copy(buf, 0);
   buf.writeBigUInt64LE(over.matchId ?? 17926593n, 8);
@@ -107,7 +111,9 @@ describe("decodeMatch", () => {
 describe("decodeEntry", () => {
   const ENTRY_DISC = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
 
-  const encodeEntry = (over: { side?: number; slotsUsed?: number; playerCount?: number } = {}) => {
+  const encodeEntry = (
+    over: { side?: number; slotsUsed?: number; playerCount?: number } = {},
+  ) => {
     const buf = Buffer.alloc(ENTRY_ACCOUNT_LEN);
     ENTRY_DISC.copy(buf, 0);
     PublicKey.unique().toBuffer().copy(buf, 8); // owner
@@ -120,7 +126,9 @@ describe("decodeEntry", () => {
   };
 
   it("reads side / slotsUsed for a score-first (unset side) entry", () => {
-    const decoded = decodeEntry(encodeEntry({ side: 0, slotsUsed: 2, playerCount: 1 }));
+    const decoded = decodeEntry(
+      encodeEntry({ side: 0, slotsUsed: 2, playerCount: 1 }),
+    );
     expect(decoded.side).toBe(0);
     expect(decoded.slotsUsed).toBe(2);
     expect(decoded.playerCount).toBe(1);
@@ -150,10 +158,19 @@ describe("buildResolveInstruction", () => {
     });
     expect(ix.data.subarray(0, 8).equals(RESOLVE_DISC)).toBe(true);
     expect(ix.data.readUInt8(8)).toBe(1);
-    expect(new PublicKey(ix.data.subarray(9, 41)).toBase58()).toBe(w1.toBase58());
+    expect(new PublicKey(ix.data.subarray(9, 41)).toBase58()).toBe(
+      w1.toBase58(),
+    );
     expect(ix.data.length).toBe(8 + 1 + 96);
-    expect(ix.keys[0]).toMatchObject({ pubkey: resolver, isSigner: true, isWritable: false });
-    expect(ix.keys[1]).toMatchObject({ pubkey: matchAccount, isWritable: true });
+    expect(ix.keys[0]).toMatchObject({
+      pubkey: resolver,
+      isSigner: true,
+      isWritable: false,
+    });
+    expect(ix.keys[1]).toMatchObject({
+      pubkey: matchAccount,
+      isWritable: true,
+    });
   });
 });
 
@@ -217,7 +234,11 @@ describe("buildPlacePredictionInstruction", () => {
     const pred = predictionPda(PROGRAM_ID, matchAccount, user, 3);
     expect(ix.keys[2]!.pubkey.toBase58()).toBe(entry.toBase58());
     expect(ix.keys[3]!.pubkey.toBase58()).toBe(pred.toBase58());
-    expect(ix.keys[0]).toMatchObject({ pubkey: user, isSigner: true, isWritable: true });
+    expect(ix.keys[0]).toMatchObject({
+      pubkey: user,
+      isSigner: true,
+      isWritable: true,
+    });
   });
 });
 
@@ -242,10 +263,40 @@ describe("buildCreateMatchInstruction", () => {
     expect(ix.data.readUInt32LE(16)).toBe(11);
     expect(ix.data.readUInt32LE(20)).toBe(22);
     expect(ix.data.readBigUInt64LE(24)).toBe(1_000_000n);
-    expect(new PublicKey(ix.data.subarray(32, 64)).toBase58()).toBe(resolver.toBase58());
+    expect(new PublicKey(ix.data.subarray(32, 64)).toBase58()).toBe(
+      resolver.toBase58(),
+    );
     expect(ix.data.readBigInt64LE(64)).toBe(1_782_446_400n);
     const m = matchPda(PROGRAM_ID, 17926593n);
     expect(ix.keys[1]!.pubkey.toBase58()).toBe(m.toBase58());
-    expect(ix.keys[7]!.pubkey.toBase58()).toBe(SystemProgram.programId.toBase58());
+    expect(ix.keys[7]!.pubkey.toBase58()).toBe(
+      SystemProgram.programId.toBase58(),
+    );
+  });
+});
+
+describe("assertCanonicalMint", () => {
+  it("accepts the canonical mint for each cluster", () => {
+    expect(() =>
+      assertCanonicalMint(CANONICAL_USDC_MINT.devnet, "devnet"),
+    ).not.toThrow();
+    expect(() =>
+      assertCanonicalMint(CANONICAL_USDC_MINT["mainnet-beta"], "mainnet-beta"),
+    ).not.toThrow();
+  });
+
+  it("rejects a mock/ad-hoc mint (the entry-fee 0x1 root cause)", () => {
+    expect(() =>
+      assertCanonicalMint(
+        "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+        "devnet",
+      ),
+    ).toThrow(/not the canonical devnet mint/);
+  });
+
+  it("rejects the mainnet mint on devnet (wrong cluster)", () => {
+    expect(() =>
+      assertCanonicalMint(CANONICAL_USDC_MINT["mainnet-beta"], "devnet"),
+    ).toThrow(/canonical devnet mint/);
   });
 });

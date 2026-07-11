@@ -61,6 +61,8 @@ import { preparePredictionInput } from "./modules/prediction/prediction.schema.j
 import { preparePrediction } from "./modules/prediction/prediction.service.js";
 import {
   EntryNotOpenYetError,
+  InsufficientEntryBalanceError,
+  MatchMintMismatchError,
   MatchNotOpenError,
 } from "./modules/prediction/prediction.errors.js";
 import {
@@ -190,6 +192,18 @@ app.post("/api/prediction/prepare", async (c) => {
       return c.json({ error: err.message }, 404);
     if (err instanceof MatchNotOpenError || err instanceof EntryNotOpenYetError)
       return c.json({ error: err.message }, 409);
+    if (err instanceof MatchMintMismatchError)
+      return c.json({ error: err.message }, 409);
+    if (err instanceof InsufficientEntryBalanceError)
+      return c.json(
+        {
+          error: err.message,
+          required: err.required,
+          available: err.available,
+          mint: err.mint,
+        },
+        402,
+      );
     throw err;
   }
 });

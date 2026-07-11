@@ -1,5 +1,10 @@
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
-import { buildCreateMatchInstruction, matchPda } from "@soccit/onchain/program";
+import {
+  assertCanonicalMint,
+  buildCreateMatchInstruction,
+  matchPda,
+  type SolanaCluster,
+} from "@soccit/onchain/program";
 import { logger } from "./logger.js";
 export interface ScheduleFixture {
   fixtureId: number;
@@ -53,6 +58,7 @@ export interface MatchCreationDeps {
   programId: PublicKey;
   resolver: Keypair;
   usdcMint: PublicKey;
+  cluster: SolanaCluster;
   entryFee: bigint;
   scheduleApiUrl: string;
   lookaheadSecs: number;
@@ -62,6 +68,10 @@ export interface MatchCreationDeps {
 export async function runMatchCreation(
   deps: MatchCreationDeps,
 ): Promise<{ created: number; skipped: number }> {
+  // Defense-in-depth: never create a match against a non-canonical mint, even
+  // if a caller somehow supplies one. A wrong mint bakes into match state and
+  // breaks entry-fee transfers permanently (0x1) with no on-chain fix.
+  assertCanonicalMint(deps.usdcMint.toBase58(), deps.cluster);
   const fixtures = await fetchSchedule(deps.scheduleApiUrl);
   const nowSecs = Math.floor(Date.now() / 1000);
   const upcoming = selectUpcoming(fixtures, nowSecs, deps.lookaheadSecs);

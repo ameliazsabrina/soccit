@@ -18,6 +18,7 @@ async function main(): Promise<void> {
     programId: new PublicKey(config.solana.programId),
     resolver,
     usdcMint: new PublicKey(config.solana.usdcMint),
+    cluster: config.solana.cluster,
     entryFee: config.entryFeeBaseUnits,
     scheduleApiUrl: baseUrl,
     lookaheadSecs: config.matchCreation.lookaheadSecs,

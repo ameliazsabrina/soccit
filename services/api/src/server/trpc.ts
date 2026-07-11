@@ -2,6 +2,8 @@ import { TRPCError, initTRPC } from "@trpc/server";
 import { MatchNotFoundError } from "../modules/match/match.errors.js";
 import {
   EntryNotOpenYetError,
+  InsufficientEntryBalanceError,
+  MatchMintMismatchError,
   MatchNotOpenError,
 } from "../modules/prediction/prediction.errors.js";
 import { LeaderboardNotReadyError } from "../modules/leaderboard/leaderboard.errors.js";
@@ -59,10 +61,18 @@ function mapDomainError(err: unknown): TRPCError | null {
     err instanceof UsernameTakenError ||
     err instanceof WalletAlreadyRegisteredError ||
     err instanceof MatchNotOpenError ||
-    err instanceof EntryNotOpenYetError
+    err instanceof EntryNotOpenYetError ||
+    err instanceof MatchMintMismatchError
   ) {
     return new TRPCError({
       code: "CONFLICT",
+      message: err.message,
+      cause: err,
+    });
+  }
+  if (err instanceof InsufficientEntryBalanceError) {
+    return new TRPCError({
+      code: "PRECONDITION_FAILED",
       message: err.message,
       cause: err,
     });

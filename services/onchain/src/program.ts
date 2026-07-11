@@ -12,6 +12,27 @@ export const STATUS_OPEN = 0;
 export const STATUS_RESOLVED = 1;
 export const STATUS_SETTLED = 2;
 
+export const CANONICAL_USDC_MINT = {
+  devnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  "mainnet-beta": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+} as const;
+
+export type SolanaCluster = keyof typeof CANONICAL_USDC_MINT;
+
+/** Throws unless `mint` is the canonical USDC mint for `cluster`. */
+export function assertCanonicalMint(
+  mint: string,
+  cluster: SolanaCluster,
+): void {
+  const canonical = CANONICAL_USDC_MINT[cluster];
+  if (mint !== canonical) {
+    throw new Error(
+      `USDC mint ${mint} is not the canonical ${cluster} mint ${canonical}; ` +
+        `matches may only be created against the canonical mint`,
+    );
+  }
+}
+
 const MATCH_SEED = Buffer.from("match");
 const VAULT_SEED = Buffer.from("vault");
 const PRED_SEED = Buffer.from("pred");
@@ -19,9 +40,15 @@ const ENTRY_SEED = Buffer.from("entry");
 
 const MATCH_DISCRIMINATOR = Buffer.from([236, 63, 169, 38, 15, 56, 196, 162]);
 const ENTRY_DISCRIMINATOR = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
-const CREATE_MATCH_DISCRIMINATOR = Buffer.from([107, 2, 184, 145, 70, 142, 17, 165]);
-const PLACE_PREDICTION_DISCRIMINATOR = Buffer.from([79, 46, 195, 197, 50, 91, 88, 229]);
-const RESOLVE_DISCRIMINATOR = Buffer.from([246, 150, 236, 206, 108, 63, 58, 10]);
+const CREATE_MATCH_DISCRIMINATOR = Buffer.from([
+  107, 2, 184, 145, 70, 142, 17, 165,
+]);
+const PLACE_PREDICTION_DISCRIMINATOR = Buffer.from([
+  79, 46, 195, 197, 50, 91, 88, 229,
+]);
+const RESOLVE_DISCRIMINATOR = Buffer.from([
+  246, 150, 236, 206, 108, 63, 58, 10,
+]);
 const SETTLE_DISCRIMINATOR = Buffer.from([247, 163, 22, 141, 33, 169, 225, 56]);
 
 // 8 disc + … + participant_count(u32)@237 + start_time(i64)@241 = 249
@@ -56,16 +83,27 @@ export function matchIdToLe(matchId: bigint): Buffer {
 }
 
 export function matchPda(programId: PublicKey, matchId: bigint): PublicKey {
-  return PublicKey.findProgramAddressSync([MATCH_SEED, matchIdToLe(matchId)], programId)[0];
+  return PublicKey.findProgramAddressSync(
+    [MATCH_SEED, matchIdToLe(matchId)],
+    programId,
+  )[0];
 }
 
-export function vaultAuthorityPda(programId: PublicKey, matchAccount: PublicKey): PublicKey {
-  return PublicKey.findProgramAddressSync([VAULT_SEED, matchAccount.toBuffer()], programId)[0];
+export function vaultAuthorityPda(
+  programId: PublicKey,
+  matchAccount: PublicKey,
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [VAULT_SEED, matchAccount.toBuffer()],
+    programId,
+  )[0];
 }
 
 export function decodeMatch(buf: Buffer): DecodedMatch {
   if (buf.length < MATCH_ACCOUNT_LEN) {
-    throw new Error(`Match account too short: ${buf.length} < ${MATCH_ACCOUNT_LEN}`);
+    throw new Error(
+      `Match account too short: ${buf.length} < ${MATCH_ACCOUNT_LEN}`,
+    );
   }
   if (!buf.subarray(0, 8).equals(MATCH_DISCRIMINATOR)) {
     throw new Error("not a Match account (discriminator mismatch)");
@@ -105,8 +143,20 @@ export interface CreateMatchParams {
   startTime: bigint;
 }
 
-export function buildCreateMatchInstruction(params: CreateMatchParams): TransactionInstruction {
-  const { programId, admin, usdcMint, matchId, team1Id, team2Id, entryFee, resolver, startTime } = params;
+export function buildCreateMatchInstruction(
+  params: CreateMatchParams,
+): TransactionInstruction {
+  const {
+    programId,
+    admin,
+    usdcMint,
+    matchId,
+    team1Id,
+    team2Id,
+    entryFee,
+    resolver,
+    startTime,
+  } = params;
   const match = matchPda(programId, matchId);
   const vaultAuthority = vaultAuthorityPda(programId, match);
   const vault = associatedTokenAddress(usdcMint, vaultAuthority, true);
@@ -129,7 +179,11 @@ export function buildCreateMatchInstruction(params: CreateMatchParams): Transact
       { pubkey: vaultAuthority, isSigner: false, isWritable: false },
       { pubkey: vault, isSigner: false, isWritable: true },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      {
+        pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data,
@@ -156,7 +210,9 @@ export const ENTRY_ACCOUNT_LEN = 116;
 
 export function decodeEntry(buf: Buffer): DecodedEntry {
   if (buf.length < ENTRY_ACCOUNT_LEN) {
-    throw new Error(`Entry account too short: ${buf.length} < ${ENTRY_ACCOUNT_LEN}`);
+    throw new Error(
+      `Entry account too short: ${buf.length} < ${ENTRY_ACCOUNT_LEN}`,
+    );
   }
   if (!buf.subarray(0, 8).equals(ENTRY_DISCRIMINATOR)) {
     throw new Error("not an Entry account (discriminator mismatch)");
@@ -178,12 +234,21 @@ export function predictionPda(
   slotIndex: number,
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [PRED_SEED, matchAccount.toBuffer(), owner.toBuffer(), Buffer.from([slotIndex])],
+    [
+      PRED_SEED,
+      matchAccount.toBuffer(),
+      owner.toBuffer(),
+      Buffer.from([slotIndex]),
+    ],
     programId,
   )[0];
 }
 
-export function entryPda(programId: PublicKey, matchAccount: PublicKey, owner: PublicKey): PublicKey {
+export function entryPda(
+  programId: PublicKey,
+  matchAccount: PublicKey,
+  owner: PublicKey,
+): PublicKey {
   return PublicKey.findProgramAddressSync(
     [ENTRY_SEED, matchAccount.toBuffer(), owner.toBuffer()],
     programId,
@@ -204,9 +269,22 @@ export interface PlacePredictionParams {
   slotIndex: number;
 }
 
-export function buildPlacePredictionInstruction(params: PlacePredictionParams): TransactionInstruction {
-  const { programId, user, matchAccount, userUsdcAta, vault, side, kind, outId, inId, lockMinute, slotIndex } =
-    params;
+export function buildPlacePredictionInstruction(
+  params: PlacePredictionParams,
+): TransactionInstruction {
+  const {
+    programId,
+    user,
+    matchAccount,
+    userUsdcAta,
+    vault,
+    side,
+    kind,
+    outId,
+    inId,
+    lockMinute,
+    slotIndex,
+  } = params;
   const entry = entryPda(programId, matchAccount, user);
   const prediction = predictionPda(programId, matchAccount, user, slotIndex);
 
@@ -245,8 +323,18 @@ export interface ResolveParams {
   winner3: PublicKey;
 }
 
-export function buildResolveInstruction(params: ResolveParams): TransactionInstruction {
-  const { programId, resolver, matchAccount, terminalPhase, winner1, winner2, winner3 } = params;
+export function buildResolveInstruction(
+  params: ResolveParams,
+): TransactionInstruction {
+  const {
+    programId,
+    resolver,
+    matchAccount,
+    terminalPhase,
+    winner1,
+    winner2,
+    winner3,
+  } = params;
 
   const data = Buffer.alloc(8 + 1 + 32 * 3);
   RESOLVE_DISCRIMINATOR.copy(data, 0);
@@ -277,7 +365,9 @@ export interface SettleParams {
   platformAta: PublicKey;
 }
 
-export function buildSettleInstruction(params: SettleParams): TransactionInstruction {
+export function buildSettleInstruction(
+  params: SettleParams,
+): TransactionInstruction {
   const {
     programId,
     resolver,
@@ -322,7 +412,9 @@ export function associatedTokenAddress(
   allowOwnerOffCurve = false,
 ): PublicKey {
   if (!allowOwnerOffCurve && !PublicKey.isOnCurve(owner.toBuffer())) {
-    throw new Error(`owner ${owner.toBase58()} is off-curve; pass allowOwnerOffCurve=true for PDAs`);
+    throw new Error(
+      `owner ${owner.toBase58()} is off-curve; pass allowOwnerOffCurve=true for PDAs`,
+    );
   }
   return PublicKey.findProgramAddressSync(
     [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],

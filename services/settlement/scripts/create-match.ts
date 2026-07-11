@@ -3,6 +3,7 @@ import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { config } from "../src/config.js";
 import { loadKeypair } from "../src/keeper.js";
 import {
+  assertCanonicalMint,
   buildCreateMatchInstruction,
   matchPda,
   vaultAuthorityPda,
@@ -18,19 +19,20 @@ function flag(name: string): boolean {
 }
 
 async function main(): Promise<void> {
-  const fixtureId = BigInt(arg("fixture") ?? (config.fixtureId ?? ""));
+  const fixtureId = BigInt(arg("fixture") ?? config.fixtureId ?? "");
   const team1Id = Number(arg("team1") ?? 0);
   const team2Id = Number(arg("team2") ?? 0);
   const entryFee = BigInt(arg("fee") ?? config.entryFeeBaseUnits);
   const mintStr = arg("mint") ?? config.solana.usdcMint;
   if (!mintStr) throw new Error("USDC mint required (--mint or USDC_MINT)");
-  if (!fixtureId) throw new Error("fixture id required (--fixture or SETTLEMENT_FIXTURE_ID)");
+  // Guardrail: a match's mint is baked in at init with no on-chain setter, so a
+  // wrong mint (mock/ad-hoc) permanently breaks entry-fee transfers with 0x1.
+  // Only the canonical per-cluster mint is allowed; --force-mint escapes for
+  // tests/local against an ephemeral mint.
+  if (!flag("force-mint")) assertCanonicalMint(mintStr, config.solana.cluster);
+  if (!fixtureId)
+    throw new Error("fixture id required (--fixture or SETTLEMENT_FIXTURE_ID)");
 
-  // Kickoff time (unix seconds); entries open ENTRY_LEAD_SECS before it on-chain.
-  // --start-epoch-ms takes a feed StartTime (ms) and converts; --start-time is
-  // raw unix seconds. start_time 0 disables the entry gate (always open) — a
-  // real match must NOT be created that way, so require an explicit time and
-  // only allow the gate-off sentinel behind --no-entry-gate (tests/local only).
   const startEpochMs = arg("start-epoch-ms");
   const startTimeArg = arg("start-time");
   const noEntryGate = flag("no-entry-gate");
@@ -71,7 +73,9 @@ async function main(): Promise<void> {
   console.error(`> admin:      ${admin.publicKey.toBase58()}`);
   console.error(`> resolver:   ${resolver.toBase58()}`);
   console.error(`> fixture:    ${fixtureId}`);
-  console.error(`> start_time: ${startTime}${startTime === 0n ? " (gate disabled)" : ""}`);
+  console.error(
+    `> start_time: ${startTime}${startTime === 0n ? " (gate disabled)" : ""}`,
+  );
   console.error(`> mint:       ${usdcMint.toBase58()}`);
   console.error(`> match PDA:  ${match.toBase58()}`);
   console.error(`> vault auth: ${vaultAuthority.toBase58()}`);
@@ -90,10 +94,19 @@ async function main(): Promise<void> {
   });
 
   const tx = new Transaction().add(ix);
-  const sig = await connection.sendTransaction(tx, [admin], { skipPreflight: false });
+  const sig = await connection.sendTransaction(tx, [admin], {
+    skipPreflight: false,
+  });
   await connection.confirmTransaction(sig, "confirmed");
   console.error(`> created match, sig: ${sig}`);
-  console.log(JSON.stringify({ fixtureId: fixtureId.toString(), match: match.toBase58(), vault: vault.toBase58(), sig }));
+  console.log(
+    JSON.stringify({
+      fixtureId: fixtureId.toString(),
+      match: match.toBase58(),
+      vault: vault.toBase58(),
+      sig,
+    }),
+  );
 }
 
 main().catch((err) => {

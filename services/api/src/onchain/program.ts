@@ -60,6 +60,16 @@ export async function fetchMatch(
   return decodeMatch(info.data);
 }
 
+export async function fetchTokenBalance(ata: PublicKey): Promise<bigint> {
+  try {
+    const res = await getConnection().getTokenAccountBalance(ata, "confirmed");
+    return BigInt(res.value.amount);
+  } catch {
+    // Missing/uninitialized ATA → treat as zero balance.
+    return 0n;
+  }
+}
+
 /**
  * The caller's Entry for a match, or null if they have not picked yet. Used to
  * report the pay-per-match fee (0 once an entry exists) and the next free slot.

@@ -12,15 +12,30 @@ import {
   matchPda,
   predictionPda,
 } from "../../onchain/program.js";
-import { buildPreparePredictionTx, isEntryWindowOpen } from "./prediction.service.js";
-import { KIND_SCORE, type PreparePredictionInput } from "./prediction.schema.js";
+import {
+  assertMatchMintSupported,
+  buildPreparePredictionTx,
+  isEntryWindowOpen,
+} from "./prediction.service.js";
+import { MatchMintMismatchError } from "./prediction.errors.js";
+import {
+  KIND_SCORE,
+  type PreparePredictionInput,
+} from "./prediction.schema.js";
 
 const PROGRAM_ID = new PublicKey("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v");
-const DEVNET_USDC_MINT = new PublicKey("2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac");
+const DEVNET_USDC_MINT = new PublicKey(
+  "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+);
 const MATCH_DISCRIMINATOR = Buffer.from([236, 63, 169, 38, 15, 56, 196, 162]);
 const PLACE_DISC = Buffer.from([79, 46, 195, 197, 50, 91, 88, 229]);
 
-function encodeMatch(opts: { matchId: bigint; status: number; mint: PublicKey; vault: PublicKey }): Buffer {
+function encodeMatch(opts: {
+  matchId: bigint;
+  status: number;
+  mint: PublicKey;
+  vault: PublicKey;
+}): Buffer {
   const buf = Buffer.alloc(MATCH_ACCOUNT_LEN);
   MATCH_DISCRIMINATOR.copy(buf, 0);
   buf.writeBigUInt64LE(opts.matchId, 8);
@@ -46,9 +61,18 @@ function encodeMatch(opts: { matchId: bigint; status: number; mint: PublicKey; v
 const FIXTURE_ID = 900001n;
 const WALLET = new PublicKey("3PV3YdqwC7RzivKDkTi6JpCe5b8bjm8C7sRLKNvqLfzr");
 const matchAccount = matchPda(PROGRAM_ID, FIXTURE_ID);
-const vault = associatedTokenAddress(DEVNET_USDC_MINT, PublicKey.unique(), true);
+const vault = associatedTokenAddress(
+  DEVNET_USDC_MINT,
+  PublicKey.unique(),
+  true,
+);
 const match: DecodedMatch = decodeMatch(
-  encodeMatch({ matchId: FIXTURE_ID, status: STATUS_OPEN, mint: DEVNET_USDC_MINT, vault }),
+  encodeMatch({
+    matchId: FIXTURE_ID,
+    status: STATUS_OPEN,
+    mint: DEVNET_USDC_MINT,
+    vault,
+  }),
 );
 
 const input: PreparePredictionInput = {
@@ -72,7 +96,10 @@ const entryWithSlots = (slotsUsed: number, side = 1): DecodedEntry => ({
   bump: 255,
 });
 
-function build(over: Partial<PreparePredictionInput> = {}, entry: DecodedEntry | null = null) {
+function build(
+  over: Partial<PreparePredictionInput> = {},
+  entry: DecodedEntry | null = null,
+) {
   return buildPreparePredictionTx({
     programId: PROGRAM_ID,
     matchAccount,
@@ -117,7 +144,9 @@ describe("buildPreparePredictionTx", () => {
     expect(place.keys[0]).toMatchObject({ isSigner: true, isWritable: true });
     expect(place.keys[0]!.pubkey.toBase58()).toBe(WALLET.toBase58());
     expect(place.keys[1]!.pubkey.toBase58()).toBe(matchAccount.toBase58());
-    expect(place.keys[2]!.pubkey.toBase58()).toBe(entryPda(PROGRAM_ID, matchAccount, WALLET).toBase58());
+    expect(place.keys[2]!.pubkey.toBase58()).toBe(
+      entryPda(PROGRAM_ID, matchAccount, WALLET).toBase58(),
+    );
     expect(place.keys[3]!.pubkey.toBase58()).toBe(
       predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58(),
     );
@@ -133,7 +162,9 @@ describe("buildPreparePredictionTx", () => {
     expect(out.entryFee).toBe("5000000");
     expect(out.slotIndex).toBe(0);
     expect(out.startTime).toBe(0); // encodeMatch leaves start_time 0 (gate disabled)
-    expect(out.prediction).toBe(predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58());
+    expect(out.prediction).toBe(
+      predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58(),
+    );
     expect(out.matchAccount).toBe(matchAccount.toBase58());
   });
 
@@ -141,20 +172,51 @@ describe("buildPreparePredictionTx", () => {
     const out = build({}, entryWithSlots(2));
     expect(out.entryFee).toBe("0");
     expect(out.slotIndex).toBe(2);
-    expect(out.prediction).toBe(predictionPda(PROGRAM_ID, matchAccount, WALLET, 2).toBase58());
+    expect(out.prediction).toBe(
+      predictionPda(PROGRAM_ID, matchAccount, WALLET, 2).toBase58(),
+    );
 
     const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
     expect(tx.instructions[1]!.data.readUInt8(20)).toBe(2); // slot in the ix
   });
 
   it("builds a KIND_SCORE pick: kind=3, side=0, score1/score2 in out/in fields", () => {
-    const out = build({ kind: KIND_SCORE, side: 0, outPlayerId: 2, inPlayerId: 1 });
+    const out = build({
+      kind: KIND_SCORE,
+      side: 0,
+      outPlayerId: 2,
+      inPlayerId: 1,
+    });
     const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
     const place = tx.instructions[1]!;
     expect(place.data.readUInt8(8)).toBe(0); // side
     expect(place.data.readUInt8(9)).toBe(KIND_SCORE); // kind
     expect(place.data.readUInt32LE(10)).toBe(2); // score1
     expect(place.data.readUInt32LE(14)).toBe(1); // score2
+  });
+});
+
+describe("assertMatchMintSupported", () => {
+  const canonical = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
+  it("passes when the match mint is the canonical USDC mint", () => {
+    const canonicalMatch = decodeMatch(
+      encodeMatch({
+        matchId: FIXTURE_ID,
+        status: STATUS_OPEN,
+        mint: new PublicKey(canonical),
+        vault,
+      }),
+    );
+    expect(() =>
+      assertMatchMintSupported(Number(FIXTURE_ID), canonicalMatch, canonical),
+    ).not.toThrow();
+  });
+
+  it("throws MatchMintMismatchError for a mock-mint match (the 0x1 case)", () => {
+    expect(() =>
+      assertMatchMintSupported(Number(FIXTURE_ID), match, canonical),
+    ).toThrow(MatchMintMismatchError);
   });
 });
 
