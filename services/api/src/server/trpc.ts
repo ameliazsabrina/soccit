@@ -6,6 +6,7 @@ import {
 } from "../modules/prediction/prediction.errors.js";
 import { LeaderboardNotReadyError } from "../modules/leaderboard/leaderboard.errors.js";
 import { LineupNotReadyError } from "../modules/lineup/lineup.errors.js";
+import { RpcUnavailableError } from "../modules/portfolio/portfolio.errors.js";
 import { TxlineNotConfiguredError } from "../txline.js";
 import {
   InvalidSignatureError,
@@ -36,6 +37,13 @@ function mapDomainError(err: unknown): TRPCError | null {
   if (err instanceof TxlineNotConfiguredError) {
     return new TRPCError({
       code: "PRECONDITION_FAILED",
+      message: err.message,
+      cause: err,
+    });
+  }
+  if (err instanceof RpcUnavailableError) {
+    return new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
       message: err.message,
       cause: err,
     });

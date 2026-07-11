@@ -23,6 +23,8 @@ import {
   WalletAlreadyRegisteredError,
 } from "./modules/user/user.errors.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
+import { getPortfolio } from "./modules/portfolio/portfolio.service.js";
+import { RpcUnavailableError } from "./modules/portfolio/portfolio.errors.js";
 import { getLeaderboard } from "./modules/leaderboard/leaderboard.service.js";
 import { LeaderboardNotReadyError } from "./modules/leaderboard/leaderboard.errors.js";
 import { getLineup } from "./modules/lineup/lineup.service.js";
@@ -54,6 +56,9 @@ vi.mock("./modules/user/user.service.js", () => ({
 }));
 vi.mock("./modules/participation/participation.service.js", () => ({
   getUserMatches: vi.fn(),
+}));
+vi.mock("./modules/portfolio/portfolio.service.js", () => ({
+  getPortfolio: vi.fn(),
 }));
 vi.mock("./modules/leaderboard/leaderboard.service.js", () => ({
   getLeaderboard: vi.fn(),
@@ -520,6 +525,39 @@ describe("GET /api/user/:wallet/matches", () => {
     const res = await app.request("/api/user/short/matches");
     expect(res.status).toBe(400);
     expect(getUserMatches).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/user/:wallet/portfolio", () => {
+  it("returns the wallet's balance and active positions", async () => {
+    const portfolio = {
+      wallet: WALLET,
+      usdcMint: null,
+      usdcBalance: "5000000",
+      lockedStake: "1000000",
+      portfolioValue: "6000000",
+      usdcDecimals: 6,
+      activeCount: 1,
+      positions: [{ pda: VALID_PDA, fixtureId: FIXTURE_ID }],
+      updatedAt: 1,
+    };
+    vi.mocked(getPortfolio).mockResolvedValue(portfolio as never);
+    const res = await app.request(`/api/user/${WALLET}/portfolio`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(portfolio);
+    expect(getPortfolio).toHaveBeenCalledWith(WALLET);
+  });
+
+  it("rejects an invalid wallet with 400", async () => {
+    const res = await app.request("/api/user/short/portfolio");
+    expect(res.status).toBe(400);
+    expect(getPortfolio).not.toHaveBeenCalled();
+  });
+
+  it("maps an RPC failure to 502", async () => {
+    vi.mocked(getPortfolio).mockRejectedValue(new RpcUnavailableError());
+    const res = await app.request(`/api/user/${WALLET}/portfolio`);
+    expect(res.status).toBe(502);
   });
 });
 

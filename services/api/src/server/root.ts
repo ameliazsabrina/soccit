@@ -33,6 +33,8 @@ import {
 } from "../modules/user/user.service.js";
 import { userMatchesOutput } from "../modules/participation/participation.schema.js";
 import { getUserMatches } from "../modules/participation/participation.service.js";
+import { portfolioOutput } from "../modules/portfolio/portfolio.schema.js";
+import { getPortfolio } from "../modules/portfolio/portfolio.service.js";
 import {
   scheduleInput,
   scheduleOutput,
@@ -141,6 +143,11 @@ const userRouter = router({
     .input(walletInput)
     .output(userMatchesOutput)
     .query(({ input }) => getUserMatches(input.wallet)),
+
+  portfolio: publicProcedure
+    .input(walletInput)
+    .output(portfolioOutput)
+    .query(({ input }) => getPortfolio(input.wallet)),
 
   avatars: publicProcedure.output(avatarsOutput).query(() => listAvatars()),
 });

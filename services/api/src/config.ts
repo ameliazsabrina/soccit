@@ -17,6 +17,10 @@ const Schema = z.object({
   SOLANA_RPC_URL: z.preprocess((v) => (v === "" ? undefined : v), z.string().url().optional()),
   HELIUS_API_KEY: z.string().optional(),
   PROGRAM_ID: z.string().default("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v"),
+  USDC_MINT: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().default("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
+  ),
   SSE_KEEPALIVE_MS: z.coerce.number().int().positive().default(15000),
   STREAM_BLOCK_MS: z.coerce.number().int().positive().default(5000),
   TXLINE_BASE_URL: z.string().url().default("https://txline.txodds.com"),
@@ -42,7 +46,12 @@ export const config = {
   redis: { url: env.REDIS_URL },
   mongo: { url: env.MONGO_URL || undefined, db: env.MONGO_DB },
   session: { secret: env.SESSION_JWT_SECRET || undefined, ttlSeconds: env.SESSION_TTL_SECONDS },
-  solana: { cluster: env.SOLANA_CLUSTER, rpcUrl: resolveRpcUrl(), programId: env.PROGRAM_ID },
+  solana: {
+    cluster: env.SOLANA_CLUSTER,
+    rpcUrl: resolveRpcUrl(),
+    programId: env.PROGRAM_ID,
+    usdcMint: env.USDC_MINT,
+  },
   sseKeepaliveMs: env.SSE_KEEPALIVE_MS,
   streamBlockMs: env.STREAM_BLOCK_MS,
   txline: {

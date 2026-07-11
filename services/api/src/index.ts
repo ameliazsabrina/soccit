@@ -47,6 +47,8 @@ import {
   UnauthorizedError,
 } from "./modules/auth/auth.errors.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
+import { getPortfolio } from "./modules/portfolio/portfolio.service.js";
+import { RpcUnavailableError } from "./modules/portfolio/portfolio.errors.js";
 import { getPlatformConfig } from "./modules/config/config.service.js";
 import { listCompetitions } from "./modules/competitions/competitions.service.js";
 import { getBracket } from "./modules/bracket/bracket.service.js";
@@ -291,6 +293,18 @@ app.get("/api/user/:wallet/matches", async (c) => {
   const parsed = walletInput.safeParse({ wallet: c.req.param("wallet") });
   if (!parsed.success) return c.json({ error: "invalid wallet" }, 400);
   return c.json(await getUserMatches(parsed.data.wallet));
+});
+
+app.get("/api/user/:wallet/portfolio", async (c) => {
+  const parsed = walletInput.safeParse({ wallet: c.req.param("wallet") });
+  if (!parsed.success) return c.json({ error: "invalid wallet" }, 400);
+  try {
+    return c.json(await getPortfolio(parsed.data.wallet));
+  } catch (err) {
+    if (err instanceof RpcUnavailableError)
+      return c.json({ error: err.message }, 502);
+    throw err;
+  }
 });
 
 app.get("/api/avatars", (c) => c.json(listAvatars()));

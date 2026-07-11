@@ -2,6 +2,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import {
   type DecodedEntry,
   type DecodedMatch,
+  ENTRY_ACCOUNT_LEN,
   MATCH_ACCOUNT_LEN,
   decodeEntry,
   decodeMatch,
@@ -16,6 +17,7 @@ import { config } from "../config.js";
 export {
   type DecodedEntry,
   type DecodedMatch,
+  ENTRY_ACCOUNT_LEN,
   MATCH_ACCOUNT_LEN,
   STATUS_OPEN,
   STATUS_RESOLVED,
@@ -72,12 +74,26 @@ export async function fetchEntry(
   return decodeEntry(info.data);
 }
 
-/**
- * Every Match account owned by the program, paired with its on-chain address
- * (the PDA public endpoints key by). Filtered to Match-sized accounts; the
- * discriminator is re-checked in `decodeMatch`, so any same-sized non-Match
- * account is skipped rather than throwing.
- */
+export async function fetchEntriesByOwner(
+  wallet: PublicKey,
+): Promise<DecodedEntry[]> {
+  const accounts = await getConnection().getProgramAccounts(getProgramId(), {
+    filters: [
+      { dataSize: ENTRY_ACCOUNT_LEN },
+      { memcmp: { offset: 8, bytes: wallet.toBase58() } },
+    ],
+  });
+  const out: DecodedEntry[] = [];
+  for (const { account } of accounts) {
+    try {
+      out.push(decodeEntry(account.data));
+    } catch {
+      // not an Entry account (discriminator mismatch) — skip
+    }
+  }
+  return out;
+}
+
 export async function fetchAllMatches(): Promise<
   { pda: string; match: DecodedMatch }[]
 > {
