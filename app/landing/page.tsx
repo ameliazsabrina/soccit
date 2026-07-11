@@ -8,6 +8,7 @@ import { ScrollProgress } from "./_components/scroll-progress";
 import { PageLoader } from "./_components/page-loader";
 import { SmoothScroll } from "./_components/smooth-scroll";
 import { BottomNav } from "./_components/bottom-nav";
+import { StadiumFrame } from "./_components/stadium-frame";
 
 export const metadata: Metadata = {
   title: "Soccit — Gamified Football Prediction Market on Solana",
@@ -19,8 +20,9 @@ export default function LandingPage() {
     <>
       <PageLoader />
       <ScrollProgress />
+      <StadiumFrame />
       <SmoothScroll>
-        <main id="top" className="relative bg-background text-foreground overflow-x-hidden">
+        <main id="top" className="landing-cinematic relative overflow-x-hidden bg-background text-foreground">
           <LandingHero />
           <HowItWorks />
           <CardsGallery />

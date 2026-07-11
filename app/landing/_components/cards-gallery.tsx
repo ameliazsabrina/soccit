@@ -2,186 +2,94 @@
 
 import { useRef } from "react";
 import Image from "next/image";
-import { motion, useInView, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { gsap, useGSAP } from "./gsap-setup";
 
 const CARDS = [
-  {
-    id: "fw",
-    src: "/assets/cards/players/fw.webp",
-    title: "Forward",
-    desc: "The finishers. Every goal is a point.",
-    color: "#ed1c24",
-    textColor: "text-rose",
-  },
-  {
-    id: "md",
-    src: "/assets/cards/players/md.webp",
-    title: "Midfielder",
-    desc: "The engine. Control the tempo.",
-    color: "#dba111",
-    textColor: "text-cyan",
-  },
-  {
-    id: "df",
-    src: "/assets/cards/players/df.webp",
-    title: "Defender",
-    desc: "The wall. Deny the attack.",
-    color: "#034694",
-    textColor: "text-purple",
-  },
-  {
-    id: "gk",
-    src: "/assets/cards/players/gk.webp",
-    title: "Goalkeeper",
-    desc: "The last line. Save the game.",
-    color: "#dba111",
-    textColor: "text-gold",
-  },
+  { id: "fw", title: "FORWARD", note: "Finish the move", color: "var(--rose)", rarity: "EPIC / 01" },
+  { id: "md", title: "MIDFIELD", note: "Control the match", color: "#176b3a", rarity: "RARE / 02" },
+  { id: "df", title: "DEFENDER", note: "Break the press", color: "var(--purple)", rarity: "ELITE / 03" },
+  { id: "gk", title: "KEEPER", note: "Own the last line", color: "var(--cyan)", rarity: "LEGEND / 04" },
 ];
+
+function SquadCard({ card, index, reduceMotion }: { card: (typeof CARDS)[number]; index: number; reduceMotion: boolean | null }) {
+  const x = useRef(0);
+  const y = useRef(0);
+  return (
+    <motion.article
+      data-squad-card
+      className="group relative flex h-[70vh] min-h-[500px] w-[78vw] max-w-[430px] shrink-0 flex-col justify-between overflow-hidden bg-surface p-4 sm:w-[50vw] sm:p-6 lg:w-[31vw] lg:max-w-[460px]"
+      style={{ transformStyle: "preserve-3d" }}
+      onMouseMove={(event) => {
+        if (reduceMotion) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        x.current = (event.clientX - rect.left) / rect.width - 0.5;
+        y.current = (event.clientY - rect.top) / rect.height - 0.5;
+        gsap.to(event.currentTarget, { rotateY: x.current * 9, rotateX: y.current * -7, duration: 0.2, ease: "power2.out", overwrite: "auto" });
+      }}
+      onMouseLeave={(event) => gsap.to(event.currentTarget, { rotateY: 0, rotateX: 0, duration: 0.35, ease: "power3.out" })}
+      whileHover={reduceMotion ? undefined : { y: -10 }}
+    >
+      <div className="absolute inset-x-0 top-0 h-1" style={{ background: card.color }} />
+      <div className="landing-card-foil pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+      <div className="relative z-10 flex items-center justify-between">
+        <span className="font-tech text-[9px] uppercase tracking-[0.2em] text-muted">Squad card / 0{index + 1}</span>
+        <span className="font-tech text-[9px] uppercase tracking-[0.16em]" style={{ color: card.color }}>{card.rarity}</span>
+      </div>
+      <div className="relative z-10 mx-auto h-[72%] w-[78%]" style={{ transform: "translateZ(38px)" }}>
+        <div className="absolute inset-[8%] blur-3xl opacity-15" style={{ background: card.color }} />
+        <Image src={`/assets/cards/players/${card.id}.webp`} alt={`${card.title.toLowerCase()} tactical card`} fill sizes="(max-width: 768px) 70vw, 430px" className="object-contain drop-shadow-[0_28px_26px_rgba(10,22,40,0.2)]" />
+      </div>
+      <div className="relative z-10 border-t border-foreground/15 pt-4" style={{ transform: "translateZ(20px)" }}>
+        <div className="flex items-end justify-between gap-4">
+          <h3 className="font-display text-2xl leading-none sm:text-3xl">{card.title}</h3>
+          <span className="font-tech text-[9px] uppercase tracking-[0.16em] text-muted">{card.note}</span>
+        </div>
+      </div>
+    </motion.article>
+  );
+}
 
 export function CardsGallery() {
   const container = useRef<HTMLElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
-  const section = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
-  const isInView = useInView(container, { once: true, margin: "-20%" });
 
-  useGSAP(
-    () => {
-      if (shouldReduceMotion) return;
-
-      const mm = gsap.matchMedia();
-
-      mm.add("(min-width: 1024px)", () => {
-        const trackEl = track.current;
-        if (!trackEl) return;
-
-        const cards = gsap.utils.toArray<HTMLElement>("[data-card]");
-
-        const horizontalTl = gsap.to(trackEl, {
-          x: () => -(trackEl.scrollWidth - window.innerWidth),
-          ease: "none",
-          scrollTrigger: {
-            trigger: section.current,
-            pin: true,
-            start: "top top",
-            end: () => `+=${trackEl.scrollWidth - window.innerWidth}`,
-            scrub: 1,
-            invalidateOnRefresh: true,
-            onUpdate: (self) => {
-              const velocity = self.getVelocity ? self.getVelocity() : 0;
-              const targetRotateY = gsap.utils.clamp(-12, 12, velocity * 0.015);
-              const targetSkewX = gsap.utils.clamp(-4, 4, velocity * 0.005);
-
-              cards.forEach((card) => {
-                gsap.to(card, {
-                  rotationY: targetRotateY,
-                  skewX: targetSkewX,
-                  duration: 0.3,
-                  ease: "power2.out",
-                  overwrite: "auto",
-                });
-
-                const rect = card.getBoundingClientRect();
-                const center = rect.left + rect.width / 2;
-                const viewportCenter = window.innerWidth / 2;
-                const dist = Math.abs(center - viewportCenter);
-                const maxDist = window.innerWidth * 0.4;
-                const targetScale = gsap.utils.interpolate(1, 0.9, Math.min(1, dist / maxDist));
-                gsap.to(card, {
-                  scale: targetScale,
-                  zIndex: Math.round(targetScale * 10),
-                  duration: 0.3,
-                  overwrite: "auto",
-                });
-              });
-            },
-          },
-        });
-
-        return () => {
-          horizontalTl.kill();
-        };
+  useGSAP(() => {
+    if (shouldReduceMotion) return;
+    const mm = gsap.matchMedia();
+    mm.add("(min-width: 1024px)", () => {
+      if (!track.current || !stage.current) return;
+      const distance = () => Math.max(0, track.current!.scrollWidth - window.innerWidth + 120);
+      gsap.to(track.current, {
+        x: () => -distance(), ease: "none",
+        scrollTrigger: { trigger: stage.current, start: "top top", end: () => `+=${distance() + window.innerHeight}`, pin: true, scrub: 1, invalidateOnRefresh: true },
       });
-
-      mm.add("(max-width: 1023px)", () => {
-        gsap.from("[data-card]", {
-          y: 60,
-          autoAlpha: 0,
-          stagger: 0.15,
-          scrollTrigger: {
-            trigger: section.current,
-            start: "top 80%",
-            once: true,
-          },
-        });
-        return () => {};
-      });
-
-      return () => mm.revert();
-    },
-    { scope: container }
-  );
+      gsap.to("[data-vault-word]", { xPercent: -22, ease: "none", scrollTrigger: { trigger: stage.current, start: "top top", end: () => `+=${distance() + window.innerHeight}`, scrub: 1 } });
+    });
+    return () => mm.revert();
+  }, { scope: container });
 
   return (
-    <section ref={container} className="relative w-full bg-background py-24 lg:py-0">
-      <div className="pointer-events-none absolute inset-0 opacity-[0.04]">
-        <Image src="/field.webp" alt="" fill className="object-cover" sizes="100vw" />
-      </div>
-
-      <div
-        ref={section}
-        className="relative flex min-h-screen flex-col justify-center overflow-hidden px-6 sm:px-8 lg:px-12"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-          className="mb-10 lg:mb-16"
-        >
-          <span className="font-tech text-xs uppercase tracking-[0.15em] text-muted">The Cards</span>
-          <h2 className="mt-2 font-display text-4xl uppercase text-foreground sm:text-5xl">Build Your Squad</h2>
-        </motion.div>
-
-        <div ref={track} className="flex flex-col gap-8 lg:flex-row lg:gap-12" style={{ perspective: "1000px" }}>
-          {CARDS.map((card) => (
-            <motion.div
-              key={card.id}
-              data-card
-              className="group relative flex flex-col gap-4 lg:w-[320px] lg:shrink-0 xl:w-[380px]"
-              whileHover={{ y: -12 }}
-              transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              style={{ transformStyle: "preserve-3d" }}
-            >
-              <div
-                className="relative aspect-[2/3] w-full max-w-[300px] overflow-hidden transition-shadow duration-300"
-                style={{ boxShadow: `0 24px 48px -12px ${card.color}20` }}
-              >
-                <div className="card-shine" />
-                <Image
-                  src={card.src}
-                  alt={card.title}
-                  fill
-                  sizes="(max-width: 640px) 300px, (max-width: 1024px) 400px, 380px"
-                  className="object-cover"
-                />
-                <motion.div
-                  className="pointer-events-none absolute inset-0"
-                  style={{
-                    background: `radial-gradient(circle at 50% 50%, ${card.color}10, transparent 60%)`,
-                    opacity: 0,
-                  }}
-                  whileHover={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-              <div>
-                <h3 className={`font-display text-2xl uppercase sm:text-3xl ${card.textColor}`}>{card.title}</h3>
-                <p className="font-body text-sm text-muted sm:text-base">{card.desc}</p>
-              </div>
-            </motion.div>
-          ))}
+    <section ref={container} className="relative bg-white">
+      <div ref={stage} className="relative flex min-h-[100svh] flex-col justify-center overflow-hidden px-5 py-24 sm:px-8 lg:px-14 lg:py-0">
+        <div data-vault-word className="pointer-events-none absolute left-[4%] top-[10%] whitespace-nowrap font-display text-[clamp(7rem,21vw,22rem)] leading-none tracking-[-0.08em] text-foreground/[0.035]">SQUAD VAULT</div>
+        <div className="relative z-10 mb-9 flex max-w-[1500px] items-end justify-between gap-6 lg:mb-12">
+          <div>
+            <span className="font-tech text-[10px] uppercase tracking-[0.25em] text-purple">The cards / Rarity issued</span>
+            <h2 className="mt-3 font-display text-[clamp(2.75rem,6vw,6.75rem)] uppercase leading-[0.84] tracking-[-0.055em]">BUILD YOUR XI.</h2>
+          </div>
+          <p className="hidden max-w-xs border-l border-cyan pl-5 font-body text-sm leading-relaxed text-foreground/60 md:block">Every card is a decision. The right player, in the right position, at the right minute.</p>
+        </div>
+        <div ref={track} className="relative z-10 flex gap-5 overflow-x-auto pb-4 [scrollbar-width:none] lg:w-max lg:overflow-visible lg:pr-[20vw]">
+          {CARDS.map((card, index) => <SquadCard key={card.id} card={card} index={index} reduceMotion={shouldReduceMotion} />)}
+          <div className="flex h-[70vh] min-h-[500px] w-[55vw] max-w-[520px] shrink-0 items-end bg-purple p-7 text-white sm:p-10">
+            <div>
+              <span className="font-tech text-[9px] uppercase tracking-[0.22em] text-cyan">Squad complete</span>
+              <p className="mt-4 font-display text-[clamp(2.5rem,5vw,5rem)] uppercase leading-[0.88] tracking-[-0.05em]">YOUR READ.<br />YOUR XI.<br />YOUR RANK.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
