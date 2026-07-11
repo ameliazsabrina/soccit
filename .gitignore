@@ -58,3 +58,5 @@ test-ledger
 
 /secrets/
 *-keypair.json
+
+.claude/

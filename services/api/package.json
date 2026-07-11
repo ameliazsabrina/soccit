@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "load-assets": "tsx scripts/load-assets.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

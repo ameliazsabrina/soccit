@@ -1,11 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 
-/**
- * A match-account PDA: a base58 Solana address. Public endpoints key matches by
- * this PDA; it is resolved to the internal fixtureId via the Redis reverse
- * index (see modules/match/pda.ts).
- */
 export const pdaString = z
   .string()
   .min(32)
@@ -64,6 +59,7 @@ export const matchSummarySchema = z.object({
   teamNames: z
     .object({ team1: z.string().nullable(), team2: z.string().nullable() })
     .nullable(),
+  featured: z.boolean(),
 });
 
 export const matchListOutput = z.array(matchSummarySchema);

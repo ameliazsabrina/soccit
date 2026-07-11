@@ -27,6 +27,7 @@ import { getLeaderboard } from "./modules/leaderboard/leaderboard.service.js";
 import { LeaderboardNotReadyError } from "./modules/leaderboard/leaderboard.errors.js";
 import { getLineup } from "./modules/lineup/lineup.service.js";
 import { LineupNotReadyError } from "./modules/lineup/lineup.errors.js";
+import { getAsset } from "./modules/assets/assets.service.js";
 
 vi.mock("./modules/match/pda.js", async (importActual) => {
   const actual = await importActual<typeof import("./modules/match/pda.js")>();
@@ -63,6 +64,9 @@ vi.mock("./modules/leaderboard/leaderboard.service.js", () => ({
 vi.mock("./modules/lineup/lineup.service.js", () => ({
   getLineup: vi.fn(),
   loadPlayerIndex: vi.fn(),
+}));
+vi.mock("./modules/assets/assets.service.js", () => ({
+  getAsset: vi.fn(),
 }));
 
 const VALID_PDA = Keypair.generate().publicKey.toBase58();
@@ -117,6 +121,27 @@ describe("GET /api/config", () => {
       scoring: { scoreExact: 5, scoreOutcome: 3, subCombo: 3, subPartial: 1 },
       usdcDecimals: 6,
     });
+  });
+});
+
+describe("GET /api/competitions", () => {
+  it("returns the competition catalog with relative asset paths", async () => {
+    const res = await app.request("/api/competitions");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Array<{
+      slug: string;
+      bannerBg: string;
+      logo: string;
+      comingSoon: boolean;
+    }>;
+    expect(body.map((c) => c.slug)).toEqual(["worldcup", "ucl"]);
+    // Asset paths are public-relative (no leading slash) so the frontend can
+    // serve them from either public/ or the api's /api/assets route.
+    for (const c of body) {
+      expect(c.bannerBg.startsWith("/")).toBe(false);
+      expect(c.logo.startsWith("/")).toBe(false);
+    }
+    expect(body.find((c) => c.slug === "ucl")?.comingSoon).toBe(true);
   });
 });
 
@@ -495,6 +520,50 @@ describe("GET /api/lineup/:pda", () => {
   it("maps a not-yet-ready lineup to 404", async () => {
     vi.mocked(getLineup).mockRejectedValue(new LineupNotReadyError(FIXTURE_ID));
     const res = await app.request(`/api/lineup/${VALID_PDA}`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/assets/:path", () => {
+  const ASSET = {
+    path: "avatars/avatar-0.webp",
+    contentType: "image/webp",
+    etag: "abc123",
+    body: new Uint8Array([1, 2, 3, 4]),
+  };
+
+  it("serves bytes with content-type, immutable cache, and ETag", async () => {
+    vi.mocked(getAsset).mockResolvedValue(ASSET as never);
+    const res = await app.request(`/api/assets/${ASSET.path}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/webp");
+    expect(res.headers.get("etag")).toBe('"abc123"');
+    expect(res.headers.get("cache-control")).toBe(
+      "public, max-age=31536000, immutable",
+    );
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(ASSET.body);
+    expect(getAsset).toHaveBeenCalledWith(ASSET.path);
+  });
+
+  it("returns 304 when If-None-Match matches the ETag", async () => {
+    vi.mocked(getAsset).mockResolvedValue(ASSET as never);
+    const res = await app.request(`/api/assets/${ASSET.path}`, {
+      headers: { "If-None-Match": '"abc123"' },
+    });
+    expect(res.status).toBe(304);
+    expect(res.headers.get("etag")).toBe('"abc123"');
+  });
+
+  it("serves a nested path via the wildcard param", async () => {
+    vi.mocked(getAsset).mockResolvedValue(ASSET as never);
+    const res = await app.request("/api/assets/players/df.webp");
+    expect(res.status).toBe(200);
+    expect(getAsset).toHaveBeenCalledWith("players/df.webp");
+  });
+
+  it("returns 404 for an unknown asset", async () => {
+    vi.mocked(getAsset).mockResolvedValue(null);
+    const res = await app.request("/api/assets/nope.webp");
     expect(res.status).toBe(404);
   });
 });

@@ -48,12 +48,17 @@ import {
 } from "./modules/auth/auth.errors.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
 import { getPlatformConfig } from "./modules/config/config.service.js";
+import { listCompetitions } from "./modules/competitions/competitions.service.js";
+import { getAsset } from "./modules/assets/assets.service.js";
 import { scheduleInput } from "./modules/schedule/schedule.schema.js";
 import { listSchedule } from "./modules/schedule/schedule.service.js";
 import { TxlineNotConfiguredError } from "./txline.js";
 import { preparePredictionInput } from "./modules/prediction/prediction.schema.js";
 import { preparePrediction } from "./modules/prediction/prediction.service.js";
-import { EntryNotOpenYetError, MatchNotOpenError } from "./modules/prediction/prediction.errors.js";
+import {
+  EntryNotOpenYetError,
+  MatchNotOpenError,
+} from "./modules/prediction/prediction.errors.js";
 import {
   InvalidSignatureError,
   UserNotFoundError,
@@ -104,6 +109,27 @@ app.all("/trpc/*", (c) =>
 );
 
 app.get("/api/config", (c) => c.json(getPlatformConfig()));
+
+app.get("/api/competitions", (c) => c.json(listCompetitions()));
+
+const ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable";
+app.get("/api/assets/:path{.+}", async (c) => {
+  const path = c.req.param("path");
+  const asset = await getAsset(path);
+  if (!asset) return c.json({ error: "asset not found" }, 404);
+  const etag = `"${asset.etag}"`;
+  if (c.req.header("If-None-Match") === etag) {
+    return c.body(null, 304, {
+      ETag: etag,
+      "Cache-Control": ASSET_CACHE_CONTROL,
+    });
+  }
+  return c.body(asset.body.buffer as ArrayBuffer, 200, {
+    "Content-Type": asset.contentType,
+    "Cache-Control": ASSET_CACHE_CONTROL,
+    ETag: etag,
+  });
+});
 
 app.get("/api/matches", async (c) => c.json(await listMatches()));
 

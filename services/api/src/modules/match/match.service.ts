@@ -98,11 +98,20 @@ const STATUS_RANK: Record<number, number> = {
   [STATUS_SETTLED]: 2,
 };
 
-/**
- * All matches created on-chain, each with the PDA the read endpoints key by,
- * enriched with live score + team names from the feed when available. This is
- * the discovery endpoint the frontend uses instead of hardcoding a PDA.
- */
+function pickFeaturedPda(
+  summaries: MatchSummary[],
+  nowSecs: number,
+): string | null {
+  const open = summaries.filter((s) => s.onchain.status === STATUS_OPEN);
+  if (open.length === 0) return null;
+  const upcoming = open
+    .filter((s) => s.onchain.startTime > 0 && s.onchain.startTime >= nowSecs)
+    .sort((a, b) => a.onchain.startTime - b.onchain.startTime);
+  if (upcoming[0]) return upcoming[0].pda;
+  const newest = [...open].sort((a, b) => b.fixtureId - a.fixtureId)[0];
+  return newest ? newest.pda : null;
+}
+
 export async function listMatches(): Promise<MatchSummary[]> {
   const matches = await fetchAllMatches();
   const redis = getRedis();
@@ -119,12 +128,15 @@ export async function listMatches(): Promise<MatchSummary[]> {
         onchain: toOnchainMatch(match),
         live: toLiveMatch(hash),
         teamNames,
+        featured: false,
       };
     }),
   );
+  const featuredPda = pickFeaturedPda(summaries, Math.floor(Date.now() / 1000));
+  for (const s of summaries) s.featured = s.pda === featuredPda;
   return summaries.sort(
     (a, b) =>
-      (STATUS_RANK[a.onchain.status] ?? 9) - (STATUS_RANK[b.onchain.status] ?? 9) ||
-      b.fixtureId - a.fixtureId,
+      (STATUS_RANK[a.onchain.status] ?? 9) -
+        (STATUS_RANK[b.onchain.status] ?? 9) || b.fixtureId - a.fixtureId,
   );
 }

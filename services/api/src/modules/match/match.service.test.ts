@@ -116,6 +116,36 @@ describe("listMatches", () => {
     const order = (await listMatches()).map((m) => m.pda);
     expect(order).toEqual(["o2", "o1", "r", "s"]);
   });
+
+  it("features the soonest-upcoming OPEN match", async () => {
+    const soon = Math.floor(Date.now() / 1000) + 3600;
+    const later = soon + 3600;
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "late", match: fakeMatch({ matchId: 30n, status: 0, startTime: BigInt(later) }) },
+      { pda: "soon", match: fakeMatch({ matchId: 10n, status: 0, startTime: BigInt(soon) }) },
+      { pda: "settled", match: fakeMatch({ matchId: 40n, status: 2, startTime: BigInt(soon) }) },
+    ]);
+    const rows = await listMatches();
+    expect(rows.filter((m) => m.featured).map((m) => m.pda)).toEqual(["soon"]);
+  });
+
+  it("falls back to the newest OPEN match when none is upcoming", async () => {
+    // All startTimes 0 (start-gate disabled) → newest fixtureId wins.
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "o1", match: fakeMatch({ matchId: 10n, status: 0 }) },
+      { pda: "o2", match: fakeMatch({ matchId: 20n, status: 0 }) },
+    ]);
+    const rows = await listMatches();
+    expect(rows.filter((m) => m.featured).map((m) => m.pda)).toEqual(["o2"]);
+  });
+
+  it("features nothing when there are no OPEN matches", async () => {
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "s", match: fakeMatch({ matchId: 5n, status: 2 }) },
+    ]);
+    const rows = await listMatches();
+    expect(rows.some((m) => m.featured)).toBe(false);
+  });
 });
 
 describe("assembleMatchState", () => {

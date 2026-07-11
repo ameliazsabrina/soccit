@@ -45,6 +45,8 @@ import {
 import { preparePrediction } from "../modules/prediction/prediction.service.js";
 import { platformConfigOutput } from "../modules/config/config.schema.js";
 import { getPlatformConfig } from "../modules/config/config.service.js";
+import { competitionsOutput } from "../modules/competitions/competitions.schema.js";
+import { listCompetitions } from "../modules/competitions/competitions.service.js";
 import { getRedis, newRedisConnection } from "../redis.js";
 import { subscribeChannel } from "../pubsub.js";
 import { publicProcedure, router } from "./trpc.js";
@@ -156,6 +158,10 @@ const configRouter = router({
   get: publicProcedure.output(platformConfigOutput).query(() => getPlatformConfig()),
 });
 
+const competitionsRouter = router({
+  list: publicProcedure.output(competitionsOutput).query(() => listCompetitions()),
+});
+
 export const appRouter = router({
   match: matchRouter,
   schedule: scheduleRouter,
@@ -165,6 +171,7 @@ export const appRouter = router({
   lineup: lineupRouter,
   user: userRouter,
   config: configRouter,
+  competitions: competitionsRouter,
 });
 
 export type AppRouter = typeof appRouter;
