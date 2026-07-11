@@ -12,7 +12,7 @@ import { TeamBadge } from "../_components/team-badge";
 import {
   getMatches,
   formatUsdc,
-  SOCCIT_SEED_MATCH_PDA,
+  displayScore,
   type MatchSummary,
 } from "../_lib/api";
 import { cn } from "../_lib/utils";
@@ -31,67 +31,6 @@ const FILTERS = [
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
-
-const DEMO_PDA = "demo";
-
-const DEMO_MATCH: MatchSummary = {
-  pda: DEMO_PDA,
-  fixtureId: 999999,
-  onchain: {
-    status: 0,
-    statusLabel: "OPEN",
-    settled: false,
-    entryFee: "1000000",
-    poolTotal: "2500000",
-    participantCount: 2,
-    team1Id: 1,
-    team2Id: 2,
-    usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
-    winners: [null, null, null],
-  },
-  live: { statusId: 1, minute: 63, goals: { team1: 2, team2: 1 }, ts: Date.now() },
-  teamNames: { team1: "Portugal", team2: "Argentina" },
-};
-
-const DEMO_MATCHES: MatchSummary[] = [
-  {
-    pda: SOCCIT_SEED_MATCH_PDA,
-    fixtureId: 900001,
-    onchain: {
-      status: 0,
-      statusLabel: "OPEN",
-      settled: false,
-      entryFee: "5000000",
-      poolTotal: "5000000",
-      participantCount: 1,
-      team1Id: 101,
-      team2Id: 202,
-      usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
-      winners: [null, null, null],
-    },
-    live: { statusId: 1, minute: 34, goals: { team1: 1, team2: 0 }, ts: Date.now() },
-    teamNames: { team1: "Soccit FC", team2: "Devnet United" },
-  },
-  DEMO_MATCH,
-  {
-    pda: "demo-settled",
-    fixtureId: 888888,
-    onchain: {
-      status: 2,
-      statusLabel: "SETTLED",
-      settled: true,
-      entryFee: "1000000",
-      poolTotal: "8000000",
-      participantCount: 8,
-      team1Id: 301,
-      team2Id: 302,
-      usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
-      winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null],
-    },
-    live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
-    teamNames: { team1: "France", team2: "Spain" },
-  },
-];
 
 const MAGNETIC_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const TRANSITION_DURATION = 0.7;
@@ -120,17 +59,12 @@ export default function MatchEvents() {
     setError(null);
     try {
       const list = await getMatches();
-      setMatches([DEMO_MATCH, ...list]);
+      setMatches(list);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load matches.");
     } finally {
       setLoading(false);
     }
-  }
-
-  function loadDemoMatches() {
-    setError(null);
-    setMatches(DEMO_MATCHES);
   }
 
   useEffect(() => {
@@ -141,14 +75,8 @@ export default function MatchEvents() {
     if (!matches) return [];
     if (filter === "all") return matches;
     if (filter === "live") {
-      // The feed often sends statusId=null while a match is in play, so key off
-      // the presence of live feed data (minute/ts) on a non-settled match.
-      return matches.filter(
-        (m) =>
-          !!m.live &&
-          m.onchain.statusLabel !== "SETTLED" &&
-          ((m.live.minute ?? 0) > 0 || m.live.ts != null)
-      );
+      // Authoritative: the server tells us which matches are actually in-play.
+      return matches.filter((m) => m.phase === "LIVE");
     }
     return matches.filter((m) => m.onchain.statusLabel === filter);
   }, [matches, filter]);
@@ -202,7 +130,11 @@ export default function MatchEvents() {
         e.preventDefault();
         setBannerHidden(true);
         lock();
-      } else if (bannerHiddenRef.current && atTop && e.deltaY < -WHEEL_THRESHOLD) {
+      } else if (
+        bannerHiddenRef.current &&
+        atTop &&
+        e.deltaY < -WHEEL_THRESHOLD
+      ) {
         e.preventDefault();
         setBannerHidden(false);
         lock();
@@ -246,10 +178,18 @@ export default function MatchEvents() {
             {loading ? (
               <LoadingSpinner />
             ) : error ? (
-              <ErrorState error={error} onRetry={loadMatches} onDemo={loadDemoMatches} loading={loading} />
+              <ErrorState
+                error={error}
+                onRetry={loadMatches}
+                loading={loading}
+              />
             ) : (
               <>
-                <FilterTabs filter={filter} onChange={handleFilterChange} bannerHidden={bannerHidden} />
+                <FilterTabs
+                  filter={filter}
+                  onChange={handleFilterChange}
+                  bannerHidden={bannerHidden}
+                />
 
                 <div className="flex-1">
                   {filteredMatches.length > 0 ? (
@@ -264,7 +204,13 @@ export default function MatchEvents() {
                 </div>
 
                 <motion.div
-                  animate={{ opacity: bannerHidden ? 0 : filteredMatches.length > 1 ? 1 : 0 }}
+                  animate={{
+                    opacity: bannerHidden
+                      ? 0
+                      : filteredMatches.length > 1
+                        ? 1
+                        : 0,
+                  }}
                   className="pointer-events-none sticky bottom-4 mt-4 text-center text-[10px] font-bold uppercase tracking-widest text-muted"
                 >
                   Scroll to explore matches
@@ -349,7 +295,9 @@ function FeaturedBanner() {
       <div className="relative z-10 mt-5">
         <span className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 font-display text-sm uppercase tracking-[0.1em] text-white">
           enter event
-          <span className="material-symbols-outlined text-base">arrow_forward</span>
+          <span className="material-symbols-outlined text-base">
+            arrow_forward
+          </span>
         </span>
       </div>
 
@@ -365,7 +313,7 @@ function FeaturedBanner() {
             }}
             className={cn(
               "h-2 w-2 rounded-full transition-all",
-              i === active ? "bg-white w-6" : "bg-white/40 hover:bg-white/70"
+              i === active ? "bg-white w-6" : "bg-white/40 hover:bg-white/70",
             )}
           />
         ))}
@@ -384,7 +332,12 @@ function FilterTabs({
   bannerHidden: boolean;
 }) {
   return (
-    <div className={cn("border-b border-surface pb-3", bannerHidden ? "pt-0" : "pt-3")}>
+    <div
+      className={cn(
+        "border-b border-surface pb-3",
+        bannerHidden ? "pt-0" : "pt-3",
+      )}
+    >
       <div className="flex flex-nowrap gap-2 overflow-x-auto">
         {FILTERS.map((f) => (
           <button
@@ -394,7 +347,7 @@ function FilterTabs({
               "flex-1 whitespace-nowrap px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all sm:text-xs",
               filter === f.key
                 ? "border border-purple bg-purple text-white"
-                : "border border-transparent text-muted hover:border-purple hover:bg-purple hover:text-white"
+                : "border border-transparent text-muted hover:border-purple hover:bg-purple hover:text-white",
             )}
           >
             {f.label}
@@ -424,18 +377,18 @@ function LoadingSpinner() {
 function ErrorState({
   error,
   onRetry,
-  onDemo,
   loading,
 }: {
   error: string;
   onRetry: () => void;
-  onDemo: () => void;
   loading: boolean;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center border border-rose/30 bg-rose/5 p-8 text-center text-rose">
       <AlertCircle size={36} className="mb-4" />
-      <p className="font-bold uppercase tracking-wider">Market data unavailable</p>
+      <p className="font-bold uppercase tracking-wider">
+        Market data unavailable
+      </p>
       <p className="mt-2 text-sm">{error}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <button
@@ -445,33 +398,39 @@ function ErrorState({
           <Loader2 size={14} className={cn(loading && "animate-spin")} />
           Retry
         </button>
-        <button
-          onClick={onDemo}
-          className="flex items-center gap-2 border border-cyan/30 px-6 py-3 text-xs font-bold uppercase tracking-wider text-cyan transition-colors hover:bg-cyan/10"
-        >
-          Load Demo Markets
-        </button>
       </div>
     </div>
   );
 }
 
-function MatchCard({ match, index = 0 }: { match: MatchSummary; index?: number }) {
+function formatKickoff(startTimeSecs: number): string {
+  const diff = startTimeSecs - Math.floor(Date.now() / 1000);
+  if (diff <= 0) return "kicking off";
+  const days = Math.floor(diff / 86400);
+  const hours = Math.floor((diff % 86400) / 3600);
+  const mins = Math.floor((diff % 3600) / 60);
+  if (days > 0) return `in ${days}d ${hours}h`;
+  if (hours > 0) return `in ${hours}h ${mins}m`;
+  if (mins > 0) return `in ${mins}m`;
+  return "kicking off soon";
+}
+
+function MatchCard({
+  match,
+  index = 0,
+}: {
+  match: MatchSummary;
+  index?: number;
+}) {
   const team1 = match.teamNames?.team1 ?? `Team ${match.onchain.team1Id}`;
   const team2 = match.teamNames?.team2 ?? `Team ${match.onchain.team2Id}`;
-  const score = match.live?.goals ?? { team1: 0, team2: 0 };
+  const score = displayScore(match);
   const minute = match.live?.minute;
-  const isLive =
-    !!match.live &&
-    match.onchain.statusLabel !== "SETTLED" &&
-    ((match.live.minute ?? 0) > 0 || match.live.ts != null);
-  const status = match.onchain.statusLabel;
+  const isLive = match.phase === "LIVE";
+  const isUpcoming = match.phase === "UPCOMING";
 
   return (
-    <PageTransition
-      delay={index * 0.05}
-      className="group"
-    >
+    <PageTransition delay={index * 0.05} className="group">
       <Link
         href={`/matches/${match.pda}`}
         className="group-card relative flex flex-col gap-3 border border-surface bg-surface/40 p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface/70 hover:shadow-[0_12px_30px_-12px_rgba(15,23,42,0.08)] sm:flex-row sm:items-center sm:gap-4 sm:p-4"
@@ -481,25 +440,29 @@ function MatchCard({ match, index = 0 }: { match: MatchSummary; index?: number }
         {/* Match info */}
         <div className="relative z-10 flex flex-1 flex-col gap-2">
           <div className="flex items-center gap-2">
-            {match.pda === DEMO_PDA && (
-              <span className="border border-purple/40 bg-purple/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple">
-                Demo
-              </span>
-            )}
             {isLive ? (
               <>
                 <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose sm:text-xs">
-                  {minute}&apos; Live
+                  {minute ? `${minute}' Live` : "Live"}
                 </span>
               </>
-            ) : status === "OPEN" ? (
+            ) : isUpcoming ? (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple sm:text-xs">
+                Upcoming
+                {match.onchain.startTime > 0 && (
+                  <span className="ml-2 font-normal text-muted">
+                    {formatKickoff(match.onchain.startTime)}
+                  </span>
+                )}
+              </span>
+            ) : match.phase === "OPEN" ? (
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan sm:text-xs">
                 Open for Predictions
               </span>
             ) : (
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted sm:text-xs">
-                {status}
+                {match.phase}
               </span>
             )}
           </div>
@@ -508,15 +471,24 @@ function MatchCard({ match, index = 0 }: { match: MatchSummary; index?: number }
             <div className="flex items-center gap-3">
               <TeamBadge name={team1} size="lg" />
               <span className="truncate text-foreground">{team1}</span>
-              <span className="ml-auto text-cyan">{score.team1}</span>
+              <span className="ml-auto text-cyan">
+                {score ? score.team1 : "–"}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <TeamBadge name={team2} size="lg" />
-              <span className={cn("truncate", isLive ? "text-foreground" : "text-muted")}>
+              <span
+                className={cn(
+                  "truncate",
+                  isLive ? "text-foreground" : "text-muted",
+                )}
+              >
                 {team2}
               </span>
-              <span className={cn("ml-auto", isLive ? "text-cyan" : "text-muted")}>
-                {score.team2}
+              <span
+                className={cn("ml-auto", isLive ? "text-cyan" : "text-muted")}
+              >
+                {score ? score.team2 : "–"}
               </span>
             </div>
           </div>
@@ -551,7 +523,7 @@ function MatchCard({ match, index = 0 }: { match: MatchSummary; index?: number }
             </span>
           </div>
         </div>
-</Link>
+      </Link>
     </PageTransition>
   );
 }

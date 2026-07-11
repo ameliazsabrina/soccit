@@ -5,7 +5,8 @@ export const SOCCIT_API_BASE_URL = "https://13.213.196.237.sslip.io";
 // `fixtureId`. These constants remain only for the demo path and hardcoded
 // reference examples.
 export const SOCCIT_SEED_FIXTURE_ID = 900001;
-export const SOCCIT_SEED_MATCH_PDA = "CJJfxXRnagAc35PCVcnqYeU34VysGx4u93Hd75dGHFyq";
+export const SOCCIT_SEED_MATCH_PDA =
+  "CJJfxXRnagAc35PCVcnqYeU34VysGx4u93Hd75dGHFyq";
 export const SOCCIT_PROGRAM_ID = "TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v";
 export const SOCCIT_USDC_MINT = "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac";
 
@@ -28,6 +29,8 @@ export type AvatarDescriptor = {
   src: string;
 };
 
+export type Score = { team1: number; team2: number };
+
 export type ResolvedPlayer = {
   id: number;
   name: string;
@@ -37,9 +40,18 @@ export type ResolvedPlayer = {
   side: 1 | 2;
 };
 
+// Authoritative match phase computed server-side (services/api phase.ts).
+// Single source of truth for UPCOMING vs LIVE — never re-derive it from `live`.
+// UPCOMING → announced (keeper), kickoff still >10min away, entries not open yet.
+// OPEN     → within the KO−10min entry window (prediction/prepare returns 200).
+// LIVE     → feed in-play (statusId ∈ {2,3,4}); `live` is non-null only in this phase.
+export type MatchPhase = "UPCOMING" | "OPEN" | "LIVE" | "RESOLVED" | "SETTLED";
+
 export type MatchSummary = {
   pda: string;
   fixtureId: number;
+  featured: boolean;
+  phase: MatchPhase;
   onchain: {
     status: number;
     statusLabel: "OPEN" | "RESOLVED" | "SETTLED" | "UNKNOWN";
@@ -47,22 +59,32 @@ export type MatchSummary = {
     entryFee: string;
     poolTotal: string;
     participantCount: number;
+    startTime: number; // unix SECONDS; 0 = no entry gate
     team1Id: number;
     team2Id: number;
     usdcMint: string;
     winners: [string | null, string | null, string | null];
   };
+  // Non-null only when phase === "LIVE" (backend nulls a stale pre-kickoff ts).
   live: null | {
     statusId: number | null;
     minute: number | null;
-    goals: { team1: number; team2: number };
+    goals: Score;
     ts: number | null;
   };
+  // Definitive full-time result. Populated once the match is terminal
+  // (FINISHED/RESOLVED/SETTLED) and survives after `live` goes null; null while
+  // UPCOMING/OPEN/LIVE. Never set at the same time as `live` — read the running
+  // score from `live.goals` and the final score from here. Use `displayScore`.
+  finalScore: Score | null;
   teamNames: null | { team1: string | null; team2: string | null };
 };
 
 export type MatchState = {
   fixtureId: number;
+  // Nullable for a live-only fixture with no on-chain account yet. Optional so
+  // demo/seed fixtures without a phase stay valid; real API responses set it.
+  phase?: MatchPhase | null;
   onchain: null | {
     status: number;
     statusLabel: "OPEN" | "RESOLVED" | "SETTLED" | "UNKNOWN";
@@ -70,17 +92,22 @@ export type MatchState = {
     entryFee: string;
     poolTotal: string;
     participantCount: number;
+    startTime?: number; // unix SECONDS; 0 = no entry gate
     team1Id: number;
     team2Id: number;
     usdcMint: string;
     winners: [string | null, string | null, string | null];
   };
+  // Non-null only when phase === "LIVE".
   live: null | {
     statusId: number | null;
     minute: number | null;
-    goals: { team1: number; team2: number };
+    goals: Score;
     ts: number | null;
   };
+  // Definitive full-time result; see MatchSummary.finalScore. Optional so demo/
+  // seed fixtures without it stay valid; real API responses always include it.
+  finalScore?: Score | null;
   updatedAt: number;
 };
 
@@ -290,7 +317,9 @@ export function createSession(input: {
 }
 
 /** Registration response: the profile plus an immediate session (when enabled). */
-export type RegisterResponse = UserProfile & { session: SessionResponse | null };
+export type RegisterResponse = UserProfile & {
+  session: SessionResponse | null;
+};
 
 export function createUserProfile(input: {
   wallet: string;
@@ -335,23 +364,23 @@ export function updateUsername(input: {
 // via `connection.sendRawTransaction`. There is no `/submit` endpoint.
 
 export type PreparePredictionInput = {
-  wallet: string;        // base58 signer wallet; becomes tx fee payer
-  fixtureId: number;     // from GET /api/matches row.fixtureId
-  outPlayerId: number;   // starter going out (0 when unused) OR team1 goals for kind 3
-  inPlayerId: number;    // sub coming in (0 when unused) OR team2 goals for kind 3
-  lockMinute: number;    // match minute the prediction locks at
-  side: 0 | 1 | 2;       // 1=home, 2=away for sub picks; 0 for score pick
-  kind: PredictionKind;  // 0=OUT, 1=IN, 2=COMBO, 3=SCORE
+  wallet: string; // base58 signer wallet; becomes tx fee payer
+  fixtureId: number; // from GET /api/matches row.fixtureId
+  outPlayerId: number; // starter going out (0 when unused) OR team1 goals for kind 3
+  inPlayerId: number; // sub coming in (0 when unused) OR team2 goals for kind 3
+  lockMinute: number; // match minute the prediction locks at
+  side: 0 | 1 | 2; // 1=home, 2=away for sub picks; 0 for score pick
+  kind: PredictionKind; // 0=OUT, 1=IN, 2=COMBO, 3=SCORE
 };
 
 export type PreparePredictionOutput = {
-  transaction: string;          // base64 serialized unsigned legacy Solana tx
+  transaction: string; // base64 serialized unsigned legacy Solana tx
   fixtureId: number;
-  prediction: string;           // prediction-account PDA (base58)
-  matchAccount: string;         // match-account PDA (base58) — canonical route id
-  userUsdcAta: string;          // user's USDC ATA (created idempotently by tx)
+  prediction: string; // prediction-account PDA (base58)
+  matchAccount: string; // match-account PDA (base58) — canonical route id
+  userUsdcAta: string; // user's USDC ATA (created idempotently by tx)
   usdcMint: string;
-  entryFee: string;             // USDC base units (6 dp)
+  entryFee: string; // USDC base units (6 dp)
   blockhash: string;
   lastValidBlockHeight: number;
 };
@@ -363,7 +392,10 @@ export function preparePrediction(input: PreparePredictionInput) {
   });
 }
 
-export function useLeaderboardStream(pda: string, onUpdate: (data: Leaderboard) => void) {
+export function useLeaderboardStream(
+  pda: string,
+  onUpdate: (data: Leaderboard) => void,
+) {
   const url = `${SOCCIT_API_BASE_URL}/api/leaderboard/${pda}/stream`;
   const source = new EventSource(url);
   source.addEventListener("leaderboard", (event) => {
@@ -390,7 +422,7 @@ export const MATCH_EVENT_TYPES = [
 export function useMatchEventsStream(
   pda: string,
   onEvent: (entry: EventEntry) => void,
-  fromId = "0-0"
+  fromId = "0-0",
 ) {
   const url = `${SOCCIT_API_BASE_URL}/api/events/${pda}?fromId=${fromId}`;
   const source = new EventSource(url);
@@ -415,7 +447,7 @@ export function openMatchEventsStream(
     onStatus?: (status: SseStatus) => void;
     onError?: (message: string) => void;
   },
-  fromId = "0-0"
+  fromId = "0-0",
 ) {
   const url = `${SOCCIT_API_BASE_URL}/api/events/${pda}?fromId=${fromId}`;
   const source = new EventSource(url);
@@ -449,7 +481,7 @@ export function openLeaderboardStream(
     onUpdate: (data: Leaderboard) => void;
     onStatus?: (status: SseStatus) => void;
     onError?: (message: string) => void;
-  }
+  },
 ) {
   const url = `${SOCCIT_API_BASE_URL}/api/leaderboard/${pda}/stream`;
   const source = new EventSource(url);
@@ -467,7 +499,9 @@ export function openLeaderboardStream(
 
   source.onerror = () => {
     handlers.onStatus?.("error");
-    handlers.onError?.("Leaderboard stream encountered an error. Reconnecting…");
+    handlers.onError?.(
+      "Leaderboard stream encountered an error. Reconnecting…",
+    );
   };
 
   return source;
@@ -513,6 +547,25 @@ export function calculatePrizes(poolTotal: string): {
   };
 }
 
+/**
+ * The scoreline to display for a match, or `null` when there is none yet.
+ *
+ * LIVE     → running score from `live.goals`.
+ * terminal → `finalScore` (FINISHED/RESOLVED/SETTLED); `live` is null by then.
+ * UPCOMING/OPEN → `null` — render "vs"/kickoff, NEVER 0–0.
+ *
+ * `live` and `finalScore` are never both set, so preferring `live` is safe.
+ * A terminal match can rarely return `finalScore: null` (feed never ingested);
+ * that also yields `null` here and should render a neutral placeholder, not 0–0.
+ */
+export function displayScore(m: {
+  live: { goals: Score } | null;
+  finalScore?: Score | null;
+}): Score | null {
+  if (m.live) return m.live.goals;
+  return m.finalScore ?? null;
+}
+
 export function predictionKindLabel(kind: PredictionKind): string {
   switch (kind) {
     case 0:
@@ -528,17 +581,22 @@ export function predictionKindLabel(kind: PredictionKind): string {
   }
 }
 
-export function positionCode(position: string | null): "fw" | "md" | "df" | "gk" {
+export function positionCode(
+  position: string | null,
+): "fw" | "md" | "df" | "gk" {
   if (!position) return "fw";
   const p = position.toLowerCase();
-  if (p.includes("forward") || p.includes("striker") || p.includes("wing")) return "fw";
+  if (p.includes("forward") || p.includes("striker") || p.includes("wing"))
+    return "fw";
   if (p.includes("midfield") || p.includes("mid")) return "md";
   if (p.includes("defender") || p.includes("back")) return "df";
   if (p.includes("goal") || p.includes("keeper")) return "gk";
   return "fw";
 }
 
-export function playerRarity(rating?: number): "bronze" | "gold" | "iridescent" {
+export function playerRarity(
+  rating?: number,
+): "bronze" | "gold" | "iridescent" {
   const r = rating ?? 75;
   if (r >= 86) return "iridescent";
   if (r >= 80) return "gold";

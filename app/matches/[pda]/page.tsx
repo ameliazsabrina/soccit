@@ -30,10 +30,12 @@ import {
   formatUsdc,
   formatWallet,
   calculatePrizes,
+  displayScore,
   openMatchEventsStream,
   openLeaderboardStream,
   SOCCIT_SEED_MATCH_PDA,
   type MatchState,
+  type Score,
   type Lineup,
   type UserProfile,
   type Leaderboard,
@@ -69,10 +71,16 @@ export default function MatchDetails() {
   const { connected, publicKey } = useWallet();
 
   const [match, setMatch] = useState<MatchState | null>(() =>
-    isDemo ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : isDemoSettled ? DEMO_SETTLED_MATCH : null
+    isDemo
+      ? DEMO_MATCH
+      : isSeed
+        ? SEED_MATCH_STATE
+        : isDemoSettled
+          ? DEMO_SETTLED_MATCH
+          : null,
   );
   const [lineup, setLineup] = useState<Lineup | null>(() =>
-    isDemo || isSeed ? DEMO_LINEUP : isDemoSettled ? DEMO_SETTLED_LINEUP : null
+    isDemo || isSeed ? DEMO_LINEUP : isDemoSettled ? DEMO_SETTLED_LINEUP : null,
   );
   const [loading, setLoading] = useState(!isDemo && !isSeed && !isDemoSettled);
   const [error, setError] = useState<string | null>(null);
@@ -82,10 +90,10 @@ export default function MatchDetails() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pendingMode, setPendingMode] = useState<ModeKey | null>(null);
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(
-    isDemo ? DEMO_LEADERBOARD : isDemoSettled ? DEMO_SETTLED_LEADERBOARD : null
+    isDemo ? DEMO_LEADERBOARD : isDemoSettled ? DEMO_SETTLED_LEADERBOARD : null,
   );
   const [events, setEvents] = useState<EventEntry[]>(
-    isDemo ? DEMO_EVENTS : isDemoSettled ? DEMO_SETTLED_EVENTS : []
+    isDemo ? DEMO_EVENTS : isDemoSettled ? DEMO_SETTLED_EVENTS : [],
   );
 
   useEffect(() => {
@@ -162,7 +170,7 @@ export default function MatchDetails() {
       setError(
         /no match found/i.test(raw)
           ? "This match isn't live yet. It becomes available once the fixture is ingested near kickoff."
-          : raw
+          : raw,
       );
     } finally {
       setLoading(false);
@@ -227,7 +235,9 @@ export default function MatchDetails() {
       <PageShell>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
-          <h2 className="font-display text-2xl text-foreground">Match Not Available</h2>
+          <h2 className="font-display text-2xl text-foreground">
+            Match Not Available
+          </h2>
           <p className="mt-2 text-muted">{error ?? "Unknown error"}</p>
           <button
             onClick={loadMatch}
@@ -246,9 +256,12 @@ export default function MatchDetails() {
       <PageShell>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <Users className="mb-4 text-muted" size={48} />
-          <h2 className="font-display text-2xl text-foreground">Lineups Not Out Yet</h2>
+          <h2 className="font-display text-2xl text-foreground">
+            Lineups Not Out Yet
+          </h2>
           <p className="mt-2 text-muted">
-            Team sheets are usually published close to kickoff. Check back soon to make your picks.
+            Team sheets are usually published close to kickoff. Check back soon
+            to make your picks.
           </p>
           <button
             onClick={loadMatch}
@@ -263,9 +276,9 @@ export default function MatchDetails() {
 
   const team1 = lineup.teams.find((t) => t.side === 1);
   const team2 = lineup.teams.find((t) => t.side === 2);
-  const score = match.live?.goals ?? { team1: 0, team2: 0 };
+  const score = displayScore(match);
   const minute = match.live?.minute ?? 0;
-  const isLive = match.live?.statusId === 1;
+  const isLive = match.phase === "LIVE";
   const status = match.onchain?.statusLabel ?? "UNKNOWN";
   const poolTotal = match.onchain?.poolTotal ?? "0";
   const entryFee = match.onchain?.entryFee ?? "0";
@@ -356,7 +369,7 @@ function MatchHero({
 }: {
   team1?: Lineup["teams"][number];
   team2?: Lineup["teams"][number];
-  score: { team1: number; team2: number };
+  score: Score | null;
   minute: number;
   isLive: boolean;
   status: string;
@@ -365,9 +378,7 @@ function MatchHero({
   connected: boolean;
 }) {
   return (
-    <PageTransition
-      className="group relative flex min-h-[260px] flex-col justify-center overflow-hidden bg-surface p-6 sm:min-h-[300px] sm:p-8"
-    >
+    <PageTransition className="group relative flex min-h-[260px] flex-col justify-center overflow-hidden bg-surface p-6 sm:min-h-[300px] sm:p-8">
       <div className="card-shine" />
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple via-cyan to-purple" />
 
@@ -384,18 +395,32 @@ function MatchHero({
 
         <div className="flex items-center justify-center gap-8 md:gap-16">
           <div className="flex flex-1 flex-col items-center gap-3">
-            <TeamBadge name={team1?.teamName ?? "Home"} size="xl" className="h-20 w-20 md:h-24 md:w-24" />
+            <TeamBadge
+              name={team1?.teamName ?? "Home"}
+              size="xl"
+              className="h-20 w-20 md:h-24 md:w-24"
+            />
             <span className="max-w-[160px] text-center font-display text-sm uppercase tracking-wider text-foreground md:text-base">
               {team1?.teamName ?? "Home"}
             </span>
           </div>
           <div className="flex items-center gap-2 font-display text-5xl text-foreground md:text-6xl lg:text-7xl">
-            <span>{score.team1}</span>
-            <span className="text-muted">-</span>
-            <span>{score.team2}</span>
+            {score ? (
+              <>
+                <span>{score.team1}</span>
+                <span className="text-muted">-</span>
+                <span>{score.team2}</span>
+              </>
+            ) : (
+              <span className="text-muted">vs</span>
+            )}
           </div>
           <div className="flex flex-1 flex-col items-center gap-3">
-            <TeamBadge name={team2?.teamName ?? "Away"} size="xl" className="h-20 w-20 md:h-24 md:w-24" />
+            <TeamBadge
+              name={team2?.teamName ?? "Away"}
+              size="xl"
+              className="h-20 w-20 md:h-24 md:w-24"
+            />
             <span className="max-w-[160px] text-center font-display text-sm uppercase tracking-wider text-foreground md:text-base">
               {team2?.teamName ?? "Away"}
             </span>
@@ -451,34 +476,48 @@ function VaultCard({
           </div>
           <h2 className="font-display text-lg text-foreground">Vault</h2>
         </div>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Details →</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+          Details →
+        </span>
       </div>
 
       <div className="flex-1 space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted">Pool</span>
-          <span className="font-mono font-bold text-cyan">${formatUsdc(poolTotal)}</span>
+          <span className="font-mono font-bold text-cyan">
+            ${formatUsdc(poolTotal)}
+          </span>
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted">Entry</span>
-          <span className="font-mono font-bold text-foreground">${formatUsdc(entryFee)}</span>
+          <span className="font-mono font-bold text-foreground">
+            ${formatUsdc(entryFee)}
+          </span>
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted">Players</span>
-          <span className="font-mono font-bold text-foreground">{participantCount}</span>
+          <span className="font-mono font-bold text-foreground">
+            {participantCount}
+          </span>
         </div>
         <div className="border-t border-surface pt-3">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted">1st</span>
-            <span className="font-mono font-bold text-gold">${formatUsdc(String(Math.round(prizes.first)))}</span>
+            <span className="font-mono font-bold text-gold">
+              ${formatUsdc(String(Math.round(prizes.first)))}
+            </span>
           </div>
           <div className="mt-1 flex items-center justify-between text-xs">
             <span className="text-muted">2nd</span>
-            <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.second)))}</span>
+            <span className="font-mono font-bold text-foreground">
+              ${formatUsdc(String(Math.round(prizes.second)))}
+            </span>
           </div>
           <div className="mt-1 flex items-center justify-between text-xs">
             <span className="text-muted">3rd</span>
-            <span className="font-mono font-bold text-bronze">${formatUsdc(String(Math.round(prizes.third)))}</span>
+            <span className="font-mono font-bold text-bronze">
+              ${formatUsdc(String(Math.round(prizes.third)))}
+            </span>
           </div>
         </div>
       </div>
@@ -573,54 +612,82 @@ function VaultModal({
               <X size={18} />
             </button>
             <div className="px-8 py-8">
-              <h2 className="font-display text-2xl text-foreground">Vault Details</h2>
-              <p className="mt-1 text-xs uppercase tracking-wider text-muted">Prize pool breakdown</p>
+              <h2 className="font-display text-2xl text-foreground">
+                Vault Details
+              </h2>
+              <p className="mt-1 text-xs uppercase tracking-wider text-muted">
+                Prize pool breakdown
+              </p>
 
               <div className="mt-6 space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted">Total Pool</span>
-                  <span className="font-mono font-bold text-cyan">${formatUsdc(poolTotal)}</span>
+                  <span className="font-mono font-bold text-cyan">
+                    ${formatUsdc(poolTotal)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted">Entry Fee</span>
-                  <span className="font-mono font-bold text-foreground">${formatUsdc(entryFee)}</span>
+                  <span className="font-mono font-bold text-foreground">
+                    ${formatUsdc(entryFee)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted">Participants</span>
-                  <span className="font-mono font-bold text-foreground">{participantCount}</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {participantCount}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted">Platform Fee</span>
-                  <span className="font-mono font-bold text-foreground">20%</span>
+                  <span className="font-mono font-bold text-foreground">
+                    20%
+                  </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-surface pt-3 text-sm">
                   <span className="text-muted">Net Prize Pool</span>
-                  <span className="font-mono font-bold text-cyan">${formatUsdc(String(Math.round(prizes.total)))}</span>
+                  <span className="font-mono font-bold text-cyan">
+                    ${formatUsdc(String(Math.round(prizes.total)))}
+                  </span>
                 </div>
               </div>
 
               <div className="mt-6 space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Prize Distribution</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                  Prize Distribution
+                </p>
                 <div className="flex items-center justify-between bg-surface p-3 text-sm">
                   <span className="flex items-center gap-2 font-bold text-gold">
-                    <span className="flex h-5 w-5 items-center justify-center bg-gold text-[10px] text-background">1</span>
+                    <span className="flex h-5 w-5 items-center justify-center bg-gold text-[10px] text-background">
+                      1
+                    </span>
                     1st Place
                   </span>
-                  <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.first)))}</span>
+                  <span className="font-mono font-bold text-foreground">
+                    ${formatUsdc(String(Math.round(prizes.first)))}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between bg-surface p-3 text-sm">
                   <span className="flex items-center gap-2 font-bold text-foreground">
-                    <span className="flex h-5 w-5 items-center justify-center bg-foreground text-[10px] text-background">2</span>
+                    <span className="flex h-5 w-5 items-center justify-center bg-foreground text-[10px] text-background">
+                      2
+                    </span>
                     2nd Place
                   </span>
-                  <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.second)))}</span>
+                  <span className="font-mono font-bold text-foreground">
+                    ${formatUsdc(String(Math.round(prizes.second)))}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between bg-surface p-3 text-sm">
                   <span className="flex items-center gap-2 font-bold text-bronze">
-                    <span className="flex h-5 w-5 items-center justify-center bg-bronze text-[10px] text-background">3</span>
+                    <span className="flex h-5 w-5 items-center justify-center bg-bronze text-[10px] text-background">
+                      3
+                    </span>
                     3rd Place
                   </span>
-                  <span className="font-mono font-bold text-foreground">${formatUsdc(String(Math.round(prizes.third)))}</span>
+                  <span className="font-mono font-bold text-foreground">
+                    ${formatUsdc(String(Math.round(prizes.third)))}
+                  </span>
                 </div>
               </div>
 
@@ -663,12 +730,21 @@ function LogsPreviewCard({
 
       <div className="flex-1 space-y-2 overflow-hidden">
         {events.slice(0, 5).map((entry) => (
-          <div key={entry.id} className="flex items-center justify-between bg-background/50 p-2 text-[10px]">
-            <span className="font-bold uppercase tracking-wider text-foreground">{formatType(entry.type)}</span>
-            <span className="truncate text-muted">{formatEventPayload(entry)}</span>
+          <div
+            key={entry.id}
+            className="flex items-center justify-between bg-background/50 p-2 text-[10px]"
+          >
+            <span className="font-bold uppercase tracking-wider text-foreground">
+              {formatType(entry.type)}
+            </span>
+            <span className="truncate text-muted">
+              {formatEventPayload(entry)}
+            </span>
           </div>
         ))}
-        {events.length === 0 && <p className="text-sm text-muted">No events recorded.</p>}
+        {events.length === 0 && (
+          <p className="text-sm text-muted">No events recorded.</p>
+        )}
       </div>
 
       <Link
@@ -694,9 +770,15 @@ function ResultsPreviewCard({
   pda: string;
   team1Name: string;
   team2Name: string;
-  score: { team1: number; team2: number };
+  score: Score | null;
 }) {
-  const winner = score.team1 > score.team2 ? team1Name : score.team2 > score.team1 ? team2Name : "Draw";
+  const winner = !score
+    ? "—"
+    : score.team1 > score.team2
+      ? team1Name
+      : score.team2 > score.team1
+        ? team2Name
+        : "Draw";
   const topRanks = leaderboard?.ranking.slice(0, 3) ?? [];
 
   return (
@@ -709,15 +791,21 @@ function ResultsPreviewCard({
           <div className="flex h-9 w-9 items-center justify-center bg-background text-gold">
             <Trophy size={18} />
           </div>
-          <h2 className="font-display text-lg text-foreground">Match Results</h2>
+          <h2 className="font-display text-lg text-foreground">
+            Match Results
+          </h2>
         </div>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Settled</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+          Settled
+        </span>
       </div>
 
       <div className="flex-1 space-y-3">
         <div className="flex items-center justify-between bg-background/50 p-3 text-sm">
           <span className="text-muted">Final Score</span>
-          <span className="font-display text-lg text-foreground">{score.team1} - {score.team2}</span>
+          <span className="font-display text-lg text-foreground">
+            {score ? `${score.team1} - ${score.team2}` : "— : —"}
+          </span>
         </div>
         <div className="flex items-center justify-between bg-background/50 p-3 text-sm">
           <span className="text-muted">Winner</span>
@@ -725,17 +813,26 @@ function ResultsPreviewCard({
         </div>
         <div className="flex items-center justify-between bg-background/50 p-3 text-sm">
           <span className="text-muted">Prize Pool</span>
-          <span className="font-mono font-bold text-gold">${formatUsdc(String(Math.round(prizes.total)))}</span>
+          <span className="font-mono font-bold text-gold">
+            ${formatUsdc(String(Math.round(prizes.total)))}
+          </span>
         </div>
         {topRanks.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Top Winners</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              Top Winners
+            </p>
             {topRanks.map((r, i) => (
-              <div key={r.owner + i} className="flex items-center justify-between bg-background/50 p-2 text-xs">
+              <div
+                key={r.owner + i}
+                className="flex items-center justify-between bg-background/50 p-2 text-xs"
+              >
                 <span className="truncate font-bold text-foreground">
                   {r.user?.username ?? formatWallet(r.owner)}
                 </span>
-                <span className="font-mono font-bold text-cyan">{r.points} pts</span>
+                <span className="font-mono font-bold text-cyan">
+                  {r.points} pts
+                </span>
               </div>
             ))}
           </div>

@@ -17,19 +17,24 @@ export const DEMO_SETTLED_PDA = "demo-settled";
 export const DEMO_MATCH_SUMMARY: MatchSummary = {
   pda: DEMO_PDA,
   fixtureId: 999999,
+  featured: false,
+  phase: "LIVE",
   onchain: {
     status: 0, statusLabel: "OPEN", settled: false,
     entryFee: "1000000", poolTotal: "2500000", participantCount: 2,
+    startTime: 0,
     team1Id: 101, team2Id: 202,
     usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
     winners: [null, null, null],
   },
   live: { statusId: 1, minute: 63, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  finalScore: null,
   teamNames: { team1: "Portugal", team2: "Argentina" },
 };
 
 export const DEMO_MATCH_STATE: MatchState = {
   fixtureId: 999999,
+  phase: "LIVE",
   onchain: {
     status: 0, statusLabel: "OPEN", settled: false,
     entryFee: "1000000", poolTotal: "5000000", participantCount: 12,
@@ -122,19 +127,25 @@ export const DEMO_EVENTS: EventEntry[] = [
 export const DEMO_SETTLED_MATCH_SUMMARY: MatchSummary = {
   pda: DEMO_SETTLED_PDA,
   fixtureId: 888888,
+  featured: false,
+  phase: "SETTLED",
   onchain: {
     status: 2, statusLabel: "SETTLED", settled: true,
     entryFee: "1000000", poolTotal: "8000000", participantCount: 8,
+    startTime: 0,
     team1Id: 301, team2Id: 302,
     usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
     winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null],
   },
-  live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  // Terminal: backend nulls `live` and moves the score to `finalScore`.
+  live: null,
+  finalScore: { team1: 2, team2: 1 },
   teamNames: { team1: "France", team2: "Spain" },
 };
 
 export const DEMO_SETTLED_MATCH_STATE: MatchState = {
   fixtureId: 888888,
+  phase: "SETTLED",
   onchain: {
     status: 2, statusLabel: "SETTLED", settled: true,
     entryFee: "1000000", poolTotal: "8000000", participantCount: 8,
@@ -142,7 +153,9 @@ export const DEMO_SETTLED_MATCH_STATE: MatchState = {
     usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", "FgTRT58ktiDtXZZw5uZc3NhXgstPbPPTj9R8YVwhZFx7", "24CHvVUj1WHDJo5mNNPTDA7iMtXtAojdND9DpWmqdFWt"],
   },
-  live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  // Terminal: backend nulls `live` and moves the score to `finalScore`.
+  live: null,
+  finalScore: { team1: 2, team2: 1 },
   updatedAt: Date.now(),
 };
 
@@ -182,6 +195,7 @@ export const DEMO_SETTLED_EVENTS: EventEntry[] = [
 
 export const SEED_MATCH_STATE: MatchState = {
   fixtureId: SOCCIT_SEED_FIXTURE_ID,
+  phase: "OPEN",
   onchain: {
     status: 0, statusLabel: "OPEN", settled: false,
     entryFee: "5000000", poolTotal: "0", participantCount: 0,
@@ -197,6 +211,7 @@ export const SEED_MATCH_STATE: MatchState = {
 
 export const DEMO_SETTLEMENT_MATCH: MatchState = {
   fixtureId: 999999,
+  phase: "SETTLED",
   onchain: {
     status: 2, statusLabel: "SETTLED", settled: true,
     entryFee: "1000000", poolTotal: "5000000", participantCount: 12,
@@ -208,7 +223,9 @@ export const DEMO_SETTLEMENT_MATCH: MatchState = {
       "24CHvVUj1WHDJo5mNNPTDA7iMtXtAojdND9DpWmqdFWt",
     ],
   },
-  live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  // Terminal: backend nulls `live` and moves the score to `finalScore`.
+  live: null,
+  finalScore: { team1: 2, team2: 1 },
   updatedAt: Date.now(),
 };
 
@@ -243,13 +260,17 @@ export const DEMO_SETTLEMENT_LEADERBOARD: Leaderboard = {
 export const SEED_MATCH_SUMMARY: MatchSummary = {
   pda: SOCCIT_SEED_MATCH_PDA,
   fixtureId: 900001,
+  featured: false,
+  phase: "LIVE",
   onchain: {
     status: 0, statusLabel: "OPEN", settled: false,
     entryFee: "5000000", poolTotal: "5000000", participantCount: 1,
+    startTime: 0,
     team1Id: 101, team2Id: 202,
     usdcMint: "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
     winners: [null, null, null],
   },
   live: { statusId: 1, minute: 34, goals: { team1: 1, team2: 0 }, ts: Date.now() },
+  finalScore: null,
   teamNames: { team1: "Soccit FC", team2: "Devnet United" },
 };

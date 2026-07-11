@@ -23,6 +23,7 @@ import {
   getLineup,
   openMatchEventsStream,
   isValidPda,
+  displayScore,
   type MatchState,
   type Lineup,
   type EventEntry,
@@ -46,7 +47,12 @@ const DEMO_MATCH_STATE: MatchState = {
     usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
     winners: [null, null, null],
   },
-  live: { statusId: 1, minute: 63, goals: { team1: 2, team2: 1 }, ts: Date.now() },
+  live: {
+    statusId: 1,
+    minute: 63,
+    goals: { team1: 2, team2: 1 },
+    ts: Date.now(),
+  },
   updatedAt: Date.now(),
 };
 
@@ -54,8 +60,20 @@ const DEMO_LINEUP_STATE: Lineup = {
   fixtureId: 999999,
   updatedAt: Date.now(),
   teams: [
-    { side: 1, teamId: 101, teamName: "Portugal", formation: "4-3-3", players: [] },
-    { side: 2, teamId: 202, teamName: "Argentina", formation: "4-3-3", players: [] },
+    {
+      side: 1,
+      teamId: 101,
+      teamName: "Portugal",
+      formation: "4-3-3",
+      players: [],
+    },
+    {
+      side: 2,
+      teamId: 202,
+      teamName: "Argentina",
+      formation: "4-3-3",
+      players: [],
+    },
   ],
   names: {},
 };
@@ -67,7 +85,14 @@ const DEMO_EVENTS: EventEntry[] = [
     payload: { minute: 24, side: 1, scorerId: 1010 },
     players: {
       out: null,
-      in: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 },
+      in: {
+        id: 1010,
+        name: "Cristiano Ronaldo",
+        number: "7",
+        positionId: 4,
+        position: "Forward",
+        side: 1,
+      },
     },
   },
   {
@@ -76,7 +101,14 @@ const DEMO_EVENTS: EventEntry[] = [
     payload: { minute: 41, side: 1, playerId: 1003 },
     players: {
       out: null,
-      in: { id: 1003, name: "Rúben Dias", number: "4", positionId: 2, position: "Defender", side: 1 },
+      in: {
+        id: 1003,
+        name: "Rúben Dias",
+        number: "4",
+        positionId: 2,
+        position: "Defender",
+        side: 1,
+      },
     },
   },
   {
@@ -84,8 +116,22 @@ const DEMO_EVENTS: EventEntry[] = [
     type: "substitution",
     payload: { minute: 63, side: 1, playerOutId: 1010, playerInId: 1106 },
     players: {
-      out: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 },
-      in: { id: 1106, name: "Gonçalo Ramos", number: "9", positionId: 4, position: "Forward", side: 1 },
+      out: {
+        id: 1010,
+        name: "Cristiano Ronaldo",
+        number: "7",
+        positionId: 4,
+        position: "Forward",
+        side: 1,
+      },
+      in: {
+        id: 1106,
+        name: "Gonçalo Ramos",
+        number: "9",
+        positionId: 4,
+        position: "Forward",
+        side: 1,
+      },
     },
   },
 ];
@@ -98,43 +144,176 @@ export default function MatchIntelligencePage() {
   const pda = isDemo ? DEMO_PDA : isDemoSettled ? "demo-settled" : rawPda;
 
   const subNavTabs: ArenaTab[] = [
-    { model: "logs", label: "Logs", href: `/matches/${pda}/logs`, active: true },
-    { model: "settlement", label: "Settlement", href: `/matches/${pda}/settlement`, active: false },
-];
+    {
+      model: "logs",
+      label: "Logs",
+      href: `/matches/${pda}/logs`,
+      active: true,
+    },
+    {
+      model: "settlement",
+      label: "Settlement",
+      href: `/matches/${pda}/settlement`,
+      active: false,
+    },
+  ];
 
-const DEMO_SETTLED_MATCH_STATE: MatchState = {
-  fixtureId: 888888,
-  onchain: { status: 2, statusLabel: "SETTLED", settled: true, entryFee: "1000000", poolTotal: "8000000", participantCount: 8, team1Id: 301, team2Id: 302, usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null] },
-  live: { statusId: 0, minute: 90, goals: { team1: 2, team2: 1 }, ts: Date.now() },
-  updatedAt: Date.now(),
-};
+  const DEMO_SETTLED_MATCH_STATE: MatchState = {
+    fixtureId: 888888,
+    onchain: {
+      status: 2,
+      statusLabel: "SETTLED",
+      settled: true,
+      entryFee: "1000000",
+      poolTotal: "8000000",
+      participantCount: 8,
+      team1Id: 301,
+      team2Id: 302,
+      usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null],
+    },
+    // Terminal: backend nulls `live` and moves the score to `finalScore`.
+    live: null,
+    finalScore: { team1: 2, team2: 1 },
+    updatedAt: Date.now(),
+  };
 
-const DEMO_SETTLED_LINEUP_STATE: Lineup = {
-  fixtureId: 888888,
-  updatedAt: Date.now(),
-  teams: [
-    { side: 1, teamId: 301, teamName: "France", formation: "4-3-3", players: [] },
-    { side: 2, teamId: 302, teamName: "Spain", formation: "4-3-3", players: [] },
-  ],
-  names: {},
-};
+  const DEMO_SETTLED_LINEUP_STATE: Lineup = {
+    fixtureId: 888888,
+    updatedAt: Date.now(),
+    teams: [
+      {
+        side: 1,
+        teamId: 301,
+        teamName: "France",
+        formation: "4-3-3",
+        players: [],
+      },
+      {
+        side: 2,
+        teamId: 302,
+        teamName: "Spain",
+        formation: "4-3-3",
+        players: [],
+      },
+    ],
+    names: {},
+  };
 
-const DEMO_SETTLED_EVENTS: EventEntry[] = [
-  { id: "s1", type: "goal", payload: { minute: 18, side: 1 }, players: { out: null, in: { id: 3001, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 } } },
-  { id: "s2", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
-  { id: "s3", type: "goal", payload: { minute: 34, side: 2 }, players: { out: null, in: { id: 4001, name: "Lamine Yamal", number: "19", positionId: 4, position: "Forward", side: 2 } } },
-  { id: "s4", type: "yellow_card", payload: { minute: 52, side: 1 }, players: { out: null, in: { id: 3002, name: "Aurélien Tchouaméni", number: "8", positionId: 3, position: "Midfielder", side: 1 } } },
-  { id: "s5", type: "goal", payload: { minute: 67, side: 1 }, players: { out: null, in: { id: 3003, name: "Antoine Griezmann", number: "7", positionId: 4, position: "Forward", side: 1 } } },
-  { id: "s6", type: "substitution", payload: { minute: 75, side: 2 }, players: { out: { id: 4002, name: "Álvaro Morata", number: "9", positionId: 4, position: "Forward", side: 2 }, in: { id: 4003, name: "Mikel Oyarzabal", number: "21", positionId: 4, position: "Forward", side: 2 } } },
-];
+  const DEMO_SETTLED_EVENTS: EventEntry[] = [
+    {
+      id: "s1",
+      type: "goal",
+      payload: { minute: 18, side: 1 },
+      players: {
+        out: null,
+        in: {
+          id: 3001,
+          name: "Kylian Mbappé",
+          number: "10",
+          positionId: 4,
+          position: "Forward",
+          side: 1,
+        },
+      },
+    },
+    {
+      id: "s2",
+      type: "prediction",
+      payload: { user: "demoking", points: 3, kind: 2 },
+    },
+    {
+      id: "s3",
+      type: "goal",
+      payload: { minute: 34, side: 2 },
+      players: {
+        out: null,
+        in: {
+          id: 4001,
+          name: "Lamine Yamal",
+          number: "19",
+          positionId: 4,
+          position: "Forward",
+          side: 2,
+        },
+      },
+    },
+    {
+      id: "s4",
+      type: "yellow_card",
+      payload: { minute: 52, side: 1 },
+      players: {
+        out: null,
+        in: {
+          id: 3002,
+          name: "Aurélien Tchouaméni",
+          number: "8",
+          positionId: 3,
+          position: "Midfielder",
+          side: 1,
+        },
+      },
+    },
+    {
+      id: "s5",
+      type: "goal",
+      payload: { minute: 67, side: 1 },
+      players: {
+        out: null,
+        in: {
+          id: 3003,
+          name: "Antoine Griezmann",
+          number: "7",
+          positionId: 4,
+          position: "Forward",
+          side: 1,
+        },
+      },
+    },
+    {
+      id: "s6",
+      type: "substitution",
+      payload: { minute: 75, side: 2 },
+      players: {
+        out: {
+          id: 4002,
+          name: "Álvaro Morata",
+          number: "9",
+          positionId: 4,
+          position: "Forward",
+          side: 2,
+        },
+        in: {
+          id: 4003,
+          name: "Mikel Oyarzabal",
+          number: "21",
+          positionId: 4,
+          position: "Forward",
+          side: 2,
+        },
+      },
+    },
+  ];
 
-  const [match, setMatch] = useState<MatchState | null>(isDemo ? DEMO_MATCH_STATE : isDemoSettled ? DEMO_SETTLED_MATCH_STATE : null);
-  const [lineup, setLineup] = useState<Lineup | null>(isDemo ? DEMO_LINEUP_STATE : isDemoSettled ? DEMO_SETTLED_LINEUP_STATE : null);
+  const [match, setMatch] = useState<MatchState | null>(
+    isDemo ? DEMO_MATCH_STATE : isDemoSettled ? DEMO_SETTLED_MATCH_STATE : null,
+  );
+  const [lineup, setLineup] = useState<Lineup | null>(
+    isDemo
+      ? DEMO_LINEUP_STATE
+      : isDemoSettled
+        ? DEMO_SETTLED_LINEUP_STATE
+        : null,
+  );
   const [loading, setLoading] = useState(!isDemo && !isDemoSettled);
   const [error, setError] = useState<string | null>(null);
 
-  const [events, setEvents] = useState<EventEntry[]>(() => (isDemo ? DEMO_EVENTS : isDemoSettled ? DEMO_SETTLED_EVENTS : []));
-  const [status, setStatus] = useState<SseStatus>(isDemo ? "open" : isDemoSettled ? "idle" : "idle");
+  const [events, setEvents] = useState<EventEntry[]>(() =>
+    isDemo ? DEMO_EVENTS : isDemoSettled ? DEMO_SETTLED_EVENTS : [],
+  );
+  const [status, setStatus] = useState<SseStatus>(
+    isDemo ? "open" : isDemoSettled ? "idle" : "idle",
+  );
   const [streamError, setStreamError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -185,13 +364,13 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
         onStatus: setStatus,
         onError: setStreamError,
       },
-      "0-0"
+      "0-0",
     );
   }
 
   const eventTypes = useMemo(
     () => Array.from(new Set(events.map((e) => e.type))).sort(),
-    [events]
+    [events],
   );
 
   const filteredEvents = useMemo(() => {
@@ -209,6 +388,7 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
 
   const team1 = lineup?.teams.find((t) => t.side === 1);
   const team2 = lineup?.teams.find((t) => t.side === 2);
+  const score = match ? displayScore(match) : null;
 
   if (loading) {
     return (
@@ -230,7 +410,9 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
       <PageShell arenaTabs={subNavTabs}>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
-          <h2 className="font-display text-2xl text-foreground">Data Unavailable</h2>
+          <h2 className="font-display text-2xl text-foreground">
+            Data Unavailable
+          </h2>
           <p className="mt-2 text-muted">{error}</p>
           <button
             onClick={loadMatch}
@@ -254,7 +436,7 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
           />
           <SummaryCard
             label="Score"
-            value={`${match?.live?.goals.team1 ?? 0} - ${match?.live?.goals.team2 ?? 0}`}
+            value={score ? `${score.team1} - ${score.team2}` : "— : —"}
           />
           <SummaryCard
             label="Minute"
@@ -272,7 +454,10 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
         {/* Filters */}
         <div className="mb-4 flex flex-col gap-3 bg-surface p-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              size={16}
+            />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -281,11 +466,18 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
+            <FilterPill
+              active={filter === "all"}
+              onClick={() => setFilter("all")}
+            >
               All
             </FilterPill>
             {eventTypes.map((type) => (
-              <FilterPill key={type} active={filter === type} onClick={() => setFilter(type)}>
+              <FilterPill
+                key={type}
+                active={filter === type}
+                onClick={() => setFilter(type)}
+              >
                 {formatType(type)}
               </FilterPill>
             ))}
@@ -295,7 +487,8 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
         {/* Event count */}
         <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wider text-muted">
           <span>
-            {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
+            {filteredEvents.length} event
+            {filteredEvents.length !== 1 ? "s" : ""}
           </span>
           <span className="flex items-center gap-1">
             <Clock size={12} />
@@ -308,7 +501,9 @@ const DEMO_SETTLED_EVENTS: EventEntry[] = [
           {filteredEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted">
               <ScrollText size={36} className="mb-4 opacity-30" />
-              <p className="text-sm font-medium">No events match your filters.</p>
+              <p className="text-sm font-medium">
+                No events match your filters.
+              </p>
               <p className="mt-1 text-xs">
                 {events.length === 0
                   ? "Waiting for the first event from the stream."
@@ -345,7 +540,7 @@ function FilterPill({
         "px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
         active
           ? "bg-purple text-white"
-          : "border border-surface bg-background text-muted hover:border-purple hover:text-foreground"
+          : "border border-surface bg-background text-muted hover:border-purple hover:text-foreground",
       )}
     >
       {children}
@@ -367,19 +562,28 @@ function TimelineRow({ entry }: { entry: EventEntry }) {
     >
       {minute !== null && (
         <div className="absolute -left-6 top-3 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center border border-surface bg-background">
-          <span className="text-[10px] font-bold text-cyan">{minute}&apos;</span>
+          <span className="text-[10px] font-bold text-cyan">
+            {minute}&apos;
+          </span>
         </div>
       )}
       <div
         className={cn(
           "relative overflow-hidden border bg-background/50 p-3 transition-colors hover:bg-surface",
           meta.borderColor,
-          meta.bgColor
+          meta.bgColor,
         )}
       >
-        <div className={cn("absolute left-0 top-0 bottom-0 w-1", meta.barColor)} />
+        <div
+          className={cn("absolute left-0 top-0 bottom-0 w-1", meta.barColor)}
+        />
         <div className="flex items-start gap-3">
-          <div className={cn("flex h-9 w-9 flex-shrink-0 items-center justify-center", meta.iconBg)}>
+          <div
+            className={cn(
+              "flex h-9 w-9 flex-shrink-0 items-center justify-center",
+              meta.iconBg,
+            )}
+          >
             <meta.icon size={18} className={meta.iconColor} />
           </div>
           <div className="min-w-0 flex-1">
@@ -391,7 +595,7 @@ function TimelineRow({ entry }: { entry: EventEntry }) {
                 <span
                   className={cn(
                     "text-[10px] font-bold uppercase tracking-wider",
-                    side === 1 ? "text-purple" : "text-cyan"
+                    side === 1 ? "text-purple" : "text-cyan",
                   )}
                 >
                   {side === 1 ? "Home" : "Away"}
@@ -402,13 +606,19 @@ function TimelineRow({ entry }: { entry: EventEntry }) {
               <p className="mt-1 truncate text-xs text-muted">
                 {entry.players?.out && (
                   <>
-                    <span className="text-foreground">{entry.players.out.name}</span> out
+                    <span className="text-foreground">
+                      {entry.players.out.name}
+                    </span>{" "}
+                    out
                   </>
                 )}
                 {entry.players?.in && entry.players?.out && " → "}
                 {entry.players?.in && (
                   <>
-                    <span className="text-foreground">{entry.players.in.name}</span> in
+                    <span className="text-foreground">
+                      {entry.players.in.name}
+                    </span>{" "}
+                    in
                   </>
                 )}
               </p>
@@ -423,7 +633,9 @@ function TimelineRow({ entry }: { entry: EventEntry }) {
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-surface p-4">
-      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted">{label}</p>
+      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted">
+        {label}
+      </p>
       <p className="font-display text-lg text-foreground">{value}</p>
     </div>
   );

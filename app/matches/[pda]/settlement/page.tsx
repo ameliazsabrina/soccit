@@ -3,7 +3,13 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Trophy, TrendingUp, Medal, AlertCircle, RefreshCw } from "lucide-react";
+import {
+  Trophy,
+  TrendingUp,
+  Medal,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
 import type { ArenaTab } from "../../../_components/top-nav";
 import {
@@ -14,6 +20,7 @@ import {
   formatUsdc,
   formatWallet,
   calculatePrizes,
+  displayScore,
   SOCCIT_SEED_FIXTURE_ID,
   SOCCIT_SEED_MATCH_PDA,
   SOCCIT_USDC_MINT,
@@ -36,12 +43,9 @@ const SEED_MATCH_STATE: MatchState = {
     usdcMint: SOCCIT_USDC_MINT,
     winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null],
   },
-  live: {
-    statusId: 0,
-    minute: 90,
-    goals: { team1: 2, team2: 1 },
-    ts: Date.now(),
-  },
+  // Terminal: backend nulls `live` and moves the score to `finalScore`.
+  live: null,
+  finalScore: { team1: 2, team2: 1 },
   updatedAt: Date.now(),
 };
 
@@ -65,12 +69,9 @@ const DEMO_MATCH: MatchState = {
       "24CHvVUj1WHDJo5mNNPTDA7iMtXtAojdND9DpWmqdFWt",
     ],
   },
-  live: {
-    statusId: 0,
-    minute: 90,
-    goals: { team1: 2, team2: 1 },
-    ts: Date.now(),
-  },
+
+  live: null,
+  finalScore: { team1: 2, team2: 1 },
   updatedAt: Date.now(),
 };
 
@@ -78,8 +79,20 @@ const DEMO_LINEUP: Lineup = {
   fixtureId: 999999,
   updatedAt: Date.now(),
   teams: [
-    { side: 1, teamId: 101, teamName: "Portugal", formation: "4-3-3", players: [] },
-    { side: 2, teamId: 202, teamName: "Argentina", formation: "4-3-3", players: [] },
+    {
+      side: 1,
+      teamId: 101,
+      teamName: "Portugal",
+      formation: "4-3-3",
+      players: [],
+    },
+    {
+      side: 2,
+      teamId: 202,
+      teamName: "Argentina",
+      formation: "4-3-3",
+      players: [],
+    },
   ],
   names: {},
 };
@@ -124,20 +137,33 @@ export default function SettlementPage() {
   const rawPda = params.pda as string;
   const isDemo = rawPda === DEMO_PDA;
   const isDemoSettled = rawPda === "demo-settled";
-  const isSeed = rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
+  const isSeed =
+    rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
   const pda = isDemo ? DEMO_PDA : isDemoSettled ? "demo-settled" : rawPda;
 
   const subNavTabs: ArenaTab[] = [
-    { model: "logs", label: "Logs", href: `/matches/${pda}/logs`, active: false },
-    { model: "settlement", label: "Settlement", href: `/matches/${pda}/settlement`, active: true },
+    {
+      model: "logs",
+      label: "Logs",
+      href: `/matches/${pda}/logs`,
+      active: false,
+    },
+    {
+      model: "settlement",
+      label: "Settlement",
+      href: `/matches/${pda}/settlement`,
+      active: true,
+    },
   ];
 
   const [match, setMatch] = useState<MatchState | null>(() =>
-    isDemo || isDemoSettled ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : null
+    isDemo || isDemoSettled ? DEMO_MATCH : isSeed ? SEED_MATCH_STATE : null,
   );
-  const [lineup, setLineup] = useState<Lineup | null>(() => (isDemo || isSeed || isDemoSettled ? DEMO_LINEUP : null));
+  const [lineup, setLineup] = useState<Lineup | null>(() =>
+    isDemo || isSeed || isDemoSettled ? DEMO_LINEUP : null,
+  );
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(() =>
-    isDemo || isSeed || isDemoSettled ? DEMO_LEADERBOARD : null
+    isDemo || isSeed || isDemoSettled ? DEMO_LEADERBOARD : null,
   );
   const [loading, setLoading] = useState(!isDemo && !isSeed && !isDemoSettled);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +192,9 @@ export default function SettlementPage() {
       setLineup(l);
       setLeaderboard(lb);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load settlement data.");
+      setError(
+        err instanceof Error ? err.message : "Failed to load settlement data.",
+      );
     } finally {
       setLoading(false);
     }
@@ -192,7 +220,9 @@ export default function SettlementPage() {
       <PageShell arenaTabs={subNavTabs}>
         <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
           <AlertCircle className="mb-4 text-rose" size={48} />
-          <h2 className="font-display text-2xl text-foreground">Settlement Not Available</h2>
+          <h2 className="font-display text-2xl text-foreground">
+            Settlement Not Available
+          </h2>
           <p className="mt-2 text-muted">{error ?? "Unknown error"}</p>
           <button
             onClick={loadData}
@@ -207,15 +237,21 @@ export default function SettlementPage() {
 
   const team1 = lineup.teams.find((t) => t.side === 1);
   const team2 = lineup.teams.find((t) => t.side === 2);
-  const score = match.live?.goals ?? { team1: 0, team2: 0 };
+  // Terminal score lives in `finalScore` (live is nulled post-match); null only
+  // when the feed never ingested a scoreline (transient, backend self-heals).
+  const score = displayScore(match);
   const poolTotal = match.onchain?.poolTotal ?? "0";
   const participantCount = match.onchain?.participantCount ?? 0;
   const prizes = calculatePrizes(poolTotal);
 
+  // Only call it a Draw when we actually have a scoreline — absent one we stay
+  // "Pending" rather than falsely reporting a 0-0 Draw.
   let winnerLabel = "Pending";
-  if (score.team1 > score.team2) winnerLabel = team1?.teamName ?? "Home";
-  else if (score.team2 > score.team1) winnerLabel = team2?.teamName ?? "Away";
-  else if (match.live?.statusId !== null) winnerLabel = "Draw";
+  if (score) {
+    if (score.team1 > score.team2) winnerLabel = team1?.teamName ?? "Home";
+    else if (score.team2 > score.team1) winnerLabel = team2?.teamName ?? "Away";
+    else winnerLabel = "Draw";
+  }
 
   const topRanks = leaderboard?.ranking.slice(0, 3) ?? [];
 
@@ -235,9 +271,11 @@ export default function SettlementPage() {
             </div>
             <div>
               <p className="font-display text-6xl text-foreground">
-                {score.team1} - {score.team2}
+                {score ? `${score.team1} - ${score.team2}` : "— : —"}
               </p>
-              <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">Final Score</p>
+              <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">
+                Final Score
+              </p>
             </div>
           </motion.div>
 
@@ -252,8 +290,12 @@ export default function SettlementPage() {
               <Medal size={24} />
             </div>
             <div>
-              <p className="font-display text-4xl text-foreground">{winnerLabel}</p>
-              <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">Match Winner</p>
+              <p className="font-display text-4xl text-foreground">
+                {winnerLabel}
+              </p>
+              <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">
+                Match Winner
+              </p>
             </div>
           </motion.div>
 
@@ -268,7 +310,9 @@ export default function SettlementPage() {
               <TrendingUp size={24} />
             </div>
             <div>
-              <p className="font-display text-5xl text-foreground">${formatUsdc(poolTotal)}</p>
+              <p className="font-display text-5xl text-foreground">
+                ${formatUsdc(poolTotal)}
+              </p>
               <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">
                 Prize Pool · {participantCount} Players
               </p>
@@ -286,16 +330,27 @@ export default function SettlementPage() {
               <div className="flex h-10 w-10 items-center justify-center bg-background text-gold">
                 <Medal size={20} />
               </div>
-              <h2 className="font-display text-xl text-foreground">Top Finishers</h2>
+              <h2 className="font-display text-xl text-foreground">
+                Top Finishers
+              </h2>
             </div>
             {topRanks.length > 0 ? (
               <div className="space-y-3">
                 {topRanks.map((r, i) => {
                   const label = r.user?.username ?? formatWallet(r.owner);
                   const prize =
-                    i === 0 ? prizes.first : i === 1 ? prizes.second : i === 2 ? prizes.third : 0;
+                    i === 0
+                      ? prizes.first
+                      : i === 1
+                        ? prizes.second
+                        : i === 2
+                          ? prizes.third
+                          : 0;
                   return (
-                    <div key={r.owner + i} className="flex items-center justify-between bg-background/50 p-3">
+                    <div
+                      key={r.owner + i}
+                      className="flex items-center justify-between bg-background/50 p-3"
+                    >
                       <div className="flex items-center gap-3">
                         <span
                           className={
@@ -303,15 +358,19 @@ export default function SettlementPage() {
                             (i === 0
                               ? "bg-gold text-background"
                               : i === 1
-                              ? "bg-foreground text-background"
-                              : "bg-bronze text-background")
+                                ? "bg-foreground text-background"
+                                : "bg-bronze text-background")
                           }
                         >
                           {i + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-bold text-foreground">{label}</p>
-                          <p className="text-[10px] text-muted">{r.points} pts</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {label}
+                          </p>
+                          <p className="text-[10px] text-muted">
+                            {r.points} pts
+                          </p>
                         </div>
                       </div>
                       <span className="font-mono text-sm font-bold text-cyan">
@@ -322,7 +381,9 @@ export default function SettlementPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted">No rankings available for this match.</p>
+              <p className="text-sm text-muted">
+                No rankings available for this match.
+              </p>
             )}
           </motion.div>
 
@@ -337,7 +398,9 @@ export default function SettlementPage() {
               <div className="flex h-10 w-10 items-center justify-center bg-background text-cyan">
                 <Trophy size={20} />
               </div>
-              <h2 className="font-display text-xl text-foreground">Prize Breakdown</h2>
+              <h2 className="font-display text-xl text-foreground">
+                Prize Breakdown
+              </h2>
             </div>
             <div className="space-y-3">
               <PrizeRow rank={1} pct={50} amount={prizes.first} />
@@ -345,7 +408,8 @@ export default function SettlementPage() {
               <PrizeRow rank={3} pct={20} amount={prizes.third} />
             </div>
             <p className="mt-4 text-xs text-muted">
-              Net pool after 20% platform fee: ${formatUsdc(String(Math.round(prizes.total)))}
+              Net pool after 20% platform fee: $
+              {formatUsdc(String(Math.round(prizes.total)))}
             </p>
           </motion.div>
         </div>
@@ -354,21 +418,33 @@ export default function SettlementPage() {
   );
 }
 
-function PrizeRow({ rank, pct, amount }: { rank: number; pct: number; amount: number }) {
+function PrizeRow({
+  rank,
+  pct,
+  amount,
+}: {
+  rank: number;
+  pct: number;
+  amount: number;
+}) {
   const colors =
     rank === 1
       ? "bg-gold/10 text-gold"
       : rank === 2
-      ? "bg-foreground/10 text-foreground"
-      : "bg-bronze/10 text-bronze";
+        ? "bg-foreground/10 text-foreground"
+        : "bg-bronze/10 text-bronze";
 
   return (
     <div className={"flex items-center justify-between p-3 " + colors}>
       <div className="flex items-center gap-2">
         <span className="font-display text-sm">#{rank}</span>
-        <span className="text-[10px] font-bold uppercase tracking-wider">{pct}%</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider">
+          {pct}%
+        </span>
       </div>
-      <span className="font-mono font-bold">${formatUsdc(String(Math.round(amount)))}</span>
+      <span className="font-mono font-bold">
+        ${formatUsdc(String(Math.round(amount)))}
+      </span>
     </div>
   );
 }

@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "e2e:build-fixtures": "esbuild e2e/fixtures/phantom-provider.src.ts --bundle --format=iife --platform=browser --outfile=e2e/fixtures/phantom-provider.bundle.js",
+    "pretest:e2e": "pnpm run e2e:build-fixtures",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "pnpm run e2e:build-fixtures && playwright test --ui",
+    "test:e2e:debug": "pnpm run e2e:build-fixtures && playwright test --debug",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@solana/wallet-adapter-base": "^0.9.27",
@@ -24,14 +30,17 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/bs58": "^4.0.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.28.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
+    "tweetnacl": "^1.0.3",
     "typescript": "^5"
   }
 }

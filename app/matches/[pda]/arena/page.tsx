@@ -487,7 +487,7 @@ export default function ArenaPage() {
             team2Name={team2?.teamName ?? "Away"}
             currentScore={match.live?.goals ?? { team1: 0, team2: 0 }}
             minute={match.live?.minute ?? 0}
-            isLive={match.live?.statusId === 1}
+            isLive={match.phase === "LIVE"}
             onLock={handleLockScore}
             locked={locked}
             isSubmitting={submitting}

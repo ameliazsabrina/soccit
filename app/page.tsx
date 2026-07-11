@@ -3,16 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PageShell } from "./_components/page-shell";
 import { ConnectWalletModal } from "./_components/connect-wallet-modal";
-import { SOCCIT_SEED_MATCH_PDA } from "./_lib/api";
+import { getCountryCode } from "./_components/team-badge";
+import { getMatches, type MatchSummary } from "./_lib/api";
 import { cn } from "./_lib/utils";
-
-const FEATURED_MATCH_URL = `/matches/${SOCCIT_SEED_MATCH_PDA}?seed=1`;
-const FEATURED_ARENA_URL = `/matches/${SOCCIT_SEED_MATCH_PDA}/arena?seed=1`;
 
 export default function StartMenu() {
   const { connected } = useWallet();
@@ -38,10 +36,7 @@ export default function StartMenu() {
           />
         </TileWrapper>
         <TileWrapper delay={0.1} className="lg:col-span-2">
-          <ExplorerTile
-            connected={connected}
-            onRequireWallet={requireWallet}
-          />
+          <ExplorerTile connected={connected} onRequireWallet={requireWallet} />
         </TileWrapper>
         <TileWrapper delay={0.15} className="lg:col-span-3">
           <LeaderboardTile
@@ -88,10 +83,50 @@ function FeaturedMatchTile({
   onRequireWallet: () => void;
 }) {
   const router = useRouter();
+  const [match, setMatch] = useState<MatchSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getMatches()
+      .then((rows) => {
+        if (!active) return;
+        const featured =
+          rows.find((m) => m.featured) ??
+          rows.find((m) => m.onchain.statusLabel === "OPEN") ??
+          null;
+        setMatch(featured);
+      })
+      .catch(() => {
+        // Leave `match` null — the empty state renders once loading resolves.
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
+    return <FeaturedMatchSkeleton />;
+  }
+
+  const team1 =
+    match?.teamNames?.team1 ??
+    (match ? `Team ${match.onchain.team1Id}` : "TBD");
+  const team2 =
+    match?.teamNames?.team2 ??
+    (match ? `Team ${match.onchain.team2Id}` : "TBD");
+  const team1Flag = match ? getCountryCode(team1) : null;
+  const team2Flag = match ? getCountryCode(team2) : null;
+  const matchUrl = match ? `/matches/${match.pda}` : null;
+  const arenaUrl = match ? `/matches/${match.pda}/arena` : null;
 
   function goToMatch() {
+    if (!matchUrl) return;
     if (connected) {
-      router.push(FEATURED_MATCH_URL);
+      router.push(matchUrl);
     } else {
       onRequireWallet();
     }
@@ -99,8 +134,9 @@ function FeaturedMatchTile({
 
   function goToArena(e: React.MouseEvent) {
     e.stopPropagation();
+    if (!arenaUrl) return;
     if (connected) {
-      router.push(FEATURED_ARENA_URL);
+      router.push(arenaUrl);
     } else {
       onRequireWallet();
     }
@@ -124,28 +160,8 @@ function FeaturedMatchTile({
 
       {/* Top-left: team logos + names */}
       <div className="relative z-10 flex items-start gap-5">
-        <div className="flex flex-col items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://flagcdn.com/pt.svg"
-            alt="Portugal"
-            className="h-24 w-auto object-contain"
-          />
-          <span className="text-center text-xs font-bold uppercase tracking-wider text-foreground transition-colors group-hover:text-white">
-            Portugal
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://flagcdn.com/ar.svg"
-            alt="Argentina"
-            className="h-24 w-auto object-contain"
-          />
-          <span className="text-center text-xs font-bold uppercase tracking-wider text-foreground transition-colors group-hover:text-white">
-            Argentina
-          </span>
-        </div>
+        <FeaturedTeam name={team1} flag={team1Flag} />
+        <FeaturedTeam name={team2} flag={team2Flag} />
       </div>
 
       <div className="relative z-10 mt-12 flex flex-col justify-between gap-6 border-t border-muted/20 pt-6 sm:flex-row sm:items-end">
@@ -154,7 +170,7 @@ function FeaturedMatchTile({
             FEATURED MATCH
           </h2>
           <p className="mt-1 font-body text-sm text-muted transition-colors group-hover:text-white/70">
-            Portugal vs Argentina · World Cup 2026
+            {team1} vs {team2} · World Cup 2026
           </p>
         </div>
         <button
@@ -165,6 +181,52 @@ function FeaturedMatchTile({
           <span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
+    </div>
+  );
+}
+
+function FeaturedMatchSkeleton() {
+  return (
+    <div className="relative flex min-h-[420px] animate-pulse flex-col justify-between bg-surface p-8 lg:col-span-3">
+      {/* Top-left: team logo/name placeholders */}
+      <div className="relative z-10 flex items-start gap-5">
+        {[0, 1].map((i) => (
+          <div key={i} className="flex flex-col items-center gap-2">
+            <div className="h-24 w-24 bg-surface-elevated" />
+            <div className="h-3 w-16 bg-surface-elevated" />
+          </div>
+        ))}
+      </div>
+
+      <div className="relative z-10 mt-12 flex flex-col justify-between gap-6 border-t border-muted/20 pt-6 sm:flex-row sm:items-end">
+        <div className="space-y-2">
+          <div className="h-8 w-56 bg-surface-elevated" />
+          <div className="h-4 w-64 bg-surface-elevated" />
+        </div>
+        <div className="h-14 w-48 bg-surface-elevated" />
+      </div>
+    </div>
+  );
+}
+
+function FeaturedTeam({ name, flag }: { name: string; flag: string | null }) {
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {flag ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`https://flagcdn.com/${flag}.svg`}
+          alt={name}
+          className="h-24 w-auto object-contain"
+        />
+      ) : (
+        <div className="flex h-24 w-24 items-center justify-center bg-surface-elevated text-lg font-bold uppercase text-foreground">
+          {name.slice(0, 3)}
+        </div>
+      )}
+      <span className="text-center text-xs font-bold uppercase tracking-wider text-foreground transition-colors group-hover:text-white">
+        {name}
+      </span>
     </div>
   );
 }
@@ -186,7 +248,9 @@ function PortfolioTile({
     let ticks = 0;
     intervalRef.current = setInterval(() => {
       const whole = 14000 + Math.floor(Math.random() * 100);
-      const cents = Math.floor(Math.random() * 99).toString().padStart(2, "0");
+      const cents = Math.floor(Math.random() * 99)
+        .toString()
+        .padStart(2, "0");
       setPortfolioDisplay(`$${whole}.${cents}`);
       ticks += 1;
       if (ticks > 5) {
@@ -353,7 +417,7 @@ function NavTile({
       }}
       className={cn(
         "group relative flex min-h-[188px] flex-col justify-between bg-surface p-6 transition-all duration-150 hover:z-50 hover:scale-[1.02] hover:bg-gradient-to-br hover:from-[#034694] hover:to-[#1e40af] hover:shadow-[0_20px_40px_-10px_rgba(3,70,148,0.35)] focus-visible:ring-2 focus-visible:ring-cyan",
-        className
+        className,
       )}
     >
       <div className="card-shine" />
@@ -361,7 +425,7 @@ function NavTile({
         <div
           className={cn(
             "pointer-events-none absolute bottom-0 right-0 z-0 origin-bottom transition-transform duration-300",
-            imageClassName ?? "h-44 w-36 group-hover:scale-125"
+            imageClassName ?? "h-44 w-36 group-hover:scale-125",
           )}
         >
           <Image
@@ -379,7 +443,7 @@ function NavTile({
             "flex h-10 w-10 items-center justify-center bg-surface-elevated shadow-sm transition-colors duration-200",
             accent === "purple"
               ? "text-purple group-hover:bg-purple group-hover:text-white"
-              : "text-foreground group-hover:bg-white group-hover:text-[#034694]"
+              : "text-foreground group-hover:bg-white group-hover:text-[#034694]",
           )}
         >
           <span className="material-symbols-outlined">{icon}</span>
