@@ -36,6 +36,7 @@ vi.mock("./modules/match/pda.js", async (importActual) => {
 vi.mock("./modules/match/match.service.js", () => ({
   listMatches: vi.fn(),
   getMatchState: vi.fn(),
+  toLiveMatch: vi.fn(() => null),
 }));
 vi.mock("./modules/schedule/schedule.service.js", () => ({
   listSchedule: vi.fn(),
@@ -142,6 +143,52 @@ describe("GET /api/competitions", () => {
       expect(c.logo.startsWith("/")).toBe(false);
     }
     expect(body.find((c) => c.slug === "ucl")?.comingSoon).toBe(true);
+  });
+});
+
+describe("GET /api/competitions/:slug/bracket", () => {
+  it("returns the world cup knockout structure (server-authoritative)", async () => {
+    const res = await app.request("/api/competitions/worldcup/bracket");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      updatedAt: number;
+      rounds: Array<{
+        shortName: string;
+        matches: Array<{
+          fixtureId: number | null;
+          status: string;
+          homeScore: number | null;
+          winner: string | null;
+          home: { code: string; advancing: boolean; eliminated: boolean };
+        }>;
+      }>;
+    };
+    expect(body.rounds.map((r) => r.shortName)).toEqual([
+      "R32",
+      "R16",
+      "QF",
+      "SF",
+      "Final",
+    ]);
+    expect(body.rounds[0]?.matches).toHaveLength(8);
+    // Every slot is still unpinned → scheduled, no scores, nobody advancing.
+    for (const round of body.rounds) {
+      for (const match of round.matches) {
+        expect(match.fixtureId).toBeNull();
+        expect(match.status).toBe("scheduled");
+        expect(match.homeScore).toBeNull();
+        expect(match.winner).toBeNull();
+        expect(match.home.advancing).toBe(false);
+        expect(match.home.eliminated).toBe(false);
+      }
+    }
+  });
+
+  it("does NOT collide with the /api/events/:pda SSE route", async () => {
+    // A bogus slug still hits the bracket handler (404), not the SSE route.
+    const res = await app.request("/api/competitions/nope/bracket");
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: expect.any(String) });
   });
 });
 
@@ -363,12 +410,19 @@ describe("PATCH /api/user/:wallet/avatar", () => {
     });
 
   it("updates with a valid bearer token", async () => {
-    const profile = { wallet: WALLET, username: "keeper_1", avatar: "avatar-3" };
+    const profile = {
+      wallet: WALLET,
+      username: "keeper_1",
+      avatar: "avatar-3",
+    };
     vi.mocked(setAvatar).mockResolvedValue(profile as never);
     const res = await patch({ avatar: "avatar-3" }, `Bearer ${token()}`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(profile);
-    expect(setAvatar).toHaveBeenCalledWith({ wallet: WALLET, avatar: "avatar-3" });
+    expect(setAvatar).toHaveBeenCalledWith({
+      wallet: WALLET,
+      avatar: "avatar-3",
+    });
   });
 
   it("rejects a missing bearer token with 401", async () => {
@@ -410,12 +464,19 @@ describe("PATCH /api/user/:wallet/username", () => {
     });
 
   it("updates with a valid bearer token", async () => {
-    const profile = { wallet: WALLET, username: "new_name", avatar: "avatar-3" };
+    const profile = {
+      wallet: WALLET,
+      username: "new_name",
+      avatar: "avatar-3",
+    };
     vi.mocked(setUsername).mockResolvedValue(profile as never);
     const res = await patch({ username: "new_name" }, `Bearer ${token()}`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(profile);
-    expect(setUsername).toHaveBeenCalledWith({ wallet: WALLET, username: "new_name" });
+    expect(setUsername).toHaveBeenCalledWith({
+      wallet: WALLET,
+      username: "new_name",
+    });
   });
 
   it("rejects a missing bearer token with 401", async () => {
@@ -431,7 +492,9 @@ describe("PATCH /api/user/:wallet/username", () => {
   });
 
   it("maps a taken username to 409", async () => {
-    vi.mocked(setUsername).mockRejectedValue(new UsernameTakenError("new_name"));
+    vi.mocked(setUsername).mockRejectedValue(
+      new UsernameTakenError("new_name"),
+    );
     const res = await patch({ username: "new_name" }, `Bearer ${token()}`);
     expect(res.status).toBe(409);
   });

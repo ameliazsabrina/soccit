@@ -49,6 +49,8 @@ import {
 import { getUserMatches } from "./modules/participation/participation.service.js";
 import { getPlatformConfig } from "./modules/config/config.service.js";
 import { listCompetitions } from "./modules/competitions/competitions.service.js";
+import { getBracket } from "./modules/bracket/bracket.service.js";
+import { BracketNotFoundError } from "./modules/bracket/bracket.errors.js";
 import { getAsset } from "./modules/assets/assets.service.js";
 import { scheduleInput } from "./modules/schedule/schedule.schema.js";
 import { listSchedule } from "./modules/schedule/schedule.service.js";
@@ -111,6 +113,18 @@ app.all("/trpc/*", (c) =>
 app.get("/api/config", (c) => c.json(getPlatformConfig()));
 
 app.get("/api/competitions", (c) => c.json(listCompetitions()));
+
+// NB: a dedicated path (NOT /api/events/bracket) — the SSE route
+// `GET /api/events/:pda` would otherwise swallow it.
+app.get("/api/competitions/:slug/bracket", async (c) => {
+  try {
+    return c.json(await getBracket(c.req.param("slug")));
+  } catch (err) {
+    if (err instanceof BracketNotFoundError)
+      return c.json({ error: err.message }, 404);
+    throw err;
+  }
+});
 
 const ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable";
 app.get("/api/assets/:path{.+}", async (c) => {

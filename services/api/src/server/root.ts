@@ -47,6 +47,11 @@ import { platformConfigOutput } from "../modules/config/config.schema.js";
 import { getPlatformConfig } from "../modules/config/config.service.js";
 import { competitionsOutput } from "../modules/competitions/competitions.schema.js";
 import { listCompetitions } from "../modules/competitions/competitions.service.js";
+import {
+  bracketInput,
+  bracketOutput,
+} from "../modules/bracket/bracket.schema.js";
+import { getBracket } from "../modules/bracket/bracket.service.js";
 import { getRedis, newRedisConnection } from "../redis.js";
 import { subscribeChannel } from "../pubsub.js";
 import { publicProcedure, router } from "./trpc.js";
@@ -160,6 +165,11 @@ const configRouter = router({
 
 const competitionsRouter = router({
   list: publicProcedure.output(competitionsOutput).query(() => listCompetitions()),
+
+  bracket: publicProcedure
+    .input(bracketInput)
+    .output(bracketOutput)
+    .query(({ input }) => getBracket(input.slug)),
 });
 
 export const appRouter = router({
