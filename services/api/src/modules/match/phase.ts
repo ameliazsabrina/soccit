@@ -62,3 +62,18 @@ export function derivePhase(
 export function liveForOutput(live: LiveMatch | null): LiveMatch | null {
   return isInPlay(live) ? live : null;
 }
+
+const TERMINAL_PHASES = new Set<MatchPhase>([
+  "FINISHED",
+  "RESOLVED",
+  "SETTLED",
+]);
+
+export function finalScoreForOutput(
+  live: LiveMatch | null,
+  phase: MatchPhase | null,
+): { team1: number; team2: number } | null {
+  if (phase == null || !TERMINAL_PHASES.has(phase)) return null;
+  if (!live) return null;
+  return { team1: live.goals.team1, team2: live.goals.team2 };
+}

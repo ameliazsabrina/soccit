@@ -3,6 +3,7 @@ import type { LiveMatch, OnchainMatch } from "./match.schema.js";
 import {
   ENTRY_LEAD_SECS,
   derivePhase,
+  finalScoreForOutput,
   isEntryWindowOpen,
   isInPlay,
   liveForOutput,
@@ -82,13 +83,21 @@ describe("isEntryWindowOpen (shared KO−10min gate)", () => {
 describe("derivePhase", () => {
   it("SETTLED when on-chain settled (even if the feed still shows in-play)", () => {
     expect(
-      derivePhase(onchain({ settled: true, status: 2 }), live({ statusId: 4 }), KO),
+      derivePhase(
+        onchain({ settled: true, status: 2 }),
+        live({ statusId: 4 }),
+        KO,
+      ),
     ).toBe("SETTLED");
   });
 
   it("RESOLVED when on-chain resolved but not settled", () => {
     expect(
-      derivePhase(onchain({ status: 1, statusLabel: "RESOLVED" }), live({ statusId: 4 }), KO),
+      derivePhase(
+        onchain({ status: 1, statusLabel: "RESOLVED" }),
+        live({ statusId: 4 }),
+        KO,
+      ),
     ).toBe("RESOLVED");
   });
 
@@ -141,12 +150,50 @@ describe("derivePhase", () => {
 
 describe("liveForOutput", () => {
   it("nulls a not-in-play live payload so it can't be misread", () => {
-    expect(liveForOutput(live({ statusId: 1, ts: 1_783_465_737_802 }))).toBeNull();
+    expect(
+      liveForOutput(live({ statusId: 1, ts: 1_783_465_737_802 })),
+    ).toBeNull();
     expect(liveForOutput(null)).toBeNull();
   });
 
   it("passes through a real in-play payload untouched", () => {
     const l = live({ statusId: 4, minute: 67, goals: { team1: 2, team2: 1 } });
     expect(liveForOutput(l)).toBe(l);
+  });
+});
+
+describe("finalScoreForOutput", () => {
+  const finished = live({
+    statusId: null,
+    minute: null,
+    goals: { team1: 2, team2: 1 },
+  });
+
+  it.each(["RESOLVED", "SETTLED", "FINISHED"] as const)(
+    "exposes the terminal scoreline for %s even after live is nulled",
+    (phase) => {
+      expect(liveForOutput(finished)).toBeNull();
+      expect(finalScoreForOutput(finished, phase)).toEqual({
+        team1: 2,
+        team2: 1,
+      });
+    },
+  );
+
+  it.each(["UPCOMING", "OPEN", "LIVE"] as const)(
+    "is null for non-terminal phase %s (score lives in live.goals during LIVE)",
+    (phase) => {
+      expect(
+        finalScoreForOutput(live({ goals: { team1: 1, team2: 0 } }), phase),
+      ).toBeNull();
+    },
+  );
+
+  it("is null when phase is null (live-only fixture, no result yet)", () => {
+    expect(finalScoreForOutput(finished, null)).toBeNull();
+  });
+
+  it("is null for a terminal phase with no feed snapshot to source from", () => {
+    expect(finalScoreForOutput(null, "SETTLED")).toBeNull();
   });
 });

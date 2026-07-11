@@ -59,6 +59,10 @@ export class RedisStore {
     await this.redis.set(LAST_BEAT_AT_KEY, String(Date.now()));
   }
 
+  async hasFixture(fixtureId: number): Promise<boolean> {
+    return (await this.redis.exists(fixtureKey(fixtureId))) === 1;
+  }
+
   async persist(raw: RawEvent, events: DomainEvent[]): Promise<void> {
     const pipe = this.redis.pipeline();
 

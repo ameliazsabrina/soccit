@@ -47,11 +47,17 @@ export const liveMatchSchema = z.object({
   ts: z.number().int().nullable(),
 });
 
+export const finalScoreSchema = z.object({
+  team1: z.number().int(),
+  team2: z.number().int(),
+});
+
 export const matchStateOutput = z.object({
   fixtureId: z.number().int(),
   onchain: onchainMatchSchema.nullable(),
   live: liveMatchSchema.nullable(),
   phase: matchPhaseSchema.nullable(),
+  finalScore: finalScoreSchema.nullable(),
   updatedAt: z.number().int(),
 });
 
@@ -61,6 +67,7 @@ export const matchSummarySchema = z.object({
   onchain: onchainMatchSchema,
   live: liveMatchSchema.nullable(),
   phase: matchPhaseSchema,
+  finalScore: finalScoreSchema.nullable(),
   teamNames: z
     .object({ team1: z.string().nullable(), team2: z.string().nullable() })
     .nullable(),

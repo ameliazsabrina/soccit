@@ -14,6 +14,7 @@ import { fetchSnapshot } from "./txline/snapshot.js";
 import { streamScores } from "./txline/stream.js";
 import { listFixtures } from "./txline/fixtures.js";
 import { provisionalLineup } from "./domain/provisional-lineup.js";
+import { reconcileFinalScores } from "./reconcile.js";
 
 export interface IngestDeps {
   tokens: TokenManager;
@@ -23,6 +24,7 @@ export interface IngestDeps {
 
 const HEARTBEAT_MS = 10_000;
 const FIXTURES_POLL_MS = 60_000;
+const RECONCILE_MS = 60_000;
 
 export async function pollFixturesOnce(
   tokens: TokenManager,
@@ -117,6 +119,15 @@ export async function runIngest({
   pollFixtures();
   const fixturesTimer = setInterval(pollFixtures, FIXTURES_POLL_MS);
 
+  const reconcile = () =>
+    void reconcileFinalScores({ tokens, store })
+      .then((n) => {
+        if (n > 0) logger.info({ repaired: n }, "final scores reconciled");
+      })
+      .catch((err) => logger.warn({ err: String(err) }, "reconcile failed"));
+  reconcile();
+  const reconcileTimer = setInterval(reconcile, RECONCILE_MS);
+
   try {
     for await (const raw of streamScores({
       tokens,
@@ -162,5 +173,6 @@ export async function runIngest({
   } finally {
     clearInterval(heartbeat);
     clearInterval(fixturesTimer);
+    clearInterval(reconcileTimer);
   }
 }

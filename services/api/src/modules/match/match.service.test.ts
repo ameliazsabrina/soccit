@@ -195,6 +195,46 @@ describe("listMatches", () => {
     expect(row?.live).toBeNull();
   });
 
+  it("exposes finalScore on a SETTLED row whose stale live hash is nulled", async () => {
+    vi.mocked(getRedis).mockReturnValue({
+      hgetall: vi.fn().mockResolvedValue({
+        statusId: "",
+        minute: "",
+        goals1: "3",
+        goals2: "1",
+        ts: "1783465737802",
+      }),
+    } as never);
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      {
+        pda: "s",
+        match: fakeMatch({ matchId: 10n, status: 2, settled: true }),
+      },
+    ]);
+    const [row] = await listMatches();
+    expect(row?.phase).toBe("SETTLED");
+    expect(row?.live).toBeNull();
+    expect(row?.finalScore).toEqual({ team1: 3, team2: 1 });
+  });
+
+  it("leaves finalScore null for a LIVE row (score lives in live.goals)", async () => {
+    vi.mocked(getRedis).mockReturnValue({
+      hgetall: vi.fn().mockResolvedValue({
+        statusId: "4",
+        minute: "67",
+        goals1: "2",
+        goals2: "1",
+        ts: "1783465737802",
+      }),
+    } as never);
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "o", match: fakeMatch({ matchId: 10n, status: 0 }) },
+    ]);
+    const [row] = await listMatches();
+    expect(row?.phase).toBe("LIVE");
+    expect(row?.finalScore).toBeNull();
+  });
+
   it("labels an in-play match LIVE with a populated live payload", async () => {
     vi.mocked(getRedis).mockReturnValue({
       hgetall: vi.fn().mockResolvedValue({
@@ -230,5 +270,27 @@ describe("assembleMatchState", () => {
     const state = assembleMatchState(17926594, {}, fakeMatch());
     expect(state.live).toBeNull();
     expect(state.onchain).not.toBeNull();
+  });
+
+  it("returns finalScore for a settled fixture whose live is nulled", () => {
+    const state = assembleMatchState(
+      17926594,
+      {
+        statusId: "",
+        minute: "",
+        goals1: "3",
+        goals2: "1",
+        ts: "1783465737802",
+      },
+      fakeMatch({ status: 2, settled: true }),
+    );
+    expect(state.phase).toBe("SETTLED");
+    expect(state.live).toBeNull();
+    expect(state.finalScore).toEqual({ team1: 3, team2: 1 });
+  });
+
+  it("has null finalScore for an open fixture", () => {
+    const state = assembleMatchState(17926594, {}, fakeMatch());
+    expect(state.finalScore).toBeNull();
   });
 });

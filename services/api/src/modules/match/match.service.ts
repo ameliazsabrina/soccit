@@ -9,7 +9,7 @@ import {
 } from "../../onchain/program.js";
 import { loadTeamNames } from "../lineup/lineup.service.js";
 import { MatchNotFoundError } from "./match.errors.js";
-import { derivePhase, liveForOutput } from "./phase.js";
+import { derivePhase, finalScoreForOutput, liveForOutput } from "./phase.js";
 import {
   type LiveMatch,
   type MatchState,
@@ -76,11 +76,13 @@ export function assembleMatchState(
   const chain = onchain ? toOnchainMatch(onchain) : null;
   if (!live && !chain) throw new MatchNotFoundError(fixtureId);
   const nowSecs = Math.floor(Date.now() / 1000);
+  const phase = derivePhase(chain, live, nowSecs);
   return matchStateOutput.parse({
     fixtureId,
     onchain: chain,
     live: liveForOutput(live),
-    phase: derivePhase(chain, live, nowSecs),
+    phase,
+    finalScore: finalScoreForOutput(live, phase),
     updatedAt: Date.now(),
   });
 }
@@ -126,12 +128,14 @@ export async function listMatches(): Promise<MatchSummary[]> {
       ]);
       const onchain = toOnchainMatch(match);
       const live = toLiveMatch(hash);
+      const phase = derivePhase(onchain, live, nowSecs);
       return {
         pda,
         fixtureId,
         onchain,
         live: liveForOutput(live),
-        phase: derivePhase(onchain, live, nowSecs),
+        phase,
+        finalScore: finalScoreForOutput(live, phase),
         teamNames,
         featured: false,
       };

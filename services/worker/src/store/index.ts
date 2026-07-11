@@ -61,6 +61,10 @@ export class Store {
     return this.redis.writeProvisionalLineup(snap);
   }
 
+  hasFixture(fixtureId: number): Promise<boolean> {
+    return this.redis.hasFixture(fixtureId);
+  }
+
   getLastEventId(): Promise<string | undefined> {
     return this.redis.getLastEventId();
   }
