@@ -6,9 +6,13 @@ ENV NODE_ENV=production
 
 RUN npm install --global pnpm@10.28.2 && groupadd -r app && useradd -r -m -g app app
 
-WORKDIR /app/services/worker
+WORKDIR /app
 
-COPY services/worker/package.json services/worker/pnpm-lock.yaml ./
+COPY services/onchain/package.json services/onchain/pnpm-lock.yaml ./services/onchain/
+COPY services/worker/package.json services/worker/pnpm-lock.yaml ./services/worker/
+COPY services/onchain ./services/onchain
+
+WORKDIR /app/services/worker
 RUN pnpm install --frozen-lockfile
 
 COPY services/worker ./
