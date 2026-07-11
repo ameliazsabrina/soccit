@@ -47,6 +47,7 @@ import {
   UnauthorizedError,
 } from "./modules/auth/auth.errors.js";
 import { getUserMatches } from "./modules/participation/participation.service.js";
+import { getPlatformConfig } from "./modules/config/config.service.js";
 import { scheduleInput } from "./modules/schedule/schedule.schema.js";
 import { listSchedule } from "./modules/schedule/schedule.service.js";
 import { TxlineNotConfiguredError } from "./txline.js";
@@ -101,6 +102,8 @@ app.all("/trpc/*", (c) =>
     createContext: () => ({ signal: c.req.raw.signal }),
   }),
 );
+
+app.get("/api/config", (c) => c.json(getPlatformConfig()));
 
 app.get("/api/matches", async (c) => c.json(await listMatches()));
 

@@ -107,6 +107,19 @@ describe("GET /api/matches", () => {
   });
 });
 
+describe("GET /api/config", () => {
+  it("returns server-authoritative game rules matching on-chain + scoring", async () => {
+    const res = await app.request("/api/config");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      platformFeePct: 20,
+      prizeSplit: [50, 30, 20],
+      scoring: { scoreExact: 5, scoreOutcome: 3, subCombo: 3, subPartial: 1 },
+      usdcDecimals: 6,
+    });
+  });
+});
+
 describe("GET /api/schedule", () => {
   it("returns the schedule as JSON", async () => {
     vi.mocked(listSchedule).mockResolvedValue([FIXTURE] as never);
@@ -254,7 +267,7 @@ describe("POST /api/user", () => {
     const res = await post(body);
     expect(res.status).toBe(200);
     // Registration now returns the profile plus an immediate session token.
-    const json = await res.json();
+    const json = (await res.json()) as { session: { token: string } };
     expect(json).toMatchObject(profile);
     expect(typeof json.session.token).toBe("string");
     expect(registerUser).toHaveBeenCalledWith(body);

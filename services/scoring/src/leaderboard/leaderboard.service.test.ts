@@ -38,13 +38,24 @@ describe("score", () => {
   });
 
   it("OUT scores +1 on matching playerOutId", () => {
-    const out = run([pred({ owner: "a", kind: KIND_OUT, outPlayerId: 100 })], [sub({ playerOutId: 100 })]);
+    const out = run(
+      [pred({ owner: "a", kind: KIND_OUT, outPlayerId: 100 })],
+      [sub({ playerOutId: 100 })],
+    );
     expect(out.ranking[0]).toMatchObject({ owner: "a", points: 1 });
   });
 
   it("carries side + player ids onto each prediction result", () => {
     const out = run(
-      [pred({ owner: "a", side: 1, kind: KIND_OUT, outPlayerId: 100, inPlayerId: 200 })],
+      [
+        pred({
+          owner: "a",
+          side: 1,
+          kind: KIND_OUT,
+          outPlayerId: 100,
+          inPlayerId: 200,
+        }),
+      ],
       [sub({ playerOutId: 100 })],
     );
     expect(out.ranking[0]?.predictions[0]).toMatchObject({
@@ -55,18 +66,31 @@ describe("score", () => {
   });
 
   it("OUT scores 0 when no sub matches", () => {
-    const out = run([pred({ owner: "a", kind: KIND_OUT, outPlayerId: 999 })], [sub({ playerOutId: 100 })]);
+    const out = run(
+      [pred({ owner: "a", kind: KIND_OUT, outPlayerId: 999 })],
+      [sub({ playerOutId: 100 })],
+    );
     expect(out.ranking[0]?.points).toBe(0);
   });
 
   it("IN scores +1 on matching playerInId", () => {
-    const out = run([pred({ owner: "a", kind: KIND_IN, inPlayerId: 200 })], [sub({ playerInId: 200 })]);
+    const out = run(
+      [pred({ owner: "a", kind: KIND_IN, inPlayerId: 200 })],
+      [sub({ playerInId: 200 })],
+    );
     expect(out.ranking[0]?.points).toBe(1);
   });
 
   it("COMBO scores 3 when both legs hit", () => {
     const out = run(
-      [pred({ owner: "a", kind: KIND_COMBO, outPlayerId: 100, inPlayerId: 200 })],
+      [
+        pred({
+          owner: "a",
+          kind: KIND_COMBO,
+          outPlayerId: 100,
+          inPlayerId: 200,
+        }),
+      ],
       [sub({ playerOutId: 100, playerInId: 200 })],
     );
     expect(out.ranking[0]?.points).toBe(3);
@@ -74,25 +98,41 @@ describe("score", () => {
 
   it("COMBO scores 1 when only one leg hits", () => {
     const out = run(
-      [pred({ owner: "a", kind: KIND_COMBO, outPlayerId: 100, inPlayerId: 999 })],
+      [
+        pred({
+          owner: "a",
+          kind: KIND_COMBO,
+          outPlayerId: 100,
+          inPlayerId: 999,
+        }),
+      ],
       [sub({ playerOutId: 100, playerInId: 200 })],
     );
     expect(out.ranking[0]?.points).toBe(1);
   });
 
   it("ignores subs on the other side", () => {
-    const out = run([pred({ owner: "a", side: 1, outPlayerId: 100 })], [sub({ side: 2, playerOutId: 100 })]);
+    const out = run(
+      [pred({ owner: "a", side: 1, outPlayerId: 100 })],
+      [sub({ side: 2, playerOutId: 100 })],
+    );
     expect(out.ranking[0]?.points).toBe(0);
   });
 
   describe("retroactive 5-minute validity", () => {
     it("counts a pick locked exactly 5 minutes before the sub", () => {
-      const out = run([pred({ owner: "a", lockMinute: 55, outPlayerId: 100 })], [sub({ minute: 60, playerOutId: 100 })]);
+      const out = run(
+        [pred({ owner: "a", lockMinute: 55, outPlayerId: 100 })],
+        [sub({ minute: 60, playerOutId: 100 })],
+      );
       expect(out.ranking[0]?.points).toBe(1);
     });
 
     it("rejects a pick locked less than 5 minutes before the sub", () => {
-      const out = run([pred({ owner: "a", lockMinute: 56, outPlayerId: 100 })], [sub({ minute: 60, playerOutId: 100 })]);
+      const out = run(
+        [pred({ owner: "a", lockMinute: 56, outPlayerId: 100 })],
+        [sub({ minute: 60, playerOutId: 100 })],
+      );
       expect(out.ranking[0]?.points).toBe(0);
     });
   });
@@ -134,34 +174,52 @@ describe("score", () => {
 
   it("excludes zero-point owners from winners but keeps them in ranking", () => {
     const out = run(
-      [pred({ owner: "a", outPlayerId: 100 }), pred({ owner: "z", outPlayerId: 999 })],
+      [
+        pred({ owner: "a", outPlayerId: 100 }),
+        pred({ owner: "z", outPlayerId: 999 }),
+      ],
       [sub({ playerOutId: 100 })],
     );
     expect(out.ranking).toHaveLength(2);
     expect(out.winners).toEqual(["a", null, null]);
   });
 
-  describe("score predictions (tiered: exact=3, outcome=1)", () => {
-    // A score pick: side 0, score1 in outPlayerId, score2 in inPlayerId.
+  describe("score predictions (tiered: exact=5, outcome=3)", () => {
     const scorePred = (owner: string, s1: number, s2: number): Prediction =>
-      pred({ owner, side: 0, kind: KIND_SCORE, outPlayerId: s1, inPlayerId: s2 });
+      pred({
+        owner,
+        side: 0,
+        kind: KIND_SCORE,
+        outPlayerId: s1,
+        inPlayerId: s2,
+      });
 
-    const grade = (predictions: Prediction[], finalScore?: { score1: number; score2: number }) =>
-      score({ fixtureId: 1, predictions, subs: [], finalScore, final: finalScore != null, now: 0 });
+    const grade = (
+      predictions: Prediction[],
+      finalScore?: { score1: number; score2: number },
+    ) =>
+      score({
+        fixtureId: 1,
+        predictions,
+        subs: [],
+        finalScore,
+        final: finalScore != null,
+        now: 0,
+      });
 
-    it("awards 3 for an exact scoreline", () => {
+    it("awards 5 for an exact scoreline", () => {
       const out = grade([scorePred("a", 2, 1)], { score1: 2, score2: 1 });
-      expect(out.ranking[0]).toMatchObject({ owner: "a", points: 3 });
+      expect(out.ranking[0]).toMatchObject({ owner: "a", points: 5 });
     });
 
-    it("awards 1 for a correct outcome with the wrong goals", () => {
+    it("awards 3 for a correct outcome with the wrong goals", () => {
       const out = grade([scorePred("a", 3, 1)], { score1: 2, score2: 1 });
-      expect(out.ranking[0]?.points).toBe(1);
+      expect(out.ranking[0]?.points).toBe(3);
     });
 
-    it("awards 1 for a correctly predicted draw with wrong goals", () => {
+    it("awards 3 for a correctly predicted draw with wrong goals", () => {
       const out = grade([scorePred("a", 1, 1)], { score1: 2, score2: 2 });
-      expect(out.ranking[0]?.points).toBe(1);
+      expect(out.ranking[0]?.points).toBe(3);
     });
 
     it("awards 0 for the wrong outcome", () => {
@@ -181,7 +239,7 @@ describe("score", () => {
         side: 0,
         outPlayerId: 2,
         inPlayerId: 1,
-        points: 3,
+        points: 5,
       });
     });
 
@@ -189,7 +247,13 @@ describe("score", () => {
       const out = score({
         fixtureId: 1,
         predictions: [
-          pred({ owner: "a", side: 1, kind: KIND_OUT, outPlayerId: 100, lockMinute: 10 }),
+          pred({
+            owner: "a",
+            side: 1,
+            kind: KIND_OUT,
+            outPlayerId: 100,
+            lockMinute: 10,
+          }),
           scorePred("a", 2, 1),
         ],
         subs: [sub({ side: 1, playerOutId: 100, minute: 60 })],
@@ -197,8 +261,8 @@ describe("score", () => {
         finalScore: { score1: 2, score2: 1 },
         now: 0,
       });
-      // +1 for the OUT hit, +3 for the exact score = 4
-      expect(out.ranking[0]).toMatchObject({ owner: "a", points: 4 });
+      // +1 for the OUT hit, +5 for the exact score = 6
+      expect(out.ranking[0]).toMatchObject({ owner: "a", points: 6 });
     });
 
     it("emits schema-valid output for a score pick", () => {

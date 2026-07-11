@@ -43,6 +43,8 @@ import {
   preparePredictionOutput,
 } from "../modules/prediction/prediction.schema.js";
 import { preparePrediction } from "../modules/prediction/prediction.service.js";
+import { platformConfigOutput } from "../modules/config/config.schema.js";
+import { getPlatformConfig } from "../modules/config/config.service.js";
 import { getRedis, newRedisConnection } from "../redis.js";
 import { subscribeChannel } from "../pubsub.js";
 import { publicProcedure, router } from "./trpc.js";
@@ -150,6 +152,10 @@ const predictionRouter = router({
     .mutation(({ input }) => preparePrediction(input)),
 });
 
+const configRouter = router({
+  get: publicProcedure.output(platformConfigOutput).query(() => getPlatformConfig()),
+});
+
 export const appRouter = router({
   match: matchRouter,
   schedule: scheduleRouter,
@@ -158,6 +164,7 @@ export const appRouter = router({
   events: eventsRouter,
   lineup: lineupRouter,
   user: userRouter,
+  config: configRouter,
 });
 
 export type AppRouter = typeof appRouter;

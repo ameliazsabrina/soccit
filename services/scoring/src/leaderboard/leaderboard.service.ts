@@ -11,11 +11,9 @@ import {
 
 const VALIDITY_LEAD_MINUTES = 5;
 
-/** Points for an exact scoreline vs a correct outcome only. */
-const SCORE_EXACT_POINTS = 3;
-const SCORE_OUTCOME_POINTS = 1;
+const SCORE_EXACT_POINTS = 5;
+const SCORE_OUTCOME_POINTS = 3;
 
-/** Final scoreline: score1 = team1/Participant1 goals, score2 = team2. */
 export interface FinalScore {
   score1: number;
   score2: number;
@@ -27,31 +25,29 @@ export interface ScoreInput {
   subs: Substitution[];
   final?: boolean;
   now?: number;
-  /**
-   * The 90-min full-time scoreline, known only once the match is terminal.
-   * When absent, score predictions stay provisional (0 pts) — grading is
-   * full-time only.
-   */
   finalScore?: FinalScore;
 }
 
 function isValidPair(pred: Prediction, sub: Substitution): boolean {
-  return sub.side === pred.side && pred.lockMinute <= sub.minute - VALIDITY_LEAD_MINUTES;
+  return (
+    sub.side === pred.side &&
+    pred.lockMinute <= sub.minute - VALIDITY_LEAD_MINUTES
+  );
 }
 
 function outcome(a: number, b: number): number {
   return Math.sign(a - b);
 }
 
-/**
- * Tiered final-score grading: exact scoreline = 3 pts, correct outcome
- * (W/D/L) only = 1 pt, otherwise 0. Provisional (no final score yet) = 0.
- */
-function scoreScorePrediction(pred: Prediction, finalScore: FinalScore | undefined): number {
+function scoreScorePrediction(
+  pred: Prediction,
+  finalScore: FinalScore | undefined,
+): number {
   if (!finalScore) return 0;
   const pred1 = pred.outPlayerId;
   const pred2 = pred.inPlayerId;
-  if (pred1 === finalScore.score1 && pred2 === finalScore.score2) return SCORE_EXACT_POINTS;
+  if (pred1 === finalScore.score1 && pred2 === finalScore.score2)
+    return SCORE_EXACT_POINTS;
   if (outcome(pred1, pred2) === outcome(finalScore.score1, finalScore.score2)) {
     return SCORE_OUTCOME_POINTS;
   }

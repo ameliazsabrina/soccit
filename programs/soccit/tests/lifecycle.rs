@@ -325,23 +325,23 @@ fn full_lifecycle_pays_top3_and_drains_vault() {
     )
     .unwrap();
 
-    let pay1 = pool * 35 / 100;
-    let pay2 = pool * 25 / 100;
+    let pay1 = pool * 40 / 100;
+    let pay2 = pool * 24 / 100;
     let platform_amt = pool - pay1 - pay2;
     assert_eq!(
         token_balance(&svm, &u1_ata),
         100_000_000 - ENTRY_FEE + pay1,
-        "winner1 paid 35% (charged one entry fee for two picks)"
+        "winner1 paid 40% (charged one entry fee for two picks)"
     );
     assert_eq!(
         token_balance(&svm, &u2_ata),
         100_000_000 - ENTRY_FEE + pay2,
-        "winner2 paid 25% (charged one entry fee for two picks)"
+        "winner2 paid 24% (charged one entry fee for two picks)"
     );
     assert_eq!(
         token_balance(&svm, &platform_ata),
         platform_amt,
-        "platform gets remainder (40%)"
+        "platform gets remainder (20% fee + absent winner3's 16%)"
     );
     assert_eq!(
         token_balance(&svm, &vault),

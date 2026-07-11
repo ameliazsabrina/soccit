@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "create-match": "tsx scripts/create-match.ts",
     "create-upcoming": "tsx scripts/create-upcoming.ts",
-    "place-prediction": "tsx scripts/place-prediction.ts"
+    "place-prediction": "tsx scripts/place-prediction.ts",
+    "e2e-devnet": "tsx scripts/e2e-devnet.ts"
   },
   "dependencies": {
     "@soccit/onchain": "file:../onchain",
