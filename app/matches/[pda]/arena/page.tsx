@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   AlertCircle,
@@ -61,7 +61,7 @@ const DEMO_MATCH: MatchState = {
     participantCount: 12,
     team1Id: 101,
     team2Id: 202,
-    usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
     winners: [null, null, null],
   },
   live: {
@@ -152,9 +152,6 @@ export default function ArenaPage() {
   const sideParam = searchParams.get("side");
   const sideSelected = sideParam === "1" || sideParam === "2";
   const side: 1 | 2 = sideParam === "2" ? 2 : 1;
-  const fixtureId = Number(
-    searchParams.get("fixtureId") ?? (isSeed ? SOCCIT_SEED_FIXTURE_ID : Number.NaN)
-  );
 
   function buildModelHref(m: string) {
     const qs = new URLSearchParams(searchParams.toString());
@@ -182,6 +179,28 @@ export default function ArenaPage() {
   const [showLoadingTransition, setShowLoadingTransition] = useState(true);
   const notifs = useNotifications();
   const submitNotifId = useRef<string | null>(null);
+
+  // Resolve the on-chain fixtureId: prefer an explicit ?fixtureId= override, then
+  // the loaded match (GET /api/match always carries fixtureId), then the seed
+  // fallback. This lets any real ingested match — not just the seed — submit.
+  const fixtureId = useMemo(
+    () =>
+      Number(
+        searchParams.get("fixtureId") ??
+          match?.fixtureId ??
+          (isSeed ? SOCCIT_SEED_FIXTURE_ID : Number.NaN)
+      ),
+    [searchParams, match?.fixtureId, isSeed]
+  );
+
+  // A match supports on-chain submission when it has a resolvable fixtureId and is
+  // OPEN + unsettled on-chain — the same contract the backend enforces (prepare
+  // returns 409 for a non-OPEN match). Mirrors it client-side to fail fast.
+  const canSubmitOnChain =
+    Number.isFinite(fixtureId) &&
+    !!match?.onchain &&
+    match.onchain.statusLabel === "OPEN" &&
+    !match.onchain.settled;
 
   // Sync team picker when model/side changes (e.g. switching from Score to Pitch tab)
   useEffect(() => {
@@ -259,13 +278,17 @@ export default function ArenaPage() {
       return;
     }
 
-    if (!isSeed) {
+    if (!canSubmitOnChain) {
       setLocked(false);
+      const notOpen =
+        !!match?.onchain && match.onchain.statusLabel !== "OPEN";
       notifs.push({
         id: "submit-error",
         type: "error",
         title: "Cannot submit",
-        message: "No fixture loaded that supports on-chain submission.",
+        message: notOpen
+          ? `This match is not open for predictions (status: ${match!.onchain!.statusLabel}).`
+          : "No fixture loaded that supports on-chain submission.",
         duration: 6000,
       });
       return;
@@ -278,18 +301,6 @@ export default function ArenaPage() {
         type: "error",
         title: "Wallet not connected",
         message: "Connect your wallet to submit a real prediction.",
-        duration: 6000,
-      });
-      return;
-    }
-
-    if (Number.isNaN(fixtureId)) {
-      setLocked(false);
-      notifs.push({
-        id: "submit-error",
-        type: "error",
-        title: "Missing fixture",
-        message: "Could not resolve fixtureId for this match.",
         duration: 6000,
       });
       return;

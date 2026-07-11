@@ -44,7 +44,7 @@ const DEMO_MATCH_STATE: MatchState = {
     participantCount: 2,
     team1Id: 101,
     team2Id: 202,
-    usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
     winners: [null, null, null],
   },
   live: {
@@ -169,7 +169,7 @@ export default function MatchIntelligencePage() {
       participantCount: 8,
       team1Id: 301,
       team2Id: 302,
-      usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
       winners: ["EcLvtR1WJv47bUUa6MbcCS1AB7KVDdS5JuSWdUFR9ycQ", null, null],
     },
     // Terminal: backend nulls `live` and moves the score to `finalScore`.

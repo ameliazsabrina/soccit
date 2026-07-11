@@ -8,7 +8,7 @@ export const SOCCIT_SEED_FIXTURE_ID = 900001;
 export const SOCCIT_SEED_MATCH_PDA =
   "CJJfxXRnagAc35PCVcnqYeU34VysGx4u93Hd75dGHFyq";
 export const SOCCIT_PROGRAM_ID = "TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v";
-export const SOCCIT_USDC_MINT = "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac";
+export const SOCCIT_USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 
 export type AvatarId =
   | "avatar-0"
