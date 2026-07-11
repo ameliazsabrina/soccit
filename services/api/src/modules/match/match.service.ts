@@ -9,6 +9,7 @@ import {
 } from "../../onchain/program.js";
 import { loadTeamNames } from "../lineup/lineup.service.js";
 import { MatchNotFoundError } from "./match.errors.js";
+import { derivePhase, liveForOutput } from "./phase.js";
 import {
   type LiveMatch,
   type MatchState,
@@ -74,10 +75,12 @@ export function assembleMatchState(
   const live = toLiveMatch(hash);
   const chain = onchain ? toOnchainMatch(onchain) : null;
   if (!live && !chain) throw new MatchNotFoundError(fixtureId);
+  const nowSecs = Math.floor(Date.now() / 1000);
   return matchStateOutput.parse({
     fixtureId,
     onchain: chain,
-    live,
+    live: liveForOutput(live),
+    phase: derivePhase(chain, live, nowSecs),
     updatedAt: Date.now(),
   });
 }
@@ -90,8 +93,6 @@ export async function getMatchState(fixtureId: number): Promise<MatchState> {
   return assembleMatchState(fixtureId, hash, onchain);
 }
 
-// Sort order for the discovery list: OPEN first, then RESOLVED, then SETTLED,
-// and within a status the newest fixture (highest id) first.
 const STATUS_RANK: Record<number, number> = {
   [STATUS_OPEN]: 0,
   [STATUS_RESOLVED]: 1,
@@ -115,6 +116,7 @@ function pickFeaturedPda(
 export async function listMatches(): Promise<MatchSummary[]> {
   const matches = await fetchAllMatches();
   const redis = getRedis();
+  const nowSecs = Math.floor(Date.now() / 1000);
   const summaries = await Promise.all(
     matches.map(async ({ pda, match }): Promise<MatchSummary> => {
       const fixtureId = Number(match.matchId);
@@ -122,17 +124,20 @@ export async function listMatches(): Promise<MatchSummary[]> {
         redis.hgetall(`fixture:${fixtureId}`),
         loadTeamNames(fixtureId),
       ]);
+      const onchain = toOnchainMatch(match);
+      const live = toLiveMatch(hash);
       return {
         pda,
         fixtureId,
-        onchain: toOnchainMatch(match),
-        live: toLiveMatch(hash),
+        onchain,
+        live: liveForOutput(live),
+        phase: derivePhase(onchain, live, nowSecs),
         teamNames,
         featured: false,
       };
     }),
   );
-  const featuredPda = pickFeaturedPda(summaries, Math.floor(Date.now() / 1000));
+  const featuredPda = pickFeaturedPda(summaries, nowSecs);
   for (const s of summaries) s.featured = s.pda === featuredPda;
   return summaries.sort(
     (a, b) =>

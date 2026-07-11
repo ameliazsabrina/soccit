@@ -58,14 +58,18 @@ describe("toOnchainMatch", () => {
   });
 
   it("maps default-pubkey winners to null", () => {
-    const winner = new PublicKey("3FpiWa3QVb7iks17uMRKZR8EVmofyByzK5exXAzU6Pma");
+    const winner = new PublicKey(
+      "3FpiWa3QVb7iks17uMRKZR8EVmofyByzK5exXAzU6Pma",
+    );
     const out = toOnchainMatch(fakeMatch({ winner1: winner }));
     expect(out.winners).toEqual([winner.toBase58(), null, null]);
   });
 
   it("labels open and resolved", () => {
     expect(toOnchainMatch(fakeMatch({ status: 0 })).statusLabel).toBe("OPEN");
-    expect(toOnchainMatch(fakeMatch({ status: 1 })).statusLabel).toBe("RESOLVED");
+    expect(toOnchainMatch(fakeMatch({ status: 1 })).statusLabel).toBe(
+      "RESOLVED",
+    );
   });
 });
 
@@ -75,8 +79,18 @@ describe("toLiveMatch", () => {
   });
 
   it("parses numeric fields and defaults missing goals to 0", () => {
-    const live = toLiveMatch({ statusId: "4", minute: "67", goals1: "2", ts: "1700" });
-    expect(live).toEqual({ statusId: 4, minute: 67, goals: { team1: 2, team2: 0 }, ts: 1700 });
+    const live = toLiveMatch({
+      statusId: "4",
+      minute: "67",
+      goals1: "2",
+      ts: "1700",
+    });
+    expect(live).toEqual({
+      statusId: 4,
+      minute: 67,
+      goals: { team1: 2, team2: 0 },
+      ts: 1700,
+    });
   });
 });
 
@@ -92,7 +106,10 @@ describe("listMatches", () => {
     vi.mocked(fetchAllMatches).mockResolvedValue([
       { pda: "PdaOpen", match: fakeMatch({ matchId: 100n, status: 0 }) },
     ]);
-    vi.mocked(loadTeamNames).mockResolvedValue({ team1: "USA", team2: "Bosnia" });
+    vi.mocked(loadTeamNames).mockResolvedValue({
+      team1: "USA",
+      team2: "Bosnia",
+    });
 
     const rows = await listMatches();
     expect(rows).toHaveLength(1);
@@ -121,9 +138,18 @@ describe("listMatches", () => {
     const soon = Math.floor(Date.now() / 1000) + 3600;
     const later = soon + 3600;
     vi.mocked(fetchAllMatches).mockResolvedValue([
-      { pda: "late", match: fakeMatch({ matchId: 30n, status: 0, startTime: BigInt(later) }) },
-      { pda: "soon", match: fakeMatch({ matchId: 10n, status: 0, startTime: BigInt(soon) }) },
-      { pda: "settled", match: fakeMatch({ matchId: 40n, status: 2, startTime: BigInt(soon) }) },
+      {
+        pda: "late",
+        match: fakeMatch({ matchId: 30n, status: 0, startTime: BigInt(later) }),
+      },
+      {
+        pda: "soon",
+        match: fakeMatch({ matchId: 10n, status: 0, startTime: BigInt(soon) }),
+      },
+      {
+        pda: "settled",
+        match: fakeMatch({ matchId: 40n, status: 2, startTime: BigInt(soon) }),
+      },
     ]);
     const rows = await listMatches();
     expect(rows.filter((m) => m.featured).map((m) => m.pda)).toEqual(["soon"]);
@@ -145,6 +171,46 @@ describe("listMatches", () => {
     ]);
     const rows = await listMatches();
     expect(rows.some((m) => m.featured)).toBe(false);
+  });
+
+  it("labels a pre-kickoff OPEN match UPCOMING and nulls its stale live hash", async () => {
+    const ko = Math.floor(Date.now() / 1000) + 6 * 3600; // ~6h out
+    vi.mocked(getRedis).mockReturnValue({
+      hgetall: vi.fn().mockResolvedValue({
+        statusId: "",
+        minute: "",
+        goals1: "0",
+        goals2: "0",
+        ts: "1783465737802",
+      }),
+    } as never);
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      {
+        pda: "o",
+        match: fakeMatch({ matchId: 10n, status: 0, startTime: BigInt(ko) }),
+      },
+    ]);
+    const [row] = await listMatches();
+    expect(row?.phase).toBe("UPCOMING");
+    expect(row?.live).toBeNull();
+  });
+
+  it("labels an in-play match LIVE with a populated live payload", async () => {
+    vi.mocked(getRedis).mockReturnValue({
+      hgetall: vi.fn().mockResolvedValue({
+        statusId: "4",
+        minute: "67",
+        goals1: "2",
+        goals2: "1",
+        ts: "1783465737802",
+      }),
+    } as never);
+    vi.mocked(fetchAllMatches).mockResolvedValue([
+      { pda: "o", match: fakeMatch({ matchId: 10n, status: 0 }) },
+    ]);
+    const [row] = await listMatches();
+    expect(row?.phase).toBe("LIVE");
+    expect(row?.live).toMatchObject({ statusId: 4, minute: 67 });
   });
 });
 

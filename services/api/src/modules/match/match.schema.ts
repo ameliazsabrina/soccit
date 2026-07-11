@@ -1,5 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
+import { MATCH_PHASES } from "./phase.js";
+
+export const matchPhaseSchema = z.enum(MATCH_PHASES);
 
 export const pdaString = z
   .string()
@@ -48,6 +51,7 @@ export const matchStateOutput = z.object({
   fixtureId: z.number().int(),
   onchain: onchainMatchSchema.nullable(),
   live: liveMatchSchema.nullable(),
+  phase: matchPhaseSchema.nullable(),
   updatedAt: z.number().int(),
 });
 
@@ -56,6 +60,7 @@ export const matchSummarySchema = z.object({
   fixtureId: z.number().int(),
   onchain: onchainMatchSchema,
   live: liveMatchSchema.nullable(),
+  phase: matchPhaseSchema,
   teamNames: z
     .object({ team1: z.string().nullable(), team2: z.string().nullable() })
     .nullable(),
@@ -64,6 +69,7 @@ export const matchSummarySchema = z.object({
 
 export const matchListOutput = z.array(matchSummarySchema);
 
+export type MatchPhase = z.infer<typeof matchPhaseSchema>;
 export type MatchInput = z.infer<typeof matchInput>;
 export type OnchainMatch = z.infer<typeof onchainMatchSchema>;
 export type LiveMatch = z.infer<typeof liveMatchSchema>;

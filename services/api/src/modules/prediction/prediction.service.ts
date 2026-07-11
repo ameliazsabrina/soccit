@@ -16,17 +16,14 @@ import {
   predictionPda,
 } from "../../onchain/program.js";
 import { MatchNotFoundError } from "../match/match.errors.js";
+
+import { ENTRY_LEAD_SECS, isEntryWindowOpen } from "../match/phase.js";
 import {
   EntryNotOpenYetError,
   MatchNotOpenError,
 } from "./prediction.errors.js";
 
-const ENTRY_LEAD_SECS = 600;
-
-export function isEntryWindowOpen(startTime: number, nowSecs: number): boolean {
-  if (startTime === 0) return true;
-  return nowSecs >= startTime - ENTRY_LEAD_SECS;
-}
+export { ENTRY_LEAD_SECS, isEntryWindowOpen };
 import {
   type PreparePredictionInput,
   type PreparePredictionOutput,
@@ -52,17 +49,6 @@ export interface BuildPreparePredictionTxArgs {
   lastValidBlockHeight: number;
 }
 
-/**
- * Pure transaction assembly — no RPC. Builds an UNSIGNED legacy transaction
- * whose feePayer is the user's wallet, so the frontend wallet signs and submits
- * it. The API never holds a key or signs. We prepend an idempotent
- * create-ATA instruction so a first-time user (no USDC token account yet) does
- * not fail; it is a no-op when the ATA already exists.
- *
- * Pay-per-match: the slot and the fee are derived from the caller's Entry, not
- * supplied by the client. The next free slot is `entry.slotsUsed` (0 on the
- * first pick), and the fee is the match entry fee only on that first pick.
- */
 export function buildPreparePredictionTx(
   args: BuildPreparePredictionTxArgs,
 ): PreparePredictionOutput {
@@ -143,16 +129,11 @@ export async function preparePrediction(
     throw new MatchNotOpenError(input.fixtureId, statusLabel(match.status));
   }
 
-  // Entry window: mirror the on-chain gate so the frontend gets a clean error
-  // (with the kickoff time for a countdown) instead of a doomed transaction.
-  // The on-chain Clock remains the source of truth.
   const startTime = Number(match.startTime);
   if (!isEntryWindowOpen(startTime, Math.floor(Date.now() / 1000))) {
     throw new EntryNotOpenYetError(input.fixtureId, startTime);
   }
 
-  // Pay-per-match: the caller's Entry tells us the next free slot and whether
-  // the entry fee has already been paid.
   const entry = await fetchEntry(matchAccount, wallet);
 
   const { blockhash, lastValidBlockHeight } =
