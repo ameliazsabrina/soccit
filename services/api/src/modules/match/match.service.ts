@@ -65,6 +65,7 @@ export function toLiveMatch(hash: Record<string, string>): LiveMatch | null {
     minute: num(hash.minute),
     goals: { team1: num(hash.goals1) ?? 0, team2: num(hash.goals2) ?? 0 },
     ts: num(hash.ts),
+    terminal: hash.terminal === "1",
   };
 }
 

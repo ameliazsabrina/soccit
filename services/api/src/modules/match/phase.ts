@@ -50,6 +50,7 @@ export function derivePhase(
 ): MatchPhase | null {
   if (onchain?.settled || onchain?.status === STATUS_SETTLED) return "SETTLED";
   if (onchain?.status === STATUS_RESOLVED) return "RESOLVED";
+  if (live?.terminal) return "FINISHED";
   if (isInPlay(live)) return "LIVE";
   if (!onchain) return null;
   if (onchain.status === STATUS_OPEN) {

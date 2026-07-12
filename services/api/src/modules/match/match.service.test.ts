@@ -91,7 +91,19 @@ describe("toLiveMatch", () => {
       minute: 67,
       goals: { team1: 2, team2: 0 },
       ts: 1700,
+      terminal: false,
     });
+  });
+
+  it("flags terminal when the feed marked the hash game_finalised", () => {
+    const live = toLiveMatch({
+      statusId: "100",
+      goals1: "1",
+      goals2: "2",
+      ts: "1700",
+      terminal: "1",
+    });
+    expect(live?.terminal).toBe(true);
   });
 });
 

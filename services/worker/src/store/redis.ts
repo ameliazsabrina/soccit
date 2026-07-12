@@ -67,14 +67,18 @@ export class RedisStore {
     const pipe = this.redis.pipeline();
 
     const stats = raw.Stats ?? {};
-    pipe.hset(fixtureKey(raw.FixtureId), {
+    const fields: Record<string, string> = {
       fixtureId: String(raw.FixtureId),
       statusId: String(raw.StatusId ?? ""),
       minute: String(matchMinute(raw) ?? ""),
       goals1: String(stats["1"] ?? 0),
       goals2: String(stats["2"] ?? 0),
       ts: String(raw.Ts ?? Date.now()),
-    });
+    };
+    if (events.some((e) => e.type === "status" && e.terminal)) {
+      fields.terminal = "1";
+    }
+    pipe.hset(fixtureKey(raw.FixtureId), fields);
     pipe.set(matchPdaKey(matchPda(raw.FixtureId)), String(raw.FixtureId));
 
     for (const e of events) {

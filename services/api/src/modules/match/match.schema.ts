@@ -45,6 +45,7 @@ export const liveMatchSchema = z.object({
   minute: z.number().int().nullable(),
   goals: z.object({ team1: z.number().int(), team2: z.number().int() }),
   ts: z.number().int().nullable(),
+  terminal: z.boolean().optional(),
 });
 
 export const finalScoreSchema = z.object({

@@ -75,6 +75,25 @@ describe.skipIf(!up)("RedisStore (live Redis)", () => {
     });
   });
 
+  it("sets a sticky terminal flag on the hash when a game_finalised event lands", async () => {
+    await raw.del(fixtureKey);
+    // Non-terminal beat: no flag yet.
+    await store.persist(rawEvent({ StatusId: 4 }), [
+      { type: "status", fixtureId: FIXTURE, action: "status", terminal: false },
+    ]);
+    expect((await raw.hgetall(fixtureKey)).terminal).toBeUndefined();
+    // game_finalised beat: flag is set.
+    await store.persist(rawEvent({ StatusId: 100 }), [
+      { type: "status", fixtureId: FIXTURE, action: "game_finalised", terminal: true },
+    ]);
+    expect((await raw.hgetall(fixtureKey)).terminal).toBe("1");
+    // A late non-terminal beat must not clear it.
+    await store.persist(rawEvent({ StatusId: 100 }), [
+      { type: "status", fixtureId: FIXTURE, action: "score_adjustment", terminal: false },
+    ]);
+    expect((await raw.hgetall(fixtureKey)).terminal).toBe("1");
+  });
+
   it("appends one stream entry per domain event with type + json fields", async () => {
     await raw.del(eventStreamKey);
     await store.persist(rawEvent(), [sub]);

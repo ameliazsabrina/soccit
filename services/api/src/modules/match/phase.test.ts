@@ -107,6 +107,43 @@ describe("derivePhase", () => {
     );
   });
 
+  it("FINISHED when the feed hit full-time but on-chain is still OPEN", () => {
+    expect(
+      derivePhase(onchain(), live({ statusId: 100, terminal: true }), KO),
+    ).toBe("FINISHED");
+  });
+
+  it("FINISHED wins over a lingering in-play clock once terminal is set", () => {
+    expect(
+      derivePhase(
+        onchain(),
+        live({ statusId: 4, minute: 90, terminal: true }),
+        KO,
+      ),
+    ).toBe("FINISHED");
+  });
+
+  it("SETTLED/RESOLVED still win over a terminal feed flag (chain authoritative)", () => {
+    expect(
+      derivePhase(
+        onchain({ settled: true, status: 2 }),
+        live({ terminal: true }),
+        KO,
+      ),
+    ).toBe("SETTLED");
+    expect(
+      derivePhase(
+        onchain({ status: 1, statusLabel: "RESOLVED" }),
+        live({ terminal: true }),
+        KO,
+      ),
+    ).toBe("RESOLVED");
+  });
+
+  it("FINISHED for a live-only fixture (no on-chain account) at full-time", () => {
+    expect(derivePhase(null, live({ terminal: true }), KO)).toBe("FINISHED");
+  });
+
   it("UPCOMING before the entry window (announced early)", () => {
     // now is well before KO−10min → entries not open yet.
     expect(derivePhase(onchain(), null, KO - 6 * 3600)).toBe("UPCOMING");
