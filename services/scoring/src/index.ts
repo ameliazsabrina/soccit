@@ -1,19 +1,14 @@
+import { Connection } from "@solana/web3.js";
 import { Redis } from "ioredis";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { createPredictionSource } from "./onchain/predictions.js";
+import { fetchActiveFixtureIds } from "./onchain/program.js";
 import { runProjector } from "./projector.js";
+import { runSupervisor } from "./supervisor.js";
 import { LeaderboardStore } from "./store/leaderboard.js";
 
 async function main(): Promise<void> {
-  if (config.fixtureId == null) throw new Error("SCORING_FIXTURE_ID is required");
-  const fixtureId = config.fixtureId;
-
-  logger.info(
-    { fixtureId, source: config.predictions.source, programId: config.solana.programId },
-    "soccit scoring starting (leaderboard projector)",
-  );
-
   const controller = new AbortController();
   const shutdown = (sig: string) => {
     logger.info({ sig }, "shutting down");
@@ -28,7 +23,38 @@ async function main(): Promise<void> {
   const predictions = createPredictionSource();
 
   try {
-    await runProjector({ redis, store, predictions, fixtureId, signal: controller.signal });
+    if (config.fixtureId != null) {
+      // Explicit single-fixture override (tests / manual replay).
+      logger.info(
+        { fixtureId: config.fixtureId, source: config.predictions.source },
+        "soccit scoring starting (single-fixture override)",
+      );
+      await runProjector({
+        redis,
+        store,
+        predictions,
+        fixtureId: config.fixtureId,
+        signal: controller.signal,
+      });
+    } else {
+      const conn = new Connection(config.solana.rpcUrl, "confirmed");
+      logger.info(
+        {
+          source: config.predictions.source,
+          programId: config.solana.programId,
+          pollIntervalMs: config.pollIntervalMs,
+        },
+        "soccit scoring starting (multi-fixture supervisor)",
+      );
+      await runSupervisor({
+        redis,
+        store,
+        predictions,
+        discover: () => fetchActiveFixtureIds(conn, config.excludedMatchPdas),
+        pollIntervalMs: config.pollIntervalMs,
+        signal: controller.signal,
+      });
+    }
   } finally {
     await store.close();
     redis.disconnect();

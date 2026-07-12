@@ -11,6 +11,8 @@ const Schema = z.object({
   HELIUS_API_KEY: z.string().optional(),
   PROGRAM_ID: z.string().default("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v"),
   SCORING_FIXTURE_ID: z.string().optional(),
+  SCORING_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
+  EXCLUDED_MATCH_PDAS: z.string().default(""),
   PREDICTIONS_SOURCE: z.enum(["onchain", "file"]).default("onchain"),
   PREDICTIONS_FILE: z.string().optional(),
   REFRESH_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
@@ -43,6 +45,12 @@ export const config = {
     programId: env.PROGRAM_ID,
   },
   fixtureId: env.SCORING_FIXTURE_ID ? Number(env.SCORING_FIXTURE_ID) : undefined,
+  pollIntervalMs: env.SCORING_POLL_INTERVAL_MS,
+  excludedMatchPdas: new Set(
+    env.EXCLUDED_MATCH_PDAS.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ),
   predictions: {
     source: env.PREDICTIONS_SOURCE,
     file: env.PREDICTIONS_FILE || undefined,

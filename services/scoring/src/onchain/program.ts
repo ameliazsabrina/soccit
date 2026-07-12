@@ -1,6 +1,7 @@
 import { PublicKey, type Connection } from "@solana/web3.js";
 import { config } from "../config.js";
 import type { Prediction } from "../leaderboard/leaderboard.schema.js";
+import { MATCH_ACCOUNT_LEN, selectActiveFixtureIds } from "./matches.js";
 
 export const PROGRAM_ID = new PublicKey(config.solana.programId);
 
@@ -14,7 +15,10 @@ export function matchPda(fixtureId: number): PublicKey {
   return PublicKey.findProgramAddressSync([MATCH_SEED, idLe], PROGRAM_ID)[0];
 }
 
-export function decodePrediction(buf: Buffer): Omit<Prediction, "side" | "kind"> & {
+export function decodePrediction(buf: Buffer): Omit<
+  Prediction,
+  "side" | "kind"
+> & {
   side: number;
   kind: number;
 } {
@@ -28,12 +32,36 @@ export function decodePrediction(buf: Buffer): Omit<Prediction, "side" | "kind">
   };
 }
 
-export async function fetchPredictionAccounts(conn: Connection, fixtureId: number): Promise<Buffer[]> {
+export async function fetchActiveFixtureIds(
+  conn: Connection,
+  excluded: ReadonlySet<string> = new Set(),
+): Promise<number[]> {
+  const accounts = await conn.getProgramAccounts(PROGRAM_ID, {
+    filters: [{ dataSize: MATCH_ACCOUNT_LEN }],
+  });
+  return selectActiveFixtureIds(
+    accounts.map((a) => ({
+      pubkey: a.pubkey.toBase58(),
+      data: a.account.data as Buffer,
+    })),
+    excluded,
+  );
+}
+
+export async function fetchPredictionAccounts(
+  conn: Connection,
+  fixtureId: number,
+): Promise<Buffer[]> {
   const matchKey = matchPda(fixtureId);
   const accounts = await conn.getProgramAccounts(PROGRAM_ID, {
-    filters: [{ memcmp: { offset: MATCH_KEY_OFFSET, bytes: matchKey.toBase58() } }],
+    filters: [
+      { memcmp: { offset: MATCH_KEY_OFFSET, bytes: matchKey.toBase58() } },
+    ],
   });
   return accounts
     .map((a) => a.account.data as Buffer)
-    .filter((data) => data.length >= 84 && data.subarray(0, 8).equals(PRED_DISCRIMINATOR));
+    .filter(
+      (data) =>
+        data.length >= 84 && data.subarray(0, 8).equals(PRED_DISCRIMINATOR),
+    );
 }

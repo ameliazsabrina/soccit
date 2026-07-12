@@ -62,6 +62,16 @@ export async function runProjector({
     );
   };
 
+  const terminal = entries.find(isTerminalStatus);
+  if (terminal) {
+    await project(true, finalScoreFromStatus(terminal));
+    logger.info(
+      { fixtureId },
+      "terminal event already in stream — final leaderboard frozen at startup (settlement cue)",
+    );
+    return;
+  }
+
   await project(false);
 
   for await (const entry of tail(redis, fixtureId, lastId, signal)) {
