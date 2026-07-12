@@ -155,6 +155,20 @@ export default function MatchDetails() {
     return () => source?.close();
   }, [pda, isDemo, isSeed]);
 
+  const opensAt =
+    !isDemo && !isSeed && !isDemoSettled && match?.phase === "UPCOMING"
+      ? entryOpensAt(match.onchain?.startTime ?? 0)
+      : null;
+  const entriesPending = opensAt !== null && opensAt > nowSecs;
+  useEffect(() => {
+    if (!entriesPending) return;
+    const id = setInterval(
+      () => setNowSecs(Math.floor(Date.now() / 1000)),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [entriesPending]);
+
   async function loadMatch() {
     setLoading(true);
     setError(null);
@@ -338,6 +352,8 @@ export default function MatchDetails() {
             <EnterCard
               isLive={isLive}
               isDemo={isDemo}
+              entriesPending={entriesPending}
+              opensInSecs={entriesPending ? opensAt! - nowSecs : 0}
               onClick={() => handleSelectMode("score")}
             />
           </div>
@@ -544,15 +560,55 @@ function VaultCard({
   );
 }
 
+// Compact countdown for the entry gate. Ticks to seconds in the final minute
+// so it reads like a live countdown as entries approach.
+function formatEntryCountdown(secs: number): string {
+  if (secs <= 0) return "now";
+  const days = Math.floor(secs / 86400);
+  const hours = Math.floor((secs % 86400) / 3600);
+  const mins = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  if (mins > 0) return `${mins}m ${String(s).padStart(2, "0")}s`;
+  return `${s}s`;
+}
+
 function EnterCard({
   isLive,
   isDemo,
+  entriesPending,
+  opensInSecs,
   onClick,
 }: {
   isLive: boolean;
   isDemo: boolean;
+  entriesPending: boolean;
+  opensInSecs: number;
   onClick: () => void;
 }) {
+  // Entries not open yet (KO−10min gate): show a live countdown instead of an
+  // Enter CTA that would be rejected on submit. Not clickable — nothing to do
+  // until the window opens, at which point the parent flips this to the CTA.
+  if (entriesPending) {
+    return (
+      <PageTransition
+        delay={0.15}
+        className="group relative flex flex-col items-center justify-center gap-4 overflow-hidden bg-surface p-5 sm:p-6"
+      >
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple via-cyan to-purple" />
+        <h2 className="font-display text-xl text-foreground">Entries Open In</h2>
+        <span className="font-mono text-3xl font-bold tabular-nums text-purple">
+          {formatEntryCountdown(opensInSecs)}
+        </span>
+        <p className="max-w-xs text-center text-sm text-muted">
+          Predictions open 10 minutes before kickoff. Check back then to lock
+          yours in.
+        </p>
+      </PageTransition>
+    );
+  }
+
   return (
     <PageTransition
       delay={0.15}
