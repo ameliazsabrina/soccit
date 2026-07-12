@@ -75,6 +75,12 @@ export function isTerminalPhase(phase: MatchPhase): boolean {
   return phase === "FINISHED" || phase === "RESOLVED" || phase === "SETTLED";
 }
 
+export const ENTRY_OPEN_LEAD_SECS = 10 * 60;
+
+export function entryOpensAt(startTime: number): number | null {
+  return startTime > 0 ? startTime - ENTRY_OPEN_LEAD_SECS : null;
+}
+
 export type MatchSummary = {
   pda: string;
   fixtureId: number;

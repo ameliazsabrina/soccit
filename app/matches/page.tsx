@@ -21,6 +21,7 @@ import {
   formatUsdc,
   displayScore,
   isTerminalPhase,
+  entryOpensAt,
   PHASE_LABEL,
   type MatchPhase,
   type MatchSummary,
@@ -475,6 +476,20 @@ function formatKickoff(startTimeSecs: number): string {
   return "kicking off soon";
 }
 
+// Compact countdown for the entry gate. Ticks down to seconds in the final
+// minute so the card reads like a live countdown as entries approach.
+function formatCountdown(secs: number): string {
+  if (secs <= 0) return "now";
+  const days = Math.floor(secs / 86400);
+  const hours = Math.floor((secs % 86400) / 3600);
+  const mins = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  if (mins > 0) return `${mins}m ${String(s).padStart(2, "0")}s`;
+  return `${s}s`;
+}
+
 // Phase-driven status badge. Every phase gets a visually distinct treatment;
 // crucially FINISHED ("Full-Time") reads nothing like OPEN so an ended match
 // can't be mistaken for one that still accepts entries. Text is single-sourced
@@ -556,8 +571,20 @@ function MatchCard({
   const isLive = match.phase === "LIVE";
   const isUpcoming = match.phase === "UPCOMING";
   const isEnded = isTerminalPhase(match.phase);
-  const canEnter = match.phase === "OPEN" || isUpcoming;
-  // Show the scoreline prominently whenever there is a definitive/running score.
+
+  const opensAt = isUpcoming ? entryOpensAt(match.onchain.startTime) : null;
+  const [nowSecs, setNowSecs] = useState(() => Math.floor(Date.now() / 1000));
+  const entriesPending = opensAt !== null && opensAt > nowSecs;
+  useEffect(() => {
+    if (!entriesPending) return;
+    const id = setInterval(
+      () => setNowSecs(Math.floor(Date.now() / 1000)),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [entriesPending]);
+
+  const canEnter = match.phase === "OPEN" || (isUpcoming && !entriesPending);
   const hasScore = isLive || isEnded;
 
   return (
@@ -624,7 +651,16 @@ function MatchCard({
             </span>
           </div>
           <div className="mt-auto flex items-center justify-between border-t border-surface pt-2">
-            {canEnter ? (
+            {entriesPending ? (
+              <>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple">
+                  Entries open in
+                </span>
+                <span className="font-mono text-[10px] font-bold tabular-nums text-purple sm:text-xs">
+                  {formatCountdown(opensAt! - nowSecs)}
+                </span>
+              </>
+            ) : canEnter ? (
               <>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-cyan">
                   Enter
@@ -634,9 +670,6 @@ function MatchCard({
                 </span>
               </>
             ) : (
-              // Entries are closed for LIVE/FINISHED/RESOLVED/SETTLED — the card
-              // still links to the detail view, but the CTA no longer reads as an
-              // enter affordance (no gradient button).
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
                 {isLive ? "Watch Live →" : "View Results →"}
               </span>

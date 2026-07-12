@@ -32,6 +32,7 @@ import {
   calculatePrizes,
   displayScore,
   isTerminalPhase,
+  entryOpensAt,
   PHASE_LABEL,
   openMatchEventsStream,
   openLeaderboardStream,
@@ -97,6 +98,7 @@ export default function MatchDetails() {
   const [events, setEvents] = useState<EventEntry[]>(
     isDemo ? DEMO_EVENTS : isDemoSettled ? DEMO_SETTLED_EVENTS : [],
   );
+  const [nowSecs, setNowSecs] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
     if (isDemo || isSeed || isDemoSettled) return;
