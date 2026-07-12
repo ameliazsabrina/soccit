@@ -41,11 +41,39 @@ export type ResolvedPlayer = {
 };
 
 // Authoritative match phase computed server-side (services/api phase.ts).
-// Single source of truth for UPCOMING vs LIVE — never re-derive it from `live`.
+// Single source of truth for status — never re-derive it from `live`/`statusLabel`.
 // UPCOMING → announced (keeper), kickoff still >10min away, entries not open yet.
 // OPEN     → within the KO−10min entry window (prediction/prepare returns 200).
 // LIVE     → feed in-play (statusId ∈ {2,3,4}); `live` is non-null only in this phase.
-export type MatchPhase = "UPCOMING" | "OPEN" | "LIVE" | "RESOLVED" | "SETTLED";
+// FINISHED → full-time reached, on-chain settlement still pending (transient).
+// RESOLVED → winners posted on-chain, payout tx not yet finalized (brief).
+// SETTLED  → fully settled on-chain (payouts done) — terminal.
+// Typical progression: UPCOMING → OPEN → LIVE → FINISHED → RESOLVED → SETTLED.
+export type MatchPhase =
+  | "UPCOMING"
+  | "OPEN"
+  | "LIVE"
+  | "FINISHED"
+  | "RESOLVED"
+  | "SETTLED";
+
+// Human-facing label per phase. FINISHED is deliberately NOT "open"-like so
+// users can't mistake an ended match for one they can still enter.
+export const PHASE_LABEL: Record<MatchPhase, string> = {
+  UPCOMING: "Upcoming",
+  OPEN: "Open for Predictions",
+  LIVE: "Live",
+  FINISHED: "Full-Time",
+  RESOLVED: "Resolving",
+  SETTLED: "Settled",
+};
+
+// Full-time reached: result is known, `finalScore` is populated, and entries
+// are closed. Drive "ended/results" UI (and disable entry) off this, not off
+// `onchain.settled` — a FINISHED/RESOLVED match is terminal but not yet settled.
+export function isTerminalPhase(phase: MatchPhase): boolean {
+  return phase === "FINISHED" || phase === "RESOLVED" || phase === "SETTLED";
+}
 
 export type MatchSummary = {
   pda: string;
@@ -208,15 +236,8 @@ export type UserMatch = {
 // raw strings. There is deliberately no 24h-change field (no historical
 // snapshots exist), so don't derive a fake delta client-side.
 
-// The portfolio feed can report a mid-lifecycle FINISHED phase that the lighter
-// MatchSummary shape collapses away, so keep it as its own union.
-export type PortfolioPhase =
-  | "UPCOMING"
-  | "OPEN"
-  | "LIVE"
-  | "FINISHED"
-  | "RESOLVED"
-  | "SETTLED";
+// The portfolio feed reports the same lifecycle phases as the match feed.
+export type PortfolioPhase = MatchPhase;
 
 export type PortfolioPosition = {
   pda: string;

@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+} from "react";
 import { motion } from "framer-motion";
 import { AlertCircle, Loader2, Trophy } from "lucide-react";
 import { PageShell } from "../_components/page-shell";
@@ -13,6 +20,9 @@ import {
   getMatches,
   formatUsdc,
   displayScore,
+  isTerminalPhase,
+  PHASE_LABEL,
+  type MatchPhase,
   type MatchSummary,
 } from "../_lib/api";
 import { cn } from "../_lib/utils";
@@ -26,11 +36,33 @@ const FILTERS = [
   { key: "all", label: "All Markets" },
   { key: "live", label: "Live Now" },
   { key: "OPEN", label: "Open" },
-  { key: "RESOLVED", label: "Resolved" },
+  { key: "RESOLVED", label: "Resolving" },
   { key: "SETTLED", label: "Settled" },
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
+
+// Every phase must land in exactly one tab so no card is orphaned. FINISHED
+// (full-time, settlement pending) buckets with RESOLVED under "Resolving";
+// UPCOMING buckets with OPEN. Drive this off `phase`, never `statusLabel` —
+// an ended-but-unsettled match still reports on-chain OPEN and would otherwise
+// leak into the "Open" tab looking enterable.
+function tabForPhase(phase: MatchPhase): Exclude<FilterKey, "all"> {
+  switch (phase) {
+    case "LIVE":
+      return "live";
+    case "UPCOMING":
+    case "OPEN":
+      return "OPEN";
+    case "FINISHED":
+    case "RESOLVED":
+      return "RESOLVED";
+    case "SETTLED":
+      return "SETTLED";
+    default:
+      return "OPEN";
+  }
+}
 
 const MAGNETIC_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const TRANSITION_DURATION = 0.7;
@@ -67,18 +99,46 @@ export default function MatchEvents() {
     }
   }
 
+  // Silent background refresh — no spinner flash, keeps the last good data on a
+  // transient failure. The visible error state is reserved for the first load.
+  const refreshMatches = useCallback(async () => {
+    try {
+      const list = await getMatches();
+      setMatches(list);
+      setError(null);
+    } catch {
+      // Ignore poll failures; the next tick retries.
+    }
+  }, []);
+
   useEffect(() => {
     loadMatches();
   }, []);
 
+  // Phase transitions happen server-side (no websocket yet), so poll to move
+  // cards OPEN → LIVE → FINISHED → SETTLED without a manual refresh. Poll faster
+  // while anything is in-play, and refetch on window focus.
+  const hasLive = useMemo(
+    () => matches?.some((m) => m.phase === "LIVE") ?? false,
+    [matches],
+  );
+
+  useEffect(() => {
+    const interval = hasLive ? 5000 : 12000;
+    const id = setInterval(refreshMatches, interval);
+    const onFocus = () => refreshMatches();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [hasLive, refreshMatches]);
+
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
     if (filter === "all") return matches;
-    if (filter === "live") {
-      // Authoritative: the server tells us which matches are actually in-play.
-      return matches.filter((m) => m.phase === "LIVE");
-    }
-    return matches.filter((m) => m.onchain.statusLabel === filter);
+    // Bucket by authoritative server phase, not the on-chain status label.
+    return matches.filter((m) => tabForPhase(m.phase) === filter);
   }, [matches, filter]);
 
   function lock() {
@@ -415,6 +475,73 @@ function formatKickoff(startTimeSecs: number): string {
   return "kicking off soon";
 }
 
+// Phase-driven status badge. Every phase gets a visually distinct treatment;
+// crucially FINISHED ("Full-Time") reads nothing like OPEN so an ended match
+// can't be mistaken for one that still accepts entries. Text is single-sourced
+// from PHASE_LABEL (LIVE overrides with the running minute).
+function StatusPill({
+  match,
+  minute,
+}: {
+  match: MatchSummary;
+  minute?: number | null;
+}) {
+  const phase = match.phase;
+
+  if (phase === "LIVE") {
+    return (
+      <>
+        <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />
+        <span className="text-[10px] font-bold uppercase tracking-wider text-rose sm:text-xs">
+          {minute ? `${minute}' Live` : "Live"}
+        </span>
+      </>
+    );
+  }
+
+  if (phase === "UPCOMING") {
+    return (
+      <span className="text-[10px] font-bold uppercase tracking-wider text-purple sm:text-xs">
+        {PHASE_LABEL.UPCOMING}
+        {match.onchain.startTime > 0 && (
+          <span className="ml-2 font-normal text-muted">
+            {formatKickoff(match.onchain.startTime)}
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  if (phase === "OPEN") {
+    return (
+      <span className="text-[10px] font-bold uppercase tracking-wider text-cyan sm:text-xs">
+        {PHASE_LABEL.OPEN}
+      </span>
+    );
+  }
+
+  // Terminal phases — bordered chip so they stand apart from the "open" state.
+  const chip: Record<"FINISHED" | "RESOLVED" | "SETTLED", string> = {
+    FINISHED: "border-gold/40 bg-gold/10 text-gold",
+    RESOLVED: "border-gold/40 bg-gold/10 text-gold",
+    SETTLED: "border-surface bg-surface/60 text-muted",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider sm:text-xs",
+        chip[phase],
+      )}
+    >
+      {phase !== "SETTLED" && (
+        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+      )}
+      {PHASE_LABEL[phase]}
+    </span>
+  );
+}
+
 function MatchCard({
   match,
   index = 0,
@@ -428,6 +555,10 @@ function MatchCard({
   const minute = match.live?.minute;
   const isLive = match.phase === "LIVE";
   const isUpcoming = match.phase === "UPCOMING";
+  const isEnded = isTerminalPhase(match.phase);
+  const canEnter = match.phase === "OPEN" || isUpcoming;
+  // Show the scoreline prominently whenever there is a definitive/running score.
+  const hasScore = isLive || isEnded;
 
   return (
     <PageTransition delay={index * 0.05} className="group">
@@ -440,38 +571,16 @@ function MatchCard({
         {/* Match info */}
         <div className="relative z-10 flex flex-1 flex-col gap-2">
           <div className="flex items-center gap-2">
-            {isLive ? (
-              <>
-                <span className="h-2 w-2 animate-pulse rounded-full bg-rose" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-rose sm:text-xs">
-                  {minute ? `${minute}' Live` : "Live"}
-                </span>
-              </>
-            ) : isUpcoming ? (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-purple sm:text-xs">
-                Upcoming
-                {match.onchain.startTime > 0 && (
-                  <span className="ml-2 font-normal text-muted">
-                    {formatKickoff(match.onchain.startTime)}
-                  </span>
-                )}
-              </span>
-            ) : match.phase === "OPEN" ? (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan sm:text-xs">
-                Open for Predictions
-              </span>
-            ) : (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted sm:text-xs">
-                {match.phase}
-              </span>
-            )}
+            <StatusPill match={match} minute={minute} />
           </div>
 
           <div className="flex flex-col gap-2 font-display text-lg sm:text-xl">
             <div className="flex items-center gap-3">
               <TeamBadge name={team1} size="lg" />
               <span className="truncate text-foreground">{team1}</span>
-              <span className="ml-auto text-cyan">
+              <span
+                className={cn("ml-auto", hasScore ? "text-cyan" : "text-muted")}
+              >
                 {score ? score.team1 : "–"}
               </span>
             </div>
@@ -480,13 +589,13 @@ function MatchCard({
               <span
                 className={cn(
                   "truncate",
-                  isLive ? "text-foreground" : "text-muted",
+                  hasScore ? "text-foreground" : "text-muted",
                 )}
               >
                 {team2}
               </span>
               <span
-                className={cn("ml-auto", isLive ? "text-cyan" : "text-muted")}
+                className={cn("ml-auto", hasScore ? "text-cyan" : "text-muted")}
               >
                 {score ? score.team2 : "–"}
               </span>
@@ -515,12 +624,23 @@ function MatchCard({
             </span>
           </div>
           <div className="mt-auto flex items-center justify-between border-t border-surface pt-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-cyan">
-              Enter
-            </span>
-            <span className="pointer-events-none">
-              <EnterButton className="px-3 py-1 text-[9px] sm:text-[10px]" />
-            </span>
+            {canEnter ? (
+              <>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan">
+                  Enter
+                </span>
+                <span className="pointer-events-none">
+                  <EnterButton className="px-3 py-1 text-[9px] sm:text-[10px]" />
+                </span>
+              </>
+            ) : (
+              // Entries are closed for LIVE/FINISHED/RESOLVED/SETTLED — the card
+              // still links to the detail view, but the CTA no longer reads as an
+              // enter affordance (no gradient button).
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                {isLive ? "Watch Live →" : "View Results →"}
+              </span>
+            )}
           </div>
         </div>
       </Link>

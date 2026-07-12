@@ -5,6 +5,7 @@ import { TeamBadge } from "./team-badge";
 import {
   displayScore,
   formatUsdcAmount,
+  PHASE_LABEL,
   type PortfolioPosition,
   type MatchSummary,
 } from "../_lib/api";
@@ -139,9 +140,11 @@ function PhasePill({
       </span>
     );
   }
+  // Terminal phases (FINISHED/RESOLVED/SETTLED) — use the shared label so an
+  // ended position never renders a raw enum or reads like "Open".
   return (
     <span className="text-[10px] font-bold uppercase tracking-wider text-muted sm:text-xs">
-      {phase}
+      {PHASE_LABEL[phase]}
     </span>
   );
 }

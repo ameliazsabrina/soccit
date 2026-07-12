@@ -99,7 +99,7 @@ function FeaturedMatchTile({
         if (!active) return;
         const featured =
           rows.find((m) => m.featured) ??
-          rows.find((m) => m.onchain.statusLabel === "OPEN") ??
+          rows.find((m) => m.phase === "OPEN") ??
           null;
         setMatch(featured);
       })

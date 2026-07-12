@@ -31,6 +31,8 @@ import {
   formatWallet,
   calculatePrizes,
   displayScore,
+  isTerminalPhase,
+  PHASE_LABEL,
   openMatchEventsStream,
   openLeaderboardStream,
   SOCCIT_SEED_MATCH_PDA,
@@ -284,7 +286,13 @@ export default function MatchDetails() {
   const entryFee = match.onchain?.entryFee ?? "0";
   const participantCount = match.onchain?.participantCount ?? 0;
   const prizes = calculatePrizes(poolTotal);
-  const settled = match.onchain?.settled ?? false;
+  // Terminal = full-time reached (FINISHED/RESOLVED/SETTLED), not just on-chain
+  // `settled`. A FINISHED match reports on-chain OPEN but must show the results
+  // view, never the enter card. Fall back to `settled` for demo/seed states
+  // that carry no phase.
+  const isEnded = match.phase
+    ? isTerminalPhase(match.phase)
+    : (match.onchain?.settled ?? false);
 
   return (
     <PageShell>
@@ -296,12 +304,13 @@ export default function MatchDetails() {
           minute={minute}
           isLive={isLive}
           status={status}
+          phase={match.phase ?? null}
           isDemo={isDemo}
           isSeed={isSeed}
           connected={connected}
         />
 
-        {settled ? (
+        {isEnded ? (
           /* Settled: 2 cards — logs preview + match results preview */
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <LogsPreviewCard events={events} pda={pda} />
@@ -363,6 +372,7 @@ function MatchHero({
   minute,
   isLive,
   status,
+  phase,
   isDemo,
   isSeed,
   connected,
@@ -373,6 +383,7 @@ function MatchHero({
   minute: number;
   isLive: boolean;
   status: string;
+  phase: MatchState["phase"];
   isDemo: boolean;
   isSeed: boolean;
   connected: boolean;
@@ -390,7 +401,13 @@ function MatchHero({
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose" />
             </span>
           )}
-          <span>{isLive ? `${minute}' LIVE` : formatStatus(status)}</span>
+          <span>
+            {isLive
+              ? `${minute}' LIVE`
+              : phase
+                ? PHASE_LABEL[phase]
+                : formatStatus(status)}
+          </span>
         </div>
 
         <div className="flex items-center justify-center gap-8 md:gap-16">
