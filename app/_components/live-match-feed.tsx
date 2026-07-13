@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
@@ -27,6 +27,11 @@ import {
   type Leaderboard,
   type SseStatus,
 } from "../_lib/api";
+import {
+  describeMatchEvent,
+  normalizeMatchEvents,
+  type MatchEventContext,
+} from "../_lib/match-events";
 
 export type FeedTab = "events" | "leaderboard";
 export type FeedView = FeedTab | "both";
@@ -42,6 +47,10 @@ interface LiveMatchFeedProps {
   title?: string;
   showViewLogsLink?: boolean;
   poolTotal?: string;
+  homeTeamName?: string;
+  awayTeamName?: string;
+  players?: MatchEventContext["players"];
+  isTerminal?: boolean;
 }
 
 export function LiveMatchFeed({
@@ -54,6 +63,10 @@ export function LiveMatchFeed({
   className,
   showViewLogsLink = false,
   poolTotal = "0",
+  homeTeamName = "Home",
+  awayTeamName = "Away",
+  players = [],
+  isTerminal = false,
 }: LiveMatchFeedProps) {
   const [tab, setTab] = useState<FeedTab>(
     view === "leaderboard" ? "leaderboard" : view === "events" ? "events" : defaultTab
@@ -73,6 +86,14 @@ export function LiveMatchFeed({
 
   const activeStatus = tab === "events" ? eventsStatus : leaderboardStatus;
   const activeError = tab === "events" ? eventsError : leaderboardError;
+  const normalizedEvents = useMemo(
+    () => normalizeMatchEvents(events, { terminal: isTerminal }),
+    [events, isTerminal],
+  );
+  const eventContext = useMemo<MatchEventContext>(
+    () => ({ homeTeamName, awayTeamName, players }),
+    [awayTeamName, homeTeamName, players],
+  );
 
   function closeStreams() {
     eventsSourceRef.current?.close();
@@ -126,7 +147,7 @@ export function LiveMatchFeed({
       <div className={cn("border-b border-surface", showTabs ? "p-4" : "px-4 py-3")}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider">
-            <ConnectionBadge status={activeStatus} />
+            <ConnectionBadge status={activeStatus} recorded={isTerminal} />
             {activeStatus === "error" && (
               <span className="text-rose">Reconnecting…</span>
             )}
@@ -160,9 +181,9 @@ export function LiveMatchFeed({
               <Activity size={14} className="sm:mr-2" />
               <span className="hidden sm:inline">Timeline</span>
               <span className="sm:hidden">Timeline</span>
-              {events.length > 0 && (
+              {normalizedEvents.length > 0 && (
                 <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center bg-surface px-1.5 text-[10px] font-bold text-foreground">
-                  {events.length}
+                  {normalizedEvents.length}
                 </span>
               )}
             </TabButton>
@@ -186,7 +207,11 @@ export function LiveMatchFeed({
               exit={{ opacity: 0, x: 8 }}
               transition={{ duration: 0.15 }}
             >
-              <EventList events={events} isDemo={isDemo} />
+              <EventList
+                events={normalizedEvents}
+                isDemo={isDemo}
+                context={eventContext}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -240,7 +265,21 @@ function TabButton({
   );
 }
 
-function ConnectionBadge({ status }: { status: SseStatus }) {
+function ConnectionBadge({
+  status,
+  recorded,
+}: {
+  status: SseStatus;
+  recorded: boolean;
+}) {
+  if (recorded) {
+    return (
+      <span className="flex items-center gap-1.5 text-foreground/70">
+        <CircleDot size={12} aria-hidden="true" />
+        Recorded feed
+      </span>
+    );
+  }
   switch (status) {
     case "open":
       return (
@@ -280,7 +319,15 @@ function ConnectionBadge({ status }: { status: SseStatus }) {
   }
 }
 
-function EventList({ events, isDemo }: { events: EventEntry[]; isDemo: boolean }) {
+function EventList({
+  events,
+  isDemo,
+  context,
+}: {
+  events: EventEntry[];
+  isDemo: boolean;
+  context: MatchEventContext;
+}) {
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
@@ -301,16 +348,21 @@ function EventList({ events, isDemo }: { events: EventEntry[]; isDemo: boolean }
     <div className="relative space-y-0 pl-6">
       <div className="absolute bottom-0 left-[27px] top-4 w-px bg-surface" />
       {events.map((entry) => (
-        <EventRow key={entry.id} entry={entry} />
+        <EventRow key={entry.id} entry={entry} context={context} />
       ))}
     </div>
   );
 }
 
-function EventRow({ entry }: { entry: EventEntry }) {
+function EventRow({
+  entry,
+  context,
+}: {
+  entry: EventEntry;
+  context: MatchEventContext;
+}) {
   const meta = getEventMeta(entry.type);
-  const minute = (entry.payload as { minute?: number })?.minute ?? null;
-  const side = (entry.payload as { side?: 1 | 2 })?.side ?? null;
+  const presentation = describeMatchEvent(entry, context);
 
   return (
     <motion.div
@@ -320,9 +372,11 @@ function EventRow({ entry }: { entry: EventEntry }) {
       className="relative py-3"
     >
       {/* Minute badge on timeline */}
-      {minute !== null && (
+      {presentation.minute !== null && (
         <div className="absolute -left-6 top-3 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center border border-surface bg-background">
-          <span className="text-[10px] font-bold text-cyan">{minute}&apos;</span>
+          <span className="text-xs font-bold text-cyan">
+            {presentation.minute}&apos;
+          </span>
         </div>
       )}
 
@@ -342,37 +396,30 @@ function EventRow({ entry }: { entry: EventEntry }) {
               meta.iconBg
             )}
           >
-            <meta.icon size={18} className={meta.iconColor} />
+            <meta.icon size={18} className={meta.iconColor} aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-bold capitalize text-foreground">
-                {formatEventType(entry.type)}
+              <p className="text-sm font-bold text-foreground">
+                {presentation.title}
               </p>
-              {side && (
+              {presentation.teamName && (
                 <span
                   className={cn(
-                    "text-[10px] font-bold uppercase tracking-wider",
-                    side === 1 ? "text-purple" : "text-cyan"
+                    "text-xs font-bold uppercase tracking-wider",
+                    presentation.side === 1 ? "text-purple" : "text-cyan"
                   )}
                 >
-                  {side === 1 ? "Home" : "Away"}
+                  {presentation.teamName}
                 </span>
               )}
             </div>
-            {(entry.players?.in || entry.players?.out) && (
-              <p className="mt-1 truncate text-xs text-muted">
-                {entry.players?.out && (
-                  <>
-                    <span className="text-foreground">{entry.players.out.name}</span> out
-                  </>
-                )}
-                {entry.players?.in && entry.players?.out && " → "}
-                {entry.players?.in && (
-                  <>
-                    <span className="text-foreground">{entry.players.in.name}</span> in
-                  </>
-                )}
+            <p className="mt-1 text-sm font-medium leading-snug text-foreground">
+              {presentation.headline}
+            </p>
+            {presentation.detail && (
+              <p className="mt-1 text-xs text-foreground/65">
+                {presentation.detail}
               </p>
             )}
           </div>
@@ -554,10 +601,6 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function formatEventType(type: string) {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 function getEventMeta(type: string) {
   switch (type) {
     case "goal":
@@ -595,6 +638,15 @@ function getEventMeta(type: string) {
         barColor: "bg-rose",
         borderColor: "border-rose/30",
         bgColor: "bg-rose/5",
+      };
+    case "status":
+      return {
+        icon: CircleDot,
+        iconColor: "text-foreground/70",
+        iconBg: "bg-surface",
+        barColor: "bg-foreground/40",
+        borderColor: "border-surface-elevated",
+        bgColor: "bg-background/70",
       };
     default:
       return {

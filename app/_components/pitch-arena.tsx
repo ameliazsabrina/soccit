@@ -16,9 +16,25 @@ import { ConfirmSubsModal, type SubstitutionPrediction } from "./confirm-subs-mo
 import { tcgCardImage } from "../_lib/api";
 import { assignAvatars } from "../_lib/characters";
 import { CardAvatar, CardAvatarFallback } from "./card-avatar";
+import { TeamBadge } from "./team-badge";
+import { formatPlayerName } from "../_lib/match-events";
 import { cn } from "../_lib/utils";
 
 export type { SubstitutionPrediction } from "./confirm-subs-modal";
+
+export interface ArenaMatchOverview {
+  score: { team1: number; team2: number } | null;
+  minute: number | null;
+  statusLabel: string;
+  isLive: boolean;
+  isTerminal: boolean;
+  teams: Array<{
+    side: 1 | 2;
+    name: string;
+    starters: PlayerCardData[];
+    substitutes: PlayerCardData[];
+  }>;
+}
 
 export interface PitchArenaProps {
   matchPda: string;
@@ -31,6 +47,7 @@ export interface PitchArenaProps {
   locked?: boolean;
   isSubmitting?: boolean;
   lockedPredictions?: SubstitutionPrediction[];
+  overview: ArenaMatchOverview;
   className?: string;
 }
 
@@ -265,6 +282,7 @@ export function PitchArena({
   locked,
   isSubmitting = false,
   lockedPredictions = [],
+  overview,
   className,
 }: PitchArenaProps) {
   const [predictions, setPredictions] = useState<Record<string, SubstitutionPrediction>>({});
@@ -361,6 +379,16 @@ export function PitchArena({
     const predictionList = Object.values(predictions);
     if (predictionList.length === 0 || locked || isSubmitting) return;
     await Promise.resolve(onLock(predictionList));
+    setPredictions({});
+    setSelectedSub(null);
+  }
+
+  function cancelDraftPredictions() {
+    setShowConfirmModal(false);
+    if (locked || isSubmitting) return;
+    setPredictions({});
+    setSelectedSub(null);
+    setJustPlaced(null);
   }
 
   const predictionList = Object.values(predictions);
@@ -544,9 +572,9 @@ export function PitchArena({
               )}
             >
               {tab.label}
-              {tab.key === "prediction" && predictionList.length > 0 && (
+              {tab.key === "prediction" && lockedPredictions.length > 0 && (
                 <span className="ml-1.5 flex h-4 w-4 items-center justify-center bg-purple text-[8px] text-white">
-                  {predictionList.length}
+                  {lockedPredictions.length}
                 </span>
               )}
             </button>
@@ -576,7 +604,7 @@ export function PitchArena({
               </div>
 
               {eventsSubTab === "overview" ? (
-                <OverviewTab starters={starters} side={side} teamName={teamName} />
+                <OverviewTab overview={overview} />
               ) : (
                 <LiveMatchFeed
                   pda={matchPda}
@@ -584,13 +612,22 @@ export function PitchArena({
                   view="events"
                   className="h-full"
                   showViewLogsLink
+                  homeTeamName={overview.teams.find((team) => team.side === 1)?.name}
+                  awayTeamName={overview.teams.find((team) => team.side === 2)?.name}
+                  players={overview.teams.flatMap((team) =>
+                    [...team.starters, ...team.substitutes].map((player) => ({
+                      id: player.id,
+                      name: player.name,
+                      side: team.side,
+                    })),
+                  )}
+                  isTerminal={overview.isTerminal}
                 />
               )}
             </div>
           )}
           {activeTab === "prediction" && (
             <PredictionTab
-              pendingPredictions={predictionList}
               lockedPredictions={lockedPredictions}
               starters={starters}
               substitutes={substitutes}
@@ -610,7 +647,7 @@ export function PitchArena({
       {/* Confirm Substitutions Modal */}
       <ConfirmSubsModal
         open={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
+        onClose={cancelDraftPredictions}
         predictions={predictionList}
         starters={starters}
         substitutes={substitutes}
@@ -626,7 +663,6 @@ export function PitchArena({
         onClose={() => setShowLockedWarning(false)}
       />
 
-      {/* Mobile sub detail sheet */}
       <AnimatePresence>
         {showSubDetail && (
           <SubDetailSheet
@@ -833,65 +869,147 @@ function BenchCard({
 }
 
 // ===== Overview Tab (scoreboard + lineups text list) =====
-function OverviewTab({
-  starters,
-  side,
-  teamName,
-}: {
-  starters: PlayerCardData[];
-  side: 1 | 2;
-  teamName: string;
-}) {
-  return (
-    <div className="flex h-full flex-col overflow-y-auto p-3">
-      {/* Team name */}
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display text-xs uppercase tracking-wider text-foreground">{teamName}</h3>
-        <span className="text-[9px] font-bold uppercase tracking-wider text-muted">
-          {side === 1 ? "Home" : "Away"}
-        </span>
-      </div>
+function OverviewTab({ overview }: { overview: ArenaMatchOverview }) {
+  const home = overview.teams.find((team) => team.side === 1);
+  const away = overview.teams.find((team) => team.side === 2);
+  const score = overview.score;
+  const statusText = overview.isLive && overview.minute != null
+    ? `${overview.statusLabel} · ${overview.minute}'`
+    : overview.statusLabel;
 
-      {/* Lineup list */}
-      <div className="space-y-1">
-        {starters.map((p, i) => (
-          <div key={p.id} className="flex items-center justify-between bg-background/50 px-2 py-1.5 text-[10px]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center bg-surface text-[8px] font-bold text-muted">
-                {i + 1}
-              </span>
-              <span className="font-bold text-foreground">{p.name}</span>
-            </div>
-            <span className="text-[9px] font-bold uppercase text-muted">
-              {p.positionCode ?? p.position?.slice(0, 3).toUpperCase() ?? "—"}
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="sticky top-0 z-10 border-b border-surface-elevated bg-surface p-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <ScoreboardTeam team={home} align="left" />
+          <div className="text-center">
+            <p className="font-mono text-3xl font-black tabular-nums text-foreground">
+              {score ? `${score.team1}–${score.team2}` : "VS"}
+            </p>
+            <span
+              className={cn(
+                "mt-1 inline-flex border px-2 py-1 text-xs font-bold uppercase tracking-wider",
+                overview.isLive
+                  ? "border-rose/40 bg-rose/10 text-rose"
+                  : overview.isTerminal
+                    ? "border-cyan/30 bg-cyan/5 text-cyan"
+                    : "border-surface-elevated bg-background text-muted",
+              )}
+            >
+              {statusText}
             </span>
           </div>
+          <ScoreboardTeam team={away} align="right" />
+        </div>
+      </div>
+
+      <div className="space-y-5 p-3">
+        {overview.teams.map((team) => (
+          <LineupTeam key={team.side} team={team} />
         ))}
       </div>
     </div>
   );
 }
 
+function ScoreboardTeam({
+  team,
+  align,
+}: {
+  team: ArenaMatchOverview["teams"][number] | undefined;
+  align: "left" | "right";
+}) {
+  const name = team?.name ?? (align === "left" ? "Home" : "Away");
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-1.5", align === "right" && "items-end text-right")}>
+      <TeamBadge name={name} size="lg" />
+      <p className="line-clamp-2 text-xs font-bold uppercase leading-tight text-foreground">
+        {name}
+      </p>
+    </div>
+  );
+}
+
+function LineupTeam({ team }: { team: ArenaMatchOverview["teams"][number] }) {
+  return (
+    <section aria-labelledby={`lineup-team-${team.side}`}>
+      <div className="mb-2 flex items-center gap-2 border-b border-surface-elevated pb-2">
+        <TeamBadge name={team.name} size="sm" />
+        <div className="min-w-0 flex-1">
+          <h3 id={`lineup-team-${team.side}`} className="truncate text-sm font-bold text-foreground">
+            {team.name}
+          </h3>
+          <p className="text-xs uppercase tracking-wider text-muted">
+            {team.side === 1 ? "Home" : "Away"} · {team.starters.length + team.substitutes.length} players
+          </p>
+        </div>
+      </div>
+      <LineupGroup label="Starting XI" players={team.starters} />
+      <LineupGroup label="Bench" players={team.substitutes} className="mt-3" />
+    </section>
+  );
+}
+
+function LineupGroup({
+  label,
+  players,
+  className,
+}: {
+  label: string;
+  players: PlayerCardData[];
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <div className="mb-1.5 flex items-center justify-between">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-muted">{label}</h4>
+        <span className="font-mono text-xs text-muted">{players.length}</span>
+      </div>
+      {players.length === 0 ? (
+        <p className="border border-dashed border-surface-elevated px-3 py-2 text-xs text-muted">
+          No players provided.
+        </p>
+      ) : (
+        <div className="space-y-1">
+          {players.map((player) => (
+            <div
+              key={player.id}
+              className="flex min-h-9 items-center gap-2 border border-transparent bg-background/60 px-2 py-1.5"
+            >
+              <span className="flex h-6 w-7 flex-shrink-0 items-center justify-center bg-surface-elevated font-mono text-xs font-bold text-foreground">
+                {player.number ?? "–"}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+                {formatPlayerName(player.name)}
+              </span>
+              <span className="text-xs font-bold uppercase text-muted">
+                {player.positionCode ?? player.position?.slice(0, 3).toUpperCase() ?? "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ===== Prediction Tab =====
 function PredictionTab({
-  pendingPredictions,
   lockedPredictions,
   starters,
   substitutes,
 }: {
-  pendingPredictions: SubstitutionPrediction[];
   lockedPredictions: SubstitutionPrediction[];
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
 }) {
-  const hasPending = pendingPredictions.length > 0;
   const hasLocked = lockedPredictions.length > 0;
 
-  if (!hasPending && !hasLocked) {
+  if (!hasLocked) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center">
         <Crosshair size={32} className="mb-3 text-muted/40" />
-        <p className="text-sm text-muted">No predictions yet.</p>
+        <p className="text-sm text-muted">No locked substitutions yet.</p>
         <p className="mt-1 text-xs text-muted/60">
           Drag a bench card onto a player on the pitch to make a substitution.
         </p>
@@ -901,35 +1019,6 @@ function PredictionTab({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-3">
-      {/* Pending section */}
-      {hasPending && (
-        <div className="mb-4">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="flex h-4 w-4 items-center justify-center bg-purple text-[8px] font-bold text-white">
-              {pendingPredictions.length}
-            </span>
-            <h4 className="text-[9px] font-bold uppercase tracking-wider text-muted">Pending</h4>
-          </div>
-          <div className="space-y-1.5">
-            {pendingPredictions.map((p) => {
-              const sub = substitutes.find((s) => s.id === p.inPlayerId);
-              const outPlayer = starters.find((s) => s.id === p.outPlayerId);
-              return (
-                <div key={p.slotId} className="flex items-center gap-2 bg-background/50 p-2">
-                  <span className="truncate text-[10px] font-bold text-muted">
-                    {outPlayer?.name.split(" ").pop() ?? "Player"}
-                  </span>
-                  <ArrowRightLeft size={10} className="flex-shrink-0 text-muted" />
-                  <span className="truncate text-[10px] font-bold text-foreground">
-                    {sub?.name.split(" ").pop() ?? "Sub"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Locked section */}
       {hasLocked && (
         <div>

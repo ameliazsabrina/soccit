@@ -23,12 +23,18 @@ import {
   getLineup,
   openMatchEventsStream,
   isValidPda,
+  isTerminalPhase,
   displayScore,
   type MatchState,
   type Lineup,
   type EventEntry,
   type SseStatus,
 } from "../../../_lib/api";
+import {
+  describeMatchEvent,
+  normalizeMatchEvents,
+  type MatchEventContext,
+} from "../../../_lib/match-events";
 import { cn } from "../../../_lib/utils";
 
 const DEMO_PDA = "demo";
@@ -368,23 +374,48 @@ export default function MatchIntelligencePage() {
     );
   }
 
+  const terminal = match?.phase
+    ? isTerminalPhase(match.phase)
+    : Boolean(match?.onchain?.settled);
+  const normalizedEvents = useMemo(
+    () => normalizeMatchEvents(events, { terminal }),
+    [events, terminal],
+  );
+  const eventContext = useMemo<MatchEventContext>(() => {
+    const home = lineup?.teams.find((team) => team.side === 1);
+    const away = lineup?.teams.find((team) => team.side === 2);
+    return {
+      homeTeamName: home?.teamName ?? "Home",
+      awayTeamName: away?.teamName ?? "Away",
+      players: lineup?.teams.flatMap((team) =>
+        team.players.map((player) => ({
+          id: player.id,
+          name: player.name,
+          side: team.side,
+        })),
+      ) ?? [],
+    };
+  }, [lineup]);
+
   const eventTypes = useMemo(
-    () => Array.from(new Set(events.map((e) => e.type))).sort(),
-    [events],
+    () => Array.from(new Set(normalizedEvents.map((event) => event.type))).sort(),
+    [normalizedEvents],
   );
 
   const filteredEvents = useMemo(() => {
-    return events.filter((entry) => {
+    return normalizedEvents.filter((entry) => {
       const matchesType = filter === "all" || entry.type === filter;
       const term = search.toLowerCase();
+      const presentation = describeMatchEvent(entry, eventContext);
       const matchesSearch =
         !term ||
         entry.type.toLowerCase().includes(term) ||
-        String(entry.players?.in?.name).toLowerCase().includes(term) ||
-        String(entry.players?.out?.name).toLowerCase().includes(term);
+        presentation.title.toLowerCase().includes(term) ||
+        presentation.headline.toLowerCase().includes(term) ||
+        String(presentation.teamName).toLowerCase().includes(term);
       return matchesType && matchesSearch;
     });
-  }, [events, filter, search]);
+  }, [eventContext, filter, normalizedEvents, search]);
 
   const team1 = lineup?.teams.find((t) => t.side === 1);
   const team2 = lineup?.teams.find((t) => t.side === 2);
@@ -492,7 +523,13 @@ export default function MatchIntelligencePage() {
           </span>
           <span className="flex items-center gap-1">
             <Clock size={12} />
-            Updated live
+            {terminal
+              ? "Recorded feed"
+              : status === "open"
+                ? "Live feed"
+                : status === "connecting"
+                  ? "Connecting"
+                  : "Feed idle"}
           </span>
         </div>
 
@@ -505,7 +542,7 @@ export default function MatchIntelligencePage() {
                 No events match your filters.
               </p>
               <p className="mt-1 text-xs">
-                {events.length === 0
+                {normalizedEvents.length === 0
                   ? "Waiting for the first event from the stream."
                   : "Try clearing the search or filter."}
               </p>
@@ -514,7 +551,7 @@ export default function MatchIntelligencePage() {
             <div className="relative space-y-0 pl-6">
               <div className="absolute bottom-0 left-[27px] top-4 w-px bg-surface-elevated" />
               {filteredEvents.map((entry) => (
-                <TimelineRow key={entry.id} entry={entry} />
+                <TimelineRow key={entry.id} entry={entry} context={eventContext} />
               ))}
             </div>
           )}
@@ -548,10 +585,15 @@ function FilterPill({
   );
 }
 
-function TimelineRow({ entry }: { entry: EventEntry }) {
+function TimelineRow({
+  entry,
+  context,
+}: {
+  entry: EventEntry;
+  context: MatchEventContext;
+}) {
   const meta = getEventMeta(entry.type);
-  const minute = (entry.payload as { minute?: number })?.minute ?? null;
-  const side = (entry.payload as { side?: 1 | 2 })?.side ?? null;
+  const presentation = describeMatchEvent(entry, context);
 
   return (
     <motion.div
@@ -560,10 +602,10 @@ function TimelineRow({ entry }: { entry: EventEntry }) {
       animate={{ opacity: 1 }}
       className="relative py-3"
     >
-      {minute !== null && (
+      {presentation.minute !== null && (
         <div className="absolute -left-6 top-3 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center border border-surface bg-background">
-          <span className="text-[10px] font-bold text-cyan">
-            {minute}&apos;
+          <span className="text-xs font-bold text-cyan">
+            {presentation.minute}&apos;
           </span>
         </div>
       )}
@@ -588,39 +630,26 @@ function TimelineRow({ entry }: { entry: EventEntry }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-bold capitalize text-foreground">
-                {formatType(entry.type)}
+              <p className="text-sm font-bold text-foreground">
+                {presentation.title}
               </p>
-              {side && (
+              {presentation.teamName && (
                 <span
                   className={cn(
-                    "text-[10px] font-bold uppercase tracking-wider",
-                    side === 1 ? "text-purple" : "text-cyan",
+                    "text-xs font-bold uppercase tracking-wider",
+                    presentation.side === 1 ? "text-purple" : "text-cyan",
                   )}
                 >
-                  {side === 1 ? "Home" : "Away"}
+                  {presentation.teamName}
                 </span>
               )}
             </div>
-            {(entry.players?.in || entry.players?.out) && (
-              <p className="mt-1 truncate text-xs text-muted">
-                {entry.players?.out && (
-                  <>
-                    <span className="text-foreground">
-                      {entry.players.out.name}
-                    </span>{" "}
-                    out
-                  </>
-                )}
-                {entry.players?.in && entry.players?.out && " → "}
-                {entry.players?.in && (
-                  <>
-                    <span className="text-foreground">
-                      {entry.players.in.name}
-                    </span>{" "}
-                    in
-                  </>
-                )}
+            <p className="mt-1 text-sm font-medium leading-snug text-foreground">
+              {presentation.headline}
+            </p>
+            {presentation.detail && (
+              <p className="mt-1 text-xs text-foreground/65">
+                {presentation.detail}
               </p>
             )}
           </div>
@@ -682,6 +711,15 @@ function getEventMeta(type: string) {
         barColor: "bg-rose",
         borderColor: "border-rose/30",
         bgColor: "bg-rose/5",
+      };
+    case "status":
+      return {
+        icon: Activity,
+        iconColor: "text-foreground/70",
+        iconBg: "bg-surface",
+        barColor: "bg-foreground/40",
+        borderColor: "border-surface-elevated",
+        bgColor: "bg-background/70",
       };
     default:
       return {

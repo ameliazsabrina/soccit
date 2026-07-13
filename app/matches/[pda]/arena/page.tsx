@@ -10,7 +10,8 @@ import {
 import { PageShell } from "../../../_components/page-shell";
 import type { ArenaTab } from "../../../_components/top-nav";
 import { EventsTransition } from "../../../_components/events-transition";
-import { PitchArena } from "../../../_components/pitch-arena";
+import { PitchArena, type ArenaMatchOverview } from "../../../_components/pitch-arena";
+import type { PlayerCardData } from "../../../_components/player-card";
 import { ScorePredictionPanel } from "../../../_components/score-prediction-panel";
 import { GoalscorerPanel } from "../../../_components/goalscorer-panel";
 import { TeamPickerModal } from "../../../_components/team-picker-modal";
@@ -19,7 +20,10 @@ import type { SubstitutionPrediction } from "../../../_components/confirm-subs-m
 import {
   getMatch,
   getLineup,
+  displayScore,
   isValidPda,
+  isTerminalPhase,
+  PHASE_LABEL,
   SOCCIT_SEED_FIXTURE_ID,
   SOCCIT_SEED_MATCH_PDA,
   SOCCIT_USDC_MINT,
@@ -77,6 +81,32 @@ const DEMO_MATCH: MatchState = {
 const DEMO_LINEUP: Lineup = demoLineup();
 
 type ArenaModel = "sub" | "score" | "goalscorer";
+
+function playerRating(positionId: number | null, starter: boolean): number {
+  const broadPosition = positionId != null && positionId >= 34
+    ? positionId - 33
+    : positionId;
+  const baseByPosition: Record<number, number> = { 1: 78, 2: 77, 3: 79, 4: 80 };
+  return (broadPosition ? baseByPosition[broadPosition] : 77) - (starter ? 0 : 3);
+}
+
+function toPlayerCardData(
+  player: Lineup["teams"][number]["players"][number],
+  side: 1 | 2,
+): PlayerCardData {
+  return {
+    id: player.id,
+    name: player.name,
+    number: player.number,
+    position: player.position,
+    positionId: player.positionId,
+    positionCode: player.positionCode ?? null,
+    gridX: player.gridX ?? null,
+    gridY: player.gridY ?? null,
+    rating: playerRating(player.positionId, player.starter),
+    side,
+  };
+}
 
 export default function ArenaPage() {
   const params = useParams();
@@ -389,6 +419,49 @@ export default function ArenaPage() {
   const team1 = lineup.teams.find((t) => t.side === 1);
   const team2 = lineup.teams.find((t) => t.side === 2);
   const selectedTeam = lineup.teams.find((t) => t.side === side);
+  const team1Players = team1?.players.map((player) => toPlayerCardData(player, 1)) ?? [];
+  const team2Players = team2?.players.map((player) => toPlayerCardData(player, 2)) ?? [];
+  const selectedPlayers = side === 1 ? team1Players : team2Players;
+  const terminal = match.phase
+    ? isTerminalPhase(match.phase)
+    : Boolean(match.onchain?.settled);
+  const overview: ArenaMatchOverview = {
+    score: displayScore(match),
+    minute: match.live?.minute ?? null,
+    statusLabel: match.phase
+      ? PHASE_LABEL[match.phase]
+      : match.live
+        ? "Live"
+        : match.onchain?.settled
+          ? "Settled"
+          : match.onchain?.statusLabel === "OPEN"
+            ? "Open for Predictions"
+            : "Scheduled",
+    isLive: match.phase === "LIVE" || Boolean(match.live),
+    isTerminal: terminal,
+    teams: [
+      {
+        side: 1,
+        name: team1?.teamName ?? "Home",
+        starters: team1Players.filter((player) =>
+          team1?.players.find((source) => source.id === player.id)?.starter,
+        ),
+        substitutes: team1Players.filter((player) =>
+          !team1?.players.find((source) => source.id === player.id)?.starter,
+        ),
+      },
+      {
+        side: 2,
+        name: team2?.teamName ?? "Away",
+        starters: team2Players.filter((player) =>
+          team2?.players.find((source) => source.id === player.id)?.starter,
+        ),
+        substitutes: team2Players.filter((player) =>
+          !team2?.players.find((source) => source.id === player.id)?.starter,
+        ),
+      },
+    ],
+  };
 
   return (
     <>
@@ -400,36 +473,17 @@ export default function ArenaPage() {
             teamName={selectedTeam.teamName ?? `Team ${side}`}
             formation={selectedTeam.formation}
             side={side}
-            starters={selectedTeam.players
-              .filter((p) => p.starter)
-              .map((p) => ({
-                id: p.id,
-                name: p.name,
-                number: p.number,
-                position: p.position,
-                positionId: p.positionId,
-                positionCode: p.positionCode ?? null,
-                gridX: p.gridX ?? null,
-                gridY: p.gridY ?? null,
-                rating: p.positionId ? 75 + p.positionId * 2 : 78,
-                side,
-              }))}
-            substitutes={selectedTeam.players
-              .filter((p) => !p.starter)
-              .map((p) => ({
-                id: p.id,
-                name: p.name,
-                number: p.number,
-                position: p.position,
-                positionId: p.positionId,
-                positionCode: p.positionCode ?? null,
-                rating: p.positionId ? 72 + p.positionId * 2 : 75,
-                side,
-              }))}
+            starters={selectedPlayers.filter((player) =>
+              selectedTeam.players.find((source) => source.id === player.id)?.starter,
+            )}
+            substitutes={selectedPlayers.filter((player) =>
+              !selectedTeam.players.find((source) => source.id === player.id)?.starter,
+            )}
             onLock={handleLockSubstitutions}
             locked={locked}
             isSubmitting={submitting}
             lockedPredictions={lockedPredictions}
+            overview={overview}
             className="min-h-0"
           />
         )}
