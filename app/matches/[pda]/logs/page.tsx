@@ -63,14 +63,14 @@ const DEMO_LINEUP_STATE: Lineup = {
     {
       side: 1,
       teamId: 101,
-      teamName: "Portugal",
+      teamName: "SOCCIT FC",
       formation: "4-3-3",
       players: [],
     },
     {
       side: 2,
       teamId: 202,
-      teamName: "Argentina",
+      teamName: "SOCCIT Reserves",
       formation: "4-3-3",
       players: [],
     },
@@ -82,12 +82,12 @@ const DEMO_EVENTS: EventEntry[] = [
   {
     id: "1719662400000-0",
     type: "goal",
-    payload: { minute: 24, side: 1, scorerId: 1010 },
+    payload: { minute: 24, side: 1, scorerId: 7 },
     players: {
       out: null,
       in: {
-        id: 1010,
-        name: "Cristiano Ronaldo",
+        id: 7,
+        name: "Lion",
         number: "7",
         positionId: 4,
         position: "Forward",
@@ -98,13 +98,13 @@ const DEMO_EVENTS: EventEntry[] = [
   {
     id: "1719662400001-0",
     type: "yellow_card",
-    payload: { minute: 41, side: 1, playerId: 1003 },
+    payload: { minute: 41, side: 1, playerId: 3 },
     players: {
       out: null,
       in: {
-        id: 1003,
-        name: "Rúben Dias",
-        number: "4",
+        id: 3,
+        name: "Shark",
+        number: "3",
         positionId: 2,
         position: "Defender",
         side: 1,
@@ -114,22 +114,22 @@ const DEMO_EVENTS: EventEntry[] = [
   {
     id: "1719662400002-0",
     type: "substitution",
-    payload: { minute: 63, side: 1, playerOutId: 1010, playerInId: 1106 },
+    payload: { minute: 63, side: 1, playerOutId: 7, playerInId: 12 },
     players: {
       out: {
-        id: 1010,
-        name: "Cristiano Ronaldo",
+        id: 7,
+        name: "Lion",
         number: "7",
         positionId: 4,
         position: "Forward",
         side: 1,
       },
       in: {
-        id: 1106,
-        name: "Gonçalo Ramos",
-        number: "9",
-        positionId: 4,
-        position: "Forward",
+        id: 12,
+        name: "Bear",
+        number: "12",
+        positionId: 1,
+        position: "Goalkeeper",
         side: 1,
       },
     },
@@ -185,14 +185,14 @@ export default function MatchIntelligencePage() {
       {
         side: 1,
         teamId: 301,
-        teamName: "France",
+        teamName: "SOCCIT FC",
         formation: "4-3-3",
         players: [],
       },
       {
         side: 2,
         teamId: 302,
-        teamName: "Spain",
+        teamName: "SOCCIT Reserves",
         formation: "4-3-3",
         players: [],
       },
@@ -208,8 +208,8 @@ export default function MatchIntelligencePage() {
       players: {
         out: null,
         in: {
-          id: 3001,
-          name: "Kylian Mbappé",
+          id: 10,
+          name: "Eagle",
           number: "10",
           positionId: 4,
           position: "Forward",
@@ -229,9 +229,9 @@ export default function MatchIntelligencePage() {
       players: {
         out: null,
         in: {
-          id: 4001,
-          name: "Lamine Yamal",
-          number: "19",
+          id: 9,
+          name: "Bull",
+          number: "9",
           positionId: 4,
           position: "Forward",
           side: 2,
@@ -245,8 +245,8 @@ export default function MatchIntelligencePage() {
       players: {
         out: null,
         in: {
-          id: 3002,
-          name: "Aurélien Tchouaméni",
+          id: 8,
+          name: "Wolf",
           number: "8",
           positionId: 3,
           position: "Midfielder",
@@ -261,8 +261,8 @@ export default function MatchIntelligencePage() {
       players: {
         out: null,
         in: {
-          id: 3003,
-          name: "Antoine Griezmann",
+          id: 7,
+          name: "Lion",
           number: "7",
           positionId: 4,
           position: "Forward",
@@ -276,19 +276,19 @@ export default function MatchIntelligencePage() {
       payload: { minute: 75, side: 2 },
       players: {
         out: {
-          id: 4002,
-          name: "Álvaro Morata",
+          id: 9,
+          name: "Bull",
           number: "9",
           positionId: 4,
           position: "Forward",
           side: 2,
         },
         in: {
-          id: 4003,
-          name: "Mikel Oyarzabal",
-          number: "21",
-          positionId: 4,
-          position: "Forward",
+          id: 12,
+          name: "Bear",
+          number: "12",
+          positionId: 1,
+          position: "Goalkeeper",
           side: 2,
         },
       },

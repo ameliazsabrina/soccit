@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
   User,
   ArrowRightLeft,
   Crosshair,
-  Trophy,
-  Activity,
   CheckCircle2,
   Lock,
 } from "lucide-react";
@@ -16,6 +14,8 @@ import { type PlayerCardData } from "./player-card";
 import { LiveMatchFeed } from "./live-match-feed";
 import { ConfirmSubsModal, type SubstitutionPrediction } from "./confirm-subs-modal";
 import { tcgCardImage } from "../_lib/api";
+import { assignAvatars } from "../_lib/characters";
+import { CardAvatar, CardAvatarFallback } from "./card-avatar";
 import { cn } from "../_lib/utils";
 
 export type { SubstitutionPrediction } from "./confirm-subs-modal";
@@ -23,6 +23,7 @@ export type { SubstitutionPrediction } from "./confirm-subs-modal";
 export interface PitchArenaProps {
   matchPda: string;
   teamName: string;
+  formation?: string | null;
   side: 1 | 2;
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
@@ -77,16 +78,8 @@ const FORMATION_SLOTS: Record<string, { gridX: number; gridY: number }> = {
   RF: { gridX: 70, gridY: 16 },
 };
 
-const POSITION_DERIVED_CODE: Record<string, string> = {
-  goalkeeper: "GK",
-  defender: "CB",
-  back: "CB",
-  midfield: "CM",
-  forward: "ST",
-  striker: "ST",
-  winger: "RW",
-  wing: "RW",
-};
+type PositionGroup = "GK" | "DF" | "MD" | "FW" | "UNKNOWN";
+type FormationSlot = { gridX: number; gridY: number };
 
 // Index-based 4-3-3 fallback used when neither gridX/gridY nor a recognizable
 // position code is available. Spreads 11 players across a default shape so they
@@ -105,36 +98,166 @@ const INDEX_FALLBACK_SLOTS: { gridX: number; gridY: number }[] = [
   { gridX: 80, gridY: 32 },   // RW
 ];
 
-function derivePositionCode(player: PlayerCardData): string {
-  const explicit = (player.positionCode ?? "").toUpperCase();
-  if (explicit && FORMATION_SLOTS[explicit]) return explicit;
-  if (explicit) return explicit;
-  const pos = (player.position ?? "").toLowerCase();
-  for (const [key, code] of Object.entries(POSITION_DERIVED_CODE)) {
-    if (pos.includes(key)) return code;
+function getPositionGroup(player: PlayerCardData): PositionGroup {
+  const code = (player.positionCode ?? "").toUpperCase();
+  if (code === "GK") return "GK";
+  if (["DF", "LB", "LCB", "CB", "RCB", "RB", "LWB", "RWB"].includes(code)) return "DF";
+  if (["MD", "DM", "LDM", "CDM", "RDM", "LM", "LCM", "CM", "RCM", "RM", "LAM", "CAM", "RAM"].includes(code)) return "MD";
+  if (["FW", "LW", "LF", "SS", "CF", "ST", "RF", "RW", "LST", "RST"].includes(code)) return "FW";
+
+  switch (player.positionId) {
+    case 1:
+    case 34:
+      return "GK";
+    case 2:
+    case 35:
+      return "DF";
+    case 3:
+    case 36:
+      return "MD";
+    case 4:
+    case 37:
+      return "FW";
   }
-  return "";
+
+  const position = (player.position ?? "").toLowerCase();
+  if (position.includes("goal")) return "GK";
+  if (position.includes("def") || position.includes("back")) return "DF";
+  if (position.includes("mid")) return "MD";
+  if (position.includes("for") || position.includes("att") || position.includes("wing") || position.includes("strik")) return "FW";
+  return "UNKNOWN";
 }
 
-const _slotCache = new WeakMap<PlayerCardData, { gridX: number; gridY: number }>();
-
 export function getSlot(player: PlayerCardData, index = 0): { gridX: number; gridY: number } {
-  const cached = _slotCache.get(player);
-  if (cached) return cached;
-  let slot: { gridX: number; gridY: number };
   if (player.gridX != null && player.gridY != null) {
-    slot = { gridX: player.gridX, gridY: player.gridY };
-  } else {
-    const code = derivePositionCode(player);
-    slot = FORMATION_SLOTS[code] ?? INDEX_FALLBACK_SLOTS[index % INDEX_FALLBACK_SLOTS.length];
+    return { gridX: player.gridX, gridY: player.gridY };
   }
-  _slotCache.set(player, slot);
-  return slot;
+  const code = (player.positionCode ?? "").toUpperCase();
+  return FORMATION_SLOTS[code] ?? INDEX_FALLBACK_SLOTS[index % INDEX_FALLBACK_SLOTS.length];
+}
+
+function spreadAcrossLine(count: number, minX: number, maxX: number): number[] {
+  if (count <= 1) return [50];
+  return Array.from({ length: count }, (_, index) =>
+    minX + ((maxX - minX) * index) / (count - 1),
+  );
+}
+
+function lineSlot(group: PositionGroup, gridX: number): FormationSlot {
+  const centerWeight = 1 - Math.min(Math.abs(gridX - 50) / 40, 1);
+  switch (group) {
+    case "GK":
+      return { gridX, gridY: 84 };
+    case "DF":
+      return { gridX, gridY: 68 + centerWeight * 8 };
+    case "MD":
+      return { gridX, gridY: 42 + centerWeight * 9 };
+    case "FW":
+      return { gridX, gridY: 18 + (1 - centerWeight) * 11 };
+    default:
+      return { gridX, gridY: 50 };
+  }
+}
+
+export function buildFormationLayout(players: PlayerCardData[]): {
+  slots: Map<number, FormationSlot>;
+  label: string | null;
+  mode: "provided" | "inferred" | "fallback";
+} {
+  const slots = new Map<number, FormationSlot>();
+  const grouped = new Map<PositionGroup, PlayerCardData[]>();
+
+  for (const player of players) {
+    const group = getPositionGroup(player);
+    grouped.set(group, [...(grouped.get(group) ?? []), player]);
+  }
+
+  const goalkeepers = grouped.get("GK")?.length ?? 0;
+  const defenders = grouped.get("DF")?.length ?? 0;
+  const midfielders = grouped.get("MD")?.length ?? 0;
+  const forwards = grouped.get("FW")?.length ?? 0;
+  const unknown = grouped.get("UNKNOWN")?.length ?? 0;
+  const hasCompleteShape =
+    players.length === 11 &&
+    goalkeepers === 1 &&
+    defenders + midfielders + forwards === 10 &&
+    unknown === 0;
+  const hasProvidedGrid =
+    players.length > 0 &&
+    players.every((player) => player.gridX != null && player.gridY != null);
+
+  // An incomplete or unrecognisable lineup must not be presented as a real
+  // tactical shape. Keep all tokens usable with the neutral 4-3-3 fallback.
+  if (!hasProvidedGrid && !hasCompleteShape) {
+    players.forEach((player, index) => {
+      slots.set(
+        player.id,
+        INDEX_FALLBACK_SLOTS[index % INDEX_FALLBACK_SLOTS.length],
+      );
+    });
+    return { slots, label: null, mode: "fallback" };
+  }
+
+  for (const [group, groupPlayers] of grouped) {
+    const ordered = [...groupPlayers].sort((a, b) => {
+      const aNumber = Number.parseInt(a.number ?? "", 10);
+      const bNumber = Number.parseInt(b.number ?? "", 10);
+      if (Number.isFinite(aNumber) && Number.isFinite(bNumber) && aNumber !== bNumber) {
+        return aNumber - bNumber;
+      }
+      return a.id - b.id;
+    });
+
+    const hasExactGrid = ordered.every(
+      (player) => player.gridX != null && player.gridY != null,
+    );
+    if (hasExactGrid) {
+      for (const player of ordered) slots.set(player.id, getSlot(player));
+      continue;
+    }
+
+    const codes = ordered.map((player) => (player.positionCode ?? "").toUpperCase());
+    const hasUniqueDetailedCodes = codes.every(
+      (code, index) =>
+        Boolean(FORMATION_SLOTS[code]) &&
+        !["DF", "MD", "FW"].includes(code) &&
+        codes.indexOf(code) === index,
+    );
+    if (hasUniqueDetailedCodes) {
+      for (const player of ordered) slots.set(player.id, getSlot(player));
+      continue;
+    }
+
+    const range = group === "GK"
+      ? [50, 50]
+      : group === "DF"
+        ? [14, 86]
+        : group === "MD"
+          ? [12, 88]
+          : group === "FW"
+            ? [20, 80]
+            : [20, 80];
+    const xPositions = spreadAcrossLine(ordered.length, range[0], range[1]);
+    ordered.forEach((player, index) => {
+      slots.set(player.id, lineSlot(group, xPositions[index]));
+    });
+  }
+
+  const label = hasCompleteShape
+    ? [defenders, midfielders, forwards].join("-")
+    : null;
+
+  return {
+    slots,
+    label,
+    mode: hasProvidedGrid ? "provided" : "inferred",
+  };
 }
 
 export function PitchArena({
   matchPda,
   teamName,
+  formation,
   side,
   starters,
   substitutes,
@@ -248,6 +371,29 @@ export function PitchArena({
 
   const lockedIds = new Set(lockedPredictions?.flatMap((p) => [p.outPlayerId, p.inPlayerId]) ?? []);
 
+  // Assign character avatars based on position + priority (starters first)
+  const avatarMap = useMemo(
+    () => assignAvatars([...starters, ...substitutes], side === 2 ? 3 : 0),
+    [starters, substitutes, side],
+  );
+  const formationLayout = useMemo(() => buildFormationLayout(starters), [starters]);
+  const providedFormation = formation?.trim() || null;
+  const formationSummary = providedFormation
+    ? `Starting formation · ${providedFormation}`
+    : formationLayout.label
+      ? `Inferred lineup shape · ${formationLayout.label}`
+      : "Default lineup layout";
+  const formationSource = providedFormation
+    ? "Lineup formation"
+    : formationLayout.mode === "fallback"
+      ? "TXLINE positions unavailable"
+      : "TXLINE starting XI";
+  const formationExplanation = providedFormation
+    ? "Starting formation supplied with the lineup data."
+    : formationLayout.label
+      ? "Shape inferred from TXLINE starter counts by broad position group. It is not an official tactical formation."
+      : "TXLINE did not provide enough recognised starter positions, so players use a neutral display layout.";
+
   return (
     <div className={cn("grid h-full grid-cols-1 gap-6 lg:grid-cols-[1fr_40%]", className)}>
       {/* ===== LEFT COLUMN: PitchCard + BenchCard ===== */}
@@ -263,7 +409,7 @@ export function PitchArena({
                 src="/field.webp"
                 alt="Pitch"
                 draggable={false}
-        className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+                className="pointer-events-none absolute inset-0 h-full w-full object-fill"
               />
 
               {/* Player tokens */}
@@ -275,7 +421,7 @@ export function PitchArena({
                     : null;
                   const isDragOver = dragOverPlayer === starter.id;
                   const flashed = justPlaced === starter.id;
-                  const slot = getSlot(starter, idx);
+                  const slot = formationLayout.slots.get(starter.id) ?? getSlot(starter, idx);
                   return (
                     <div
                       key={starter.id}
@@ -295,6 +441,8 @@ export function PitchArena({
                       <PlayerToken
                         player={starter}
                         sub={sub}
+                        avatarSrc={avatarMap.get(starter.id) ?? null}
+                        subAvatarSrc={sub ? avatarMap.get(sub.id) ?? null : null}
                         isDragOver={isDragOver}
                         flashed={flashed}
                         onClear={() => clearPrediction(starter.id)}
@@ -312,9 +460,15 @@ export function PitchArena({
             <p className="font-display text-lg leading-tight text-foreground">
               {teamName}
             </p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
-              {side === 1 ? "Home" : "Away"}
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground/80">
+              {side === 1 ? "Home" : "Away"} · {formationSummary}
             </p>
+            <span
+              className="w-fit border border-purple/30 bg-purple/10 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-purple"
+              title={formationExplanation}
+            >
+              {formationSource}
+            </span>
             <div className="mt-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
               <Crosshair size={12} className="text-purple" />
               {selectedSub
@@ -356,6 +510,7 @@ export function PitchArena({
               >
                 <BenchCard
                   player={sub}
+                  avatarSrc={avatarMap.get(sub.id) ?? null}
                   draggable
                   onDragStart={handleDragStart}
                   isLocked={lockedIds.has(sub.id)}
@@ -462,6 +617,7 @@ export function PitchArena({
         potentialPts={potentialPts}
         locked={locked}
         isSubmitting={isSubmitting}
+        avatarMap={avatarMap}
         onLock={handleLock}
       />
 
@@ -491,6 +647,8 @@ export function PitchArena({
 function PlayerToken({
   player,
   sub,
+  avatarSrc,
+  subAvatarSrc,
   isDragOver,
   flashed,
   onClear,
@@ -498,6 +656,8 @@ function PlayerToken({
 }: {
   player: PlayerCardData;
   sub?: PlayerCardData | null;
+  avatarSrc: string | null;
+  subAvatarSrc: string | null;
   isDragOver: boolean;
   flashed: boolean;
   onClear: () => void;
@@ -507,6 +667,7 @@ function PlayerToken({
   const cardImage = tcgCardImage(displayPlayer.position);
   const lastName = displayPlayer.name.split(" ").pop() ?? displayPlayer.name;
   const shadow = "drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]";
+  const displayAvatar = sub ? subAvatarSrc : avatarSrc;
 
   if (sub) {
     return (
@@ -522,6 +683,10 @@ function PlayerToken({
           draggable={false}
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
+        {displayAvatar && (
+          <CardAvatar src={displayAvatar} alt={displayPlayer.name} />
+        )}
+        {!displayAvatar && <CardAvatarFallback name={displayPlayer.name} />}
         {isLocked && (
           <span className="absolute bottom-1 right-1 flex h-3 w-3 items-center justify-center bg-foreground text-white">
             <Lock size={8} />
@@ -571,6 +736,10 @@ function PlayerToken({
         draggable={false}
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
+      {avatarSrc && (
+        <CardAvatar src={avatarSrc} alt={displayPlayer.name} />
+      )}
+      {!avatarSrc && <CardAvatarFallback name={displayPlayer.name} />}
       {displayPlayer.number && (
         <span className={cn("absolute right-[6%] top-[3%] font-display text-[10px] font-bold leading-none text-white sm:text-xs", shadow)}>
           {displayPlayer.number}
@@ -594,11 +763,13 @@ function PlayerToken({
 //   - Bottom:    name bar (bright band at 82.4%-97.1% H, full width)
 function BenchCard({
   player,
+  avatarSrc,
   draggable,
   onDragStart,
   isLocked,
 }: {
   player: PlayerCardData;
+  avatarSrc: string | null;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent, player: PlayerCardData) => void;
   isLocked?: boolean;
@@ -621,6 +792,12 @@ function BenchCard({
         draggable={false}
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
+
+      {/* Character avatar — center picture area */}
+      {avatarSrc && (
+        <CardAvatar src={avatarSrc} alt={player.name} />
+      )}
+      {!avatarSrc && <CardAvatarFallback name={player.name} />}
 
       {/* Player number — top-right slot */}
       {player.number && (

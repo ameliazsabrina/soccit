@@ -5,12 +5,14 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../_lib/utils";
 import { tcgCardImage, playerRarity } from "../_lib/api";
+import { CardAvatar } from "./card-avatar";
 
 export interface PlayerCardData {
   id: number;
   name: string;
   number: string | null;
   position: string | null;
+  positionId?: number | null;
   positionCode?: string | null;
   gridX?: number | null;
   gridY?: number | null;
@@ -35,6 +37,7 @@ function rarityClass(rarity: Rarity) {
 
 interface PlayerCardProps {
   player: PlayerCardData;
+  avatarSrc?: string | null;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent, player: PlayerCardData) => void;
   onClick?: () => void;
@@ -47,6 +50,7 @@ interface PlayerCardProps {
 
 export function PlayerCard({
   player,
+  avatarSrc,
   draggable,
   onDragStart,
   onClick,
@@ -78,7 +82,7 @@ export function PlayerCard({
     "group relative flex flex-shrink-0 cursor-grab flex-col items-center justify-end overflow-hidden transition-all active:cursor-grabbing",
     compact ? "h-48 w-32" : "h-60 w-40",
     selected && "ring-2 ring-cyan ring-offset-2 ring-offset-background scale-105",
-    locked && "glow-purple ring-2 ring-purple",
+    locked && "glow-purple ring-2 ring-purple grayscale",
     onClick && "cursor-pointer",
     className
   );
@@ -127,10 +131,14 @@ export function PlayerCard({
         <p className="font-display text-2xl leading-none drop-shadow-md">{rating}</p>
       </div>
 
-      {/* Center: player initials avatar */}
-      <div className="z-10 flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/30 text-2xl font-bold text-white backdrop-blur-sm">
-        {initials}
-      </div>
+      {/* Center: character avatar (fallback to initials circle) */}
+      {avatarSrc ? (
+        <CardAvatar src={avatarSrc} alt={player.name} className="z-[5]" />
+      ) : (
+        <div className="z-10 flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/30 text-2xl font-bold text-white backdrop-blur-sm">
+          {initials}
+        </div>
+      )}
 
       {/* Bottom: name + multiplier + number */}
       <div className="relative z-10 w-full px-2 pb-2 pt-4 text-center">

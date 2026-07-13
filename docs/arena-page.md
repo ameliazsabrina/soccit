@@ -918,11 +918,14 @@ gap while the overall nav container width stays at `max-w-[1200px]`.
       name: string;
       number: string | null;
       starter: boolean;
-      positionId: number | null;   // 1=GK, 2=DEF, 3=MID, 4=FWD
+      positionId: number | null;   // TxLINE observed: 34=GK, 35=DF, 36=MID, 37=FWD; demo: 1-4
       position: string | null;
       positionCode?: string | null;
       gridX?: number | null;       // 0-100, left→right
       gridY?: number | null;       // 0-100, top(attack)→bottom(defense)
+      statusId?: number | null;    // raw TxLINE field
+      unitId?: number | null;      // raw; enum semantics are undocumented
+      starred?: boolean | null;    // raw TxLINE field
       onPitch?: boolean | null;
       warmingUp?: boolean | null;
     }>;

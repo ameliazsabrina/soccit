@@ -6,7 +6,9 @@ formation and each player token is placed in the right position.
 
 ## Source
 
-All fixture/lineup/formation data comes from the **TxLINE API** (TxODDS).
+Fixture and lineup membership come from the **TxLINE API** (TxODDS). TxLINE
+does not currently document a tactical formation string, detailed roles such as
+LB/LWF, or pitch coordinates.
 
 - Base URL: `https://txline.txodds.com/api` (mainnet) or `https://txline-dev.txodds.com/api` (devnet)
 - Auth: `Authorization: Bearer ${jwt}` + `X-Api-Token: ${apiToken}`
@@ -26,16 +28,15 @@ Identifies the match. Already available via `getMatch(pda)` / `getMatches()`.
 
 Returned by `getLineup(pda)`.
 
-Each team object must include a **formation** string and every player must
-carry an `x` / `y` grid coordinate so the pitch can render the starting XI
-in the correct tactical shape.
+The Soccit frontend accepts a formation string and per-player coordinates when
+an upstream enrichment source supplies them. These fields are optional because
+the current TxLINE payload does not supply them.
 
 ### Team-level fields to add
 
 | Field | Type | Example | Notes |
 |---|---|---|---|
-| `formation` | string | `"4-3-3"` | Canonical formation label. Used as fallback / label only. |
-| `formationId` | number | `433` | (optional) TxODDS internal formation ID |
+| `formation` | string | `"4-3-3"` | Optional enriched formation label; not currently supplied by TxLINE. |
 
 ### Player-level fields to add
 
@@ -58,7 +59,7 @@ in the correct tactical shape.
 | `name` | string | Display name |
 | `number` | string \| null | Squad number |
 | `starter` | boolean | true = starting XI, false = bench |
-| `positionId` | number \| null | 1=GK, 2=DEF, 3=MID, 4=FWD |
+| `positionId` | number \| null | TxLINE currently uses 34=GK, 35=DEF, 36=MID, 37=FWD for the observed soccer feed. Demo data also uses 1-4. |
 | `position` | string \| null | Full position label |
 | `onPitch` | boolean \| null | Live status |
 | `warmingUp` | boolean \| null | Live status |
@@ -69,30 +70,52 @@ in the correct tactical shape.
 TxLINE API  →  Soccit backend  →  getLineup(pda)  →  PitchArena component
 ```
 
-The Soccit backend should proxy the TxODDS lineup endpoint and augment each
-player with `gridX` / `gridY` / `positionCode` and each team with `formation`.
+The current Soccit backend maps TxLINE's generic position IDs to position-group
+names. The frontend then counts the starting defenders, midfielders, and
+forwards and renders that observed shape. For example, 4 defenders + 4
+midfielders + 2 forwards renders as 4-4-2; 3 + 5 + 2 renders as 3-5-2.
 
-If the TxODDS API provides a formation coordinate system (e.g. 1-12 × 1-16),
-the backend converts to 0-100 normalized before returning to the frontend.
+The arena labels this explicitly as **Inferred lineup shape** and displays a
+**TXLINE starting XI** source badge. If the response does not contain one
+goalkeeper plus ten recognised outfield starters, the UI uses a neutral display
+layout and does not print a formation number.
 
-## 5. Suggested TxODDS Endpoints to Explore
+If a future enrichment source provides coordinates, the backend should convert
+them to 0-100 normalized values. Exact coordinates always take precedence over
+the inferred group layout.
 
-Fetch the full API reference to find the endpoint that returns lineups with
-formation coordinates:
+## 5. Verified TxODDS Fields (2026-07-13)
 
-- `GET /api-reference` — discover all endpoints
-- Lineup / formation endpoints (search the API reference for "lineup",
-  "formation", "starting eleven", or "player position")
+The canonical OpenAPI schema and Soccer Feed v1.1 guide expose
+`PlayerLineupData` with `fixturePlayerId`, `statusId`, `positionId`, `unitId`,
+`rosterNumber`, `starter`, `starred`, and `player`.
 
-The free World Cup tier (<https://txline.txodds.com/documentation/worldcup>)
-covers World Cup and International Friendlies — sufficient for the MVP.
+Neither source defines `formation`, `positionCode`, `gridX`, `gridY`, or a
+detailed-role field. The guide describes `positionId` only as "Position Id in
+the fixture" and `unitId` only as "Unit Id"; it does not publish an enum table
+that would make LB/LWF inference safe.
+
+- OpenAPI: <https://txline.txodds.com/docs/docs.yaml>
+- Soccer feed: <https://txline-docs.txodds.com/documentation/scores/soccer-feed>
+- Soccer Feed v1.1 PDF: <https://txodds.github.io/tx-on-chain/assets/txodds-soccer-feed-v1.1.pdf>
+
+### Backend recommendation
+
+No backend change is required for the current hackathon UI as long as it
+returns `id`, `starter`, `positionId`, `position`, and the roster number. Those
+fields are enough to build the inferred broad shape and substitution choices.
+
+The backend should still preserve `statusId`, `unitId`, and `starred` as
+optional raw fields in its normalized lineup response. Do not derive LB/RB/LW
+or a formation from them until TxODDS publishes an enum or confirms their
+meaning. Keeping them now avoids another ingestion migration if that metadata
+becomes documented during the hackathon.
 
 ## 6. Fallback
 
-While the backend is being built, the PitchArena component uses a built-in
-`FORMATION_SLOTS` array that defines a default 4-3-3. When real `gridX` /
-`gridY` data arrives, the component reads those values instead and
-`FORMATION_SLOTS` is only used as a fallback.
+`PitchArena` uses exact `gridX` / `gridY` first, then unique detailed position
+codes when available, then the inferred position-group shape. The index-based
+4-3-3 slots are only a last resort for players with no recognizable position.
 
 ## 7. Position Color Map (TCG token)
 

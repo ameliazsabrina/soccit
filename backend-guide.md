@@ -178,7 +178,7 @@ type MatchState = {
 };
 ```
 
-#### `GET /api/matches/{pda}/lineup`
+#### `GET /api/lineup/{pda}`
 Returns team lineups for the match.
 
 ```typescript
@@ -189,17 +189,26 @@ type Lineup = {
     side: 1 | 2;
     teamId: number;
     teamName: string | null;
-    formation: string | null;
+    // Optional enrichment only. The current TxLINE soccer feed does not
+    // document an official tactical formation.
+    formation?: string | null;
     players: Array<{
       id: number;
       name: string;
       number: string | null;
       starter: boolean;
-      positionId: number | null;   // 1=GK, 2=DF, 3=MF, 4=FW
+      // Observed TxLINE soccer IDs: 34=GK, 35=DF, 36=MF, 37=FW.
+      // Demo/local data may use 1-4.
+      positionId: number | null;
       position: string | null;
-      positionCode: string | null; // "GK", "RB", "ST", etc.
-      gridX: number | null;         // 0-100, pitch position
-      gridY: number | null;         // 0-100, pitch position
+      // Optional enrichment fields; not supplied by the documented TxLINE feed.
+      positionCode?: string | null;
+      gridX?: number | null;
+      gridY?: number | null;
+      // Preserve raw TxLINE fields without assigning undocumented semantics.
+      statusId?: number | null;
+      unitId?: number | null;
+      starred?: boolean | null;
       onPitch: boolean | null;
       warmingUp: boolean | null;
     }>;
@@ -353,7 +362,7 @@ const activationResponse = await POST(`${apiBaseUrl}/token/activate`, {
 ### Data Soccit Needs from TxODDS
 
 1. **Fixtures** (`/api/fixtures`) — match schedule, team IDs, kickoff times
-2. **Lineups** (`/api/fixtures/{id}/lineups`) — starting XI, substitutes, formations, player positions
+2. **Lineups** (`/api/fixtures/{id}/lineups`) — starting XI, substitutes, roster numbers, and broad player position groups
 3. **Live events** (SSE stream) — goals, cards, substitutions, with minute and player data
 4. **Live score** — current score, match minute, match status (live/finished)
 
@@ -372,8 +381,12 @@ const activationResponse = await POST(`${apiBaseUrl}/token/activate`, {
 | Player name | `players[].name` | |
 | Player number | `players[].number` | Jersey number |
 | Position | `players[].position` | "Goalkeeper", "Defender", "Midfielder", "Forward" |
-| Position code | `players[].positionCode` | "GK", "RB", "CB", "CM", "ST", etc. |
-| Grid position | `players[].gridX/gridY` | 0-100, for pitch placement |
+| Position ID | `players[].positionId` | Observed group IDs: 34=GK, 35=DF, 36=MF, 37=FW |
+| Unit ID | `players[].unitId` | Preserve raw; TxODDS does not document its enum semantics |
+| Lineup status | `players[].statusId` | Preserve raw for future feed support |
+| Starred | `players[].starred` | Preserve raw boolean |
+| Position code | `players[].positionCode` | Optional enrichment only; not documented by TxLINE |
+| Grid position | `players[].gridX/gridY` | Optional enrichment normalized to 0-100 |
 
 ### Event Types from TxODDS
 

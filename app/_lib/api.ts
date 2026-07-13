@@ -183,6 +183,8 @@ export type Lineup = {
     side: 1 | 2;
     teamId: number;
     teamName: string | null;
+    // Optional enrichment. TxLINE currently does not document a tactical
+    // formation, so the backend should return null rather than infer one.
     formation?: string | null;
     players: Array<{
       id: number;
@@ -194,6 +196,11 @@ export type Lineup = {
       positionCode?: string | null;
       gridX?: number | null;
       gridY?: number | null;
+      // Preserve currently documented raw TxLINE lineup fields. They are not
+      // used to invent detailed roles until TxODDS publishes their semantics.
+      statusId?: number | null;
+      unitId?: number | null;
+      starred?: boolean | null;
       onPitch?: boolean | null;
       warmingUp?: boolean | null;
     }>;

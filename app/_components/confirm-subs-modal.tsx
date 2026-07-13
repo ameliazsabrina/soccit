@@ -6,6 +6,7 @@ import { X, CheckCircle2, ArrowRightLeft } from "lucide-react";
 import { type PlayerCardData } from "./player-card";
 import { SlideToLock } from "./slide-to-lock";
 import { tcgCardImage } from "../_lib/api";
+import { CardAvatar, CardAvatarFallback } from "./card-avatar";
 import { cn } from "../_lib/utils";
 
 export interface SubstitutionPrediction {
@@ -25,6 +26,7 @@ interface ConfirmSubsModalProps {
   potentialPts: number;
   locked?: boolean;
   isSubmitting?: boolean;
+  avatarMap: Map<number, string>;
   onLock: () => void;
 }
 
@@ -37,6 +39,7 @@ export function ConfirmSubsModal({
   potentialPts,
   locked,
   isSubmitting,
+  avatarMap,
   onLock,
 }: ConfirmSubsModalProps) {
   const [lockedState, setLockedState] = useState(false);
@@ -116,14 +119,14 @@ export function ConfirmSubsModal({
                     return (
                       <div key={p.slotId} className="flex items-center justify-center gap-4">
                         <div className="flex flex-col items-center gap-2">
-                          <ModalTCGCard player={outPlayer} />
+                          <ModalTCGCard player={outPlayer} avatarSrc={avatarMap.get(outPlayer.id) ?? null} />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
                             OUT
                           </span>
                         </div>
                         <ArrowRightLeft size={20} className="flex-shrink-0 text-purple" />
                         <div className="flex flex-col items-center gap-2">
-                          <ModalTCGCard player={inPlayer} />
+                          <ModalTCGCard player={inPlayer} avatarSrc={avatarMap.get(inPlayer.id) ?? null} />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-cyan">
                             IN
                           </span>
@@ -158,7 +161,7 @@ export function ConfirmSubsModal({
 }
 
 // ===== Modal TCG card (WebP + overlays, larger than bench) =====
-function ModalTCGCard({ player }: { player: PlayerCardData }) {
+function ModalTCGCard({ player, avatarSrc }: { player: PlayerCardData; avatarSrc: string | null }) {
   const cardImage = tcgCardImage(player.position);
   const lastName = player.name.split(" ").pop() ?? player.name;
   const shadow = "drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]";
@@ -172,6 +175,10 @@ function ModalTCGCard({ player }: { player: PlayerCardData }) {
         draggable={false}
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
+      {avatarSrc && (
+        <CardAvatar src={avatarSrc} alt={player.name} />
+      )}
+      {!avatarSrc && <CardAvatarFallback name={player.name} />}
       {player.number && (
         <span className={cn("absolute right-[8%] top-[5%] font-display text-lg font-bold leading-none text-white sm:text-xl", shadow)}>
           {player.number}

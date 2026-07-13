@@ -8,11 +8,12 @@ import {
   type EventEntry,
 } from "./api";
 import type { MatchSummary } from "./api";
+import { demoLineup } from "./characters";
 
 export const DEMO_PDA = "demo";
 export const DEMO_SETTLED_PDA = "demo-settled";
 
-// ===== Portugal vs Argentina (LIVE demo) =====
+// ===== SOCCIT FC vs SOCCIT Reserves (LIVE demo) =====
 
 export const DEMO_MATCH_SUMMARY: MatchSummary = {
   pda: DEMO_PDA,
@@ -29,7 +30,7 @@ export const DEMO_MATCH_SUMMARY: MatchSummary = {
   },
   live: { statusId: 1, minute: 63, goals: { team1: 2, team2: 1 }, ts: Date.now() },
   finalScore: null,
-  teamNames: { team1: "Portugal", team2: "Argentina" },
+  teamNames: { team1: "SOCCIT FC", team2: "SOCCIT Reserves" },
 };
 
 export const DEMO_MATCH_STATE: MatchState = {
@@ -46,57 +47,7 @@ export const DEMO_MATCH_STATE: MatchState = {
   updatedAt: Date.now(),
 };
 
-export const DEMO_LINEUP: Lineup = {
-  fixtureId: 999999,
-  updatedAt: Date.now(),
-  teams: [
-    {
-      side: 1, teamId: 101, teamName: "Portugal", formation: "4-3-3",
-      players: [
-        { id: 1001, name: "Diogo Costa", number: "22", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", gridX: 50, gridY: 82, onPitch: true },
-        { id: 1002, name: "João Cancelo", number: "2", starter: true, positionId: 2, position: "Defender", positionCode: "RB", gridX: 83, gridY: 70, onPitch: true },
-        { id: 1003, name: "Rúben Dias", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", gridX: 65, gridY: 76, onPitch: true },
-        { id: 1004, name: "Gonçalo Inácio", number: "14", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", gridX: 35, gridY: 76, onPitch: true },
-        { id: 1005, name: "Nuno Mendes", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", gridX: 17, gridY: 70, onPitch: true },
-        { id: 1006, name: "João Neves", number: "6", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", gridX: 50, gridY: 58, onPitch: true },
-        { id: 1007, name: "Bruno Fernandes", number: "8", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", gridX: 64, gridY: 42, onPitch: true },
-        { id: 1008, name: "Vitinha", number: "23", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", gridX: 36, gridY: 42, onPitch: true },
-        { id: 1009, name: "Bernardo Silva", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", gridX: 80, gridY: 32, onPitch: true },
-        { id: 1010, name: "Cristiano Ronaldo", number: "7", starter: true, positionId: 4, position: "Forward", positionCode: "ST", gridX: 50, gridY: 16, onPitch: true },
-        { id: 1011, name: "Rafael Leão", number: "17", starter: true, positionId: 4, position: "Forward", positionCode: "LW", gridX: 20, gridY: 32, onPitch: true },
-        { id: 1101, name: "Rui Patrício", number: "1", starter: false, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: false },
-        { id: 1102, name: "Pepe", number: "5", starter: false, positionId: 2, position: "Defender", positionCode: "CB", onPitch: false },
-        { id: 1103, name: "Danilo Pereira", number: "13", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
-        { id: 1104, name: "Rúben Neves", number: "18", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
-        { id: 1105, name: "Otávio", number: "15", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
-        { id: 1106, name: "Gonçalo Ramos", number: "9", starter: false, positionId: 4, position: "Forward", positionCode: "ST", onPitch: false },
-      ],
-    },
-    {
-      side: 2, teamId: 202, teamName: "Argentina", formation: "4-3-3",
-      players: [
-        { id: 2001, name: "Emiliano Martínez", number: "23", starter: true, positionId: 1, position: "Goalkeeper", positionCode: "GK", gridX: 50, gridY: 82, onPitch: true },
-        { id: 2002, name: "Nahuel Molina", number: "4", starter: true, positionId: 2, position: "Defender", positionCode: "RB", gridX: 83, gridY: 70, onPitch: true },
-        { id: 2003, name: "Cristian Romero", number: "13", starter: true, positionId: 2, position: "Defender", positionCode: "RCB", gridX: 65, gridY: 76, onPitch: true },
-        { id: 2004, name: "Nicolás Otamendi", number: "19", starter: true, positionId: 2, position: "Defender", positionCode: "LCB", gridX: 35, gridY: 76, onPitch: true },
-        { id: 2005, name: "Nicolás Tagliafico", number: "3", starter: true, positionId: 2, position: "Defender", positionCode: "LB", gridX: 17, gridY: 70, onPitch: true },
-        { id: 2006, name: "Rodrigo De Paul", number: "7", starter: true, positionId: 3, position: "Midfielder", positionCode: "CDM", gridX: 50, gridY: 58, onPitch: true },
-        { id: 2007, name: "Enzo Fernández", number: "24", starter: true, positionId: 3, position: "Midfielder", positionCode: "RCM", gridX: 64, gridY: 42, onPitch: true },
-        { id: 2008, name: "Alexis Mac Allister", number: "20", starter: true, positionId: 3, position: "Midfielder", positionCode: "LCM", gridX: 36, gridY: 42, onPitch: true },
-        { id: 2009, name: "Lionel Messi", number: "10", starter: true, positionId: 4, position: "Forward", positionCode: "RW", gridX: 80, gridY: 32, onPitch: true },
-        { id: 2010, name: "Julián Álvarez", number: "9", starter: true, positionId: 4, position: "Forward", positionCode: "ST", gridX: 50, gridY: 16, onPitch: true },
-        { id: 2011, name: "Ángel Di María", number: "11", starter: true, positionId: 4, position: "Forward", positionCode: "LW", gridX: 20, gridY: 32, onPitch: true },
-        { id: 2101, name: "Franco Armani", number: "1", starter: false, positionId: 1, position: "Goalkeeper", positionCode: "GK", onPitch: false },
-        { id: 2102, name: "Lisandro Martínez", number: "25", starter: false, positionId: 2, position: "Defender", positionCode: "CB", onPitch: false },
-        { id: 2103, name: "Leandro Paredes", number: "5", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
-        { id: 2104, name: "Giovani Lo Celso", number: "16", starter: false, positionId: 3, position: "Midfielder", positionCode: "CM", onPitch: false },
-        { id: 2105, name: "Lautaro Martínez", number: "22", starter: false, positionId: 4, position: "Forward", positionCode: "ST", onPitch: false },
-        { id: 2106, name: "Paulo Dybala", number: "21", starter: false, positionId: 4, position: "Forward", positionCode: "ST", onPitch: false },
-      ],
-    },
-  ],
-  names: {},
-};
+export const DEMO_LINEUP: Lineup = demoLineup();
 
 export const DEMO_LEADERBOARD: Leaderboard = {
   fixtureId: 999999,
@@ -112,17 +63,17 @@ export const DEMO_LEADERBOARD: Leaderboard = {
 };
 
 export const DEMO_EVENTS: EventEntry[] = [
-  { id: "1", type: "goal", payload: { minute: 24, side: 1 }, players: { out: null, in: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "1", type: "goal", payload: { minute: 24, side: 1 }, players: { out: null, in: { id: 7, name: "Lion", number: "7", positionId: 4, position: "Forward", side: 1 } } },
   { id: "2", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
-  { id: "3", type: "goal", payload: { minute: 38, side: 2 }, players: { out: null, in: { id: 2009, name: "Lionel Messi", number: "10", positionId: 4, position: "Forward", side: 2 } } },
-  { id: "4", type: "yellow_card", payload: { minute: 41, side: 1 }, players: { out: null, in: { id: 1003, name: "Rúben Dias", number: "4", positionId: 2, position: "Defender", side: 1 } } },
+  { id: "3", type: "goal", payload: { minute: 38, side: 2 }, players: { out: null, in: { id: 9, name: "Bull", number: "9", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "4", type: "yellow_card", payload: { minute: 41, side: 1 }, players: { out: null, in: { id: 3, name: "Shark", number: "3", positionId: 2, position: "Defender", side: 1 } } },
   { id: "5", type: "prediction", payload: { user: "rivalX", points: 1, kind: 0 } },
-  { id: "6", type: "goal", payload: { minute: 57, side: 1 }, players: { out: null, in: { id: 1009, name: "Bernardo Silva", number: "10", positionId: 4, position: "Forward", side: 1 } } },
-  { id: "7", type: "substitution", payload: { minute: 63, side: 1 }, players: { out: { id: 1010, name: "Cristiano Ronaldo", number: "7", positionId: 4, position: "Forward", side: 1 }, in: { id: 1106, name: "Gonçalo Ramos", number: "9", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "6", type: "goal", payload: { minute: 57, side: 1 }, players: { out: null, in: { id: 10, name: "Eagle", number: "10", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "7", type: "substitution", payload: { minute: 63, side: 1 }, players: { out: { id: 7, name: "Lion", number: "7", positionId: 4, position: "Forward", side: 1 }, in: { id: 12, name: "Bear", number: "12", positionId: 1, position: "Goalkeeper", side: 1 } } },
   { id: "8", type: "prediction", payload: { user: "newbie", points: 3, kind: 3 } },
 ];
 
-// ===== France vs Spain (SETTLED demo) =====
+// ===== SOCCIT FC vs SOCCIT Reserves (SETTLED demo) =====
 
 export const DEMO_SETTLED_MATCH_SUMMARY: MatchSummary = {
   pda: DEMO_SETTLED_PDA,
@@ -140,7 +91,7 @@ export const DEMO_SETTLED_MATCH_SUMMARY: MatchSummary = {
   // Terminal: backend nulls `live` and moves the score to `finalScore`.
   live: null,
   finalScore: { team1: 2, team2: 1 },
-  teamNames: { team1: "France", team2: "Spain" },
+  teamNames: { team1: "SOCCIT FC", team2: "SOCCIT Reserves" },
 };
 
 export const DEMO_SETTLED_MATCH_STATE: MatchState = {
@@ -163,8 +114,8 @@ export const DEMO_SETTLED_LINEUP: Lineup = {
   fixtureId: 888888,
   updatedAt: Date.now(),
   teams: [
-    { side: 1, teamId: 301, teamName: "France", formation: "4-3-3", players: [] },
-    { side: 2, teamId: 302, teamName: "Spain", formation: "4-3-3", players: [] },
+    { side: 1, teamId: 301, teamName: "SOCCIT FC", formation: "4-3-3", players: [] },
+    { side: 2, teamId: 302, teamName: "SOCCIT Reserves", formation: "4-3-3", players: [] },
   ],
   names: {},
 };

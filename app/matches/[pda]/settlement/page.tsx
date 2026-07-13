@@ -82,14 +82,14 @@ const DEMO_LINEUP: Lineup = {
     {
       side: 1,
       teamId: 101,
-      teamName: "Portugal",
+      teamName: "SOCCIT FC",
       formation: "4-3-3",
       players: [],
     },
     {
       side: 2,
       teamId: 202,
-      teamName: "Argentina",
+      teamName: "SOCCIT Reserves",
       formation: "4-3-3",
       players: [],
     },
