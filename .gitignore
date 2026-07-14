@@ -24,7 +24,6 @@
 
 # production
 /build
-BACKEND-HANDOFF.md
 
 # misc
 .DS_Store

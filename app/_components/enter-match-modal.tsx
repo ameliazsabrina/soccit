@@ -31,13 +31,11 @@ export function EnterMatchModal({
   participantCount,
   team1Name,
   team2Name,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   fixtureId,
   isDemo,
   onEntered,
 }: EnterMatchModalProps) {
   const { connected, publicKey, wallet } = useWallet();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { connection } = useConnection();
   const [state, setState] = useState<ModalState>("confirm");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
