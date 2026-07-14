@@ -142,9 +142,9 @@ export function LiveMatchFeed({
   }, [pda, isDemo]);
 
   return (
-    <div className={cn("flex flex-col", showTabs && "border border-surface bg-surface/20", className)}>
+    <div className={cn("flex min-h-0 flex-col", showTabs && "border border-surface bg-surface/20", className)}>
       {/* Header */}
-      <div className={cn("border-b border-surface", showTabs ? "p-4" : "px-4 py-3")}>
+      <div className={cn("flex-shrink-0 border-b border-surface", showTabs ? "p-4" : "px-4 py-3")}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider">
             <ConnectionBadge status={activeStatus} recorded={isTerminal} />
@@ -228,7 +228,7 @@ export function LiveMatchFeed({
       </div>
 
       {showViewLogsLink && (
-        <div className="border-t border-surface p-3">
+        <div className="flex-shrink-0 border-t border-surface p-3">
           <a
             href={`/matches/${pda}/logs`}
             className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan transition-colors hover:text-foreground"

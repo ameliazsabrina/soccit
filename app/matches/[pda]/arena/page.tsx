@@ -6,6 +6,8 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   AlertCircle,
   RefreshCw,
+  Lock,
+  ArrowLeft,
 } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
 import type { ArenaTab } from "../../../_components/top-nav";
@@ -119,6 +121,11 @@ export default function ArenaPage() {
   const isDemo = rawPda === DEMO_PDA;
   const isSeed = rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
   const pda = isDemo ? DEMO_PDA : rawPda;
+
+  // Entry gate: demo always allowed. Real matches require ?entered=1 (set by
+  // the match page after a successful entry tx). In the future this will be a
+  // backend check (GET /api/matches/{pda}/entry/{wallet}) instead of a URL flag.
+  const hasEntered = isDemo || isSeed || searchParams.get("entered") === "1";
   const modelParam = searchParams.get("model");
   const model: ArenaModel = ["sub", "score", "goalscorer"].includes(modelParam ?? "")
     ? (modelParam as ArenaModel)
@@ -410,6 +417,32 @@ export default function ArenaPage() {
             className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
           >
             <RefreshCw size={16} /> Retry
+          </button>
+        </div>
+      </PageShell>
+    );
+  }
+
+  // ── Entry gate ──────────────────────────────────────────────
+  // Only users who've paid the entry fee can access the arena.
+  // Demo/seed always allowed. Real matches require ?entered=1.
+  if (!hasEntered) {
+    return (
+      <PageShell>
+        <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
+          <div className="flex h-16 w-16 items-center justify-center border-2 border-rose/30 bg-rose/10">
+            <Lock size={28} className="text-rose" />
+          </div>
+          <h2 className="font-display text-2xl text-foreground">Entry Required</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            You haven&apos;t entered this match yet. Return to the match page to
+            pay the entry fee and join the arena.
+          </p>
+          <button
+            onClick={() => router.push(`/matches/${pda}`)}
+            className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+          >
+            <ArrowLeft size={16} /> Back to Match
           </button>
         </div>
       </PageShell>

@@ -69,14 +69,14 @@ const DEMO_LINEUP_STATE: Lineup = {
     {
       side: 1,
       teamId: 101,
-      teamName: "SOCCIT FC",
-      formation: "4-3-3",
+      teamName: "France",
+      formation: "4-2-3-1",
       players: [],
     },
     {
       side: 2,
       teamId: 202,
-      teamName: "SOCCIT Reserves",
+      teamName: "Argentina",
       formation: "4-3-3",
       players: [],
     },
@@ -88,13 +88,13 @@ const DEMO_EVENTS: EventEntry[] = [
   {
     id: "1719662400000-0",
     type: "goal",
-    payload: { minute: 24, side: 1, scorerId: 7 },
+    payload: { minute: 24, side: 1, scorerId: 10 },
     players: {
       out: null,
       in: {
-        id: 7,
-        name: "Lion",
-        number: "7",
+        id: 10,
+        name: "Kylian Mbappé",
+        number: "10",
         positionId: 4,
         position: "Forward",
         side: 1,
@@ -104,13 +104,13 @@ const DEMO_EVENTS: EventEntry[] = [
   {
     id: "1719662400001-0",
     type: "yellow_card",
-    payload: { minute: 41, side: 1, playerId: 3 },
+    payload: { minute: 41, side: 1, playerId: 5 },
     players: {
       out: null,
       in: {
-        id: 3,
-        name: "Shark",
-        number: "3",
+        id: 5,
+        name: "Jules Koundé",
+        number: "5",
         positionId: 2,
         position: "Defender",
         side: 1,
@@ -124,7 +124,7 @@ const DEMO_EVENTS: EventEntry[] = [
     players: {
       out: {
         id: 7,
-        name: "Lion",
+        name: "Ousmane Dembélé",
         number: "7",
         positionId: 4,
         position: "Forward",
@@ -132,10 +132,10 @@ const DEMO_EVENTS: EventEntry[] = [
       },
       in: {
         id: 12,
-        name: "Bear",
+        name: "Bradley Barcola",
         number: "12",
-        positionId: 1,
-        position: "Goalkeeper",
+        positionId: 4,
+        position: "Forward",
         side: 1,
       },
     },
@@ -191,14 +191,14 @@ export default function MatchIntelligencePage() {
       {
         side: 1,
         teamId: 301,
-        teamName: "SOCCIT FC",
-        formation: "4-3-3",
+        teamName: "France",
+        formation: "4-2-3-1",
         players: [],
       },
       {
         side: 2,
         teamId: 302,
-        teamName: "SOCCIT Reserves",
+        teamName: "Argentina",
         formation: "4-3-3",
         players: [],
       },
@@ -215,7 +215,7 @@ export default function MatchIntelligencePage() {
         out: null,
         in: {
           id: 10,
-          name: "Eagle",
+          name: "Kylian Mbappé",
           number: "10",
           positionId: 4,
           position: "Forward",
@@ -235,9 +235,9 @@ export default function MatchIntelligencePage() {
       players: {
         out: null,
         in: {
-          id: 9,
-          name: "Bull",
-          number: "9",
+          id: 10,
+          name: "Lionel Messi",
+          number: "10",
           positionId: 4,
           position: "Forward",
           side: 2,
@@ -252,7 +252,7 @@ export default function MatchIntelligencePage() {
         out: null,
         in: {
           id: 8,
-          name: "Wolf",
+          name: "Aurélien Tchouaméni",
           number: "8",
           positionId: 3,
           position: "Midfielder",
@@ -268,7 +268,7 @@ export default function MatchIntelligencePage() {
         out: null,
         in: {
           id: 7,
-          name: "Lion",
+          name: "Ousmane Dembélé",
           number: "7",
           positionId: 4,
           position: "Forward",
@@ -282,19 +282,19 @@ export default function MatchIntelligencePage() {
       payload: { minute: 75, side: 2 },
       players: {
         out: {
-          id: 9,
-          name: "Bull",
-          number: "9",
+          id: 22,
+          name: "Lautaro Martínez",
+          number: "22",
           positionId: 4,
           position: "Forward",
           side: 2,
         },
         in: {
-          id: 12,
-          name: "Bear",
-          number: "12",
-          positionId: 1,
-          position: "Goalkeeper",
+          id: 16,
+          name: "Thiago Almada",
+          number: "16",
+          positionId: 4,
+          position: "Forward",
           side: 2,
         },
       },

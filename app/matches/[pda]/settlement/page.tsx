@@ -3,6 +3,7 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useWallet } from "@solana/wallet-adapter-react";
 import {
   Trophy,
   TrendingUp,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
 import type { ArenaTab } from "../../../_components/top-nav";
+import { PnLResultCard, PnLShareModal, type PnLData } from "../../../_components/pnl-share-card";
 import {
   getMatch,
   getLineup,
@@ -82,14 +84,14 @@ const DEMO_LINEUP: Lineup = {
     {
       side: 1,
       teamId: 101,
-      teamName: "SOCCIT FC",
-      formation: "4-3-3",
+      teamName: "France",
+      formation: "4-2-3-1",
       players: [],
     },
     {
       side: 2,
       teamId: 202,
-      teamName: "SOCCIT Reserves",
+      teamName: "Argentina",
       formation: "4-3-3",
       players: [],
     },
@@ -134,6 +136,7 @@ const DEMO_LEADERBOARD: Leaderboard = {
 export default function SettlementPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { publicKey } = useWallet();
   const rawPda = params.pda as string;
   const isDemo = rawPda === DEMO_PDA;
   const isDemoSettled = rawPda === "demo-settled";
@@ -167,6 +170,7 @@ export default function SettlementPage() {
   );
   const [loading, setLoading] = useState(!isDemo && !isSeed && !isDemoSettled);
   const [error, setError] = useState<string | null>(null);
+  const [showPnLModal, setShowPnLModal] = useState(false);
 
   useEffect(() => {
     if (isDemo || isSeed || isDemoSettled) return;
@@ -254,6 +258,64 @@ export default function SettlementPage() {
   }
 
   const topRanks = leaderboard?.ranking.slice(0, 3) ?? [];
+
+  // Compute connected wallet's PnL for the share card
+  const walletBase58 = publicKey?.toBase58() ?? null;
+  const entryFee = match.onchain?.entryFee ?? "0";
+  const team1Name = team1?.teamName ?? "Home";
+  const team2Name = team2?.teamName ?? "Away";
+
+  let pnlData: PnLData | null = null;
+
+  if (isDemo || isDemoSettled) {
+    // Demo: show the 1st place entry so the share feature is testable
+    const demoWinner = topRanks[0];
+    if (demoWinner) {
+      pnlData = {
+        rank: 1,
+        prize: Math.round(prizes.first),
+        entryFee,
+        points: demoWinner.points,
+        team1Name,
+        team2Name,
+        username: demoWinner.user?.username ?? null,
+        wallet: demoWinner.owner,
+      };
+    }
+  } else if (walletBase58 && leaderboard) {
+    const userRankIndex = leaderboard.ranking.findIndex(
+      (r) => r.owner === walletBase58,
+    );
+    if (userRankIndex >= 0) {
+      const userEntry = leaderboard.ranking[userRankIndex];
+      let prizeAmount = 0;
+      let rank = 0;
+      if (userRankIndex === 0) {
+        prizeAmount = prizes.first;
+        rank = 1;
+      } else if (userRankIndex === 1) {
+        prizeAmount = prizes.second;
+        rank = 2;
+      } else if (userRankIndex === 2) {
+        prizeAmount = prizes.third;
+        rank = 3;
+      } else {
+        // Placed 4th+ — entry fee lost
+        prizeAmount = 0;
+        rank = 0;
+      }
+      pnlData = {
+        rank,
+        prize: Math.round(prizeAmount),
+        entryFee,
+        points: userEntry.points,
+        team1Name,
+        team2Name,
+        username: userEntry.user?.username ?? null,
+        wallet: userEntry.owner,
+      };
+    }
+  }
 
   return (
     <PageShell arenaTabs={subNavTabs}>
@@ -387,33 +449,53 @@ export default function SettlementPage() {
             )}
           </motion.div>
 
-          {/* Prize breakdown — now second (narrower) */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-surface p-8 md:col-span-2 lg:col-span-1"
-          >
-            <div className="mb-6 flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center bg-background text-cyan">
+          {/* Your result — replaces prize breakdown */}
+          {pnlData ? (
+            <div className="md:col-span-2 lg:col-span-1">
+              <PnLResultCard
+                data={pnlData}
+                onShare={() => setShowPnLModal(true)}
+              />
+            </div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="flex flex-col items-center justify-center bg-surface p-8 text-center md:col-span-2 lg:col-span-1"
+            >
+              <div className="flex h-10 w-10 items-center justify-center bg-background text-muted">
                 <Trophy size={20} />
               </div>
-              <h2 className="font-display text-xl text-foreground">
+              <h2 className="mt-4 font-display text-xl text-foreground">
                 Prize Breakdown
               </h2>
-            </div>
-            <div className="space-y-3">
-              <PrizeRow rank={1} pct={50} amount={prizes.first} />
-              <PrizeRow rank={2} pct={30} amount={prizes.second} />
-              <PrizeRow rank={3} pct={20} amount={prizes.third} />
-            </div>
-            <p className="mt-4 text-xs text-muted">
-              Net pool after 20% platform fee: $
-              {formatUsdc(String(Math.round(prizes.total)))}
-            </p>
-          </motion.div>
+              <div className="mt-4 w-full space-y-3">
+                <PrizeRow rank={1} pct={50} amount={prizes.first} />
+                <PrizeRow rank={2} pct={30} amount={prizes.second} />
+                <PrizeRow rank={3} pct={20} amount={prizes.third} />
+              </div>
+              <p className="mt-4 text-xs text-muted">
+                Net pool after 20% platform fee: $
+                {formatUsdc(String(Math.round(prizes.total)))}
+              </p>
+              <p className="mt-6 text-xs uppercase tracking-wider text-muted">
+                Connect wallet to see your result
+              </p>
+            </motion.div>
+          )}
         </div>
       </div>
+
+      {/* PnL share modal */}
+      {pnlData && (
+        <PnLShareModal
+          data={pnlData}
+          isDemo={isDemo || isDemoSettled}
+          open={showPnLModal}
+          onClose={() => setShowPnLModal(false)}
+        />
+      )}
     </PageShell>
   );
 }

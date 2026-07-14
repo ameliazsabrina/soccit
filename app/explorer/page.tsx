@@ -225,10 +225,10 @@ const DEMO_EVENTS: EventEntry[] = [
   {
     id: "1719662400000-0",
     type: "goal",
-    payload: { minute: 24, side: 1, scorerId: 7 },
+    payload: { minute: 24, side: 1, scorerId: 10 },
     players: {
       out: null,
-      in: { id: 7, name: "Lion", number: "7", positionId: 4, position: "Forward", side: 1 },
+      in: { id: 10, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 },
     },
   },
   {
@@ -237,16 +237,16 @@ const DEMO_EVENTS: EventEntry[] = [
     payload: { minute: 41, side: 2, playerId: 6 },
     players: {
       out: null,
-      in: { id: 6, name: "Rhino", number: "6", positionId: 2, position: "Defender", side: 2 },
+      in: { id: 6, name: "Lisandro Martínez", number: "6", positionId: 2, position: "Defender", side: 2 },
     },
   },
   {
     id: "1719662400002-0",
     type: "substitution",
-    payload: { minute: 63, side: 2, playerOutId: 11, playerInId: 14 },
+    payload: { minute: 63, side: 2, playerOutId: 11, playerInId: 7 },
     players: {
-      out: { id: 11, name: "Black Cat", number: "11", positionId: 3, position: "Midfielder", side: 2 },
-      in: { id: 14, name: "Deer", number: "14", positionId: 3, position: "Midfielder", side: 2 },
+      out: { id: 11, name: "Giovani Lo Celso", number: "11", positionId: 3, position: "Midfielder", side: 2 },
+      in: { id: 7, name: "Rodrigo De Paul", number: "7", positionId: 3, position: "Midfielder", side: 2 },
     },
   },
 ];

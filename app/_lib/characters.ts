@@ -250,6 +250,21 @@ const FORMATION_433: Array<{ pos: Position; code: string; gridX: number; gridY: 
   { pos: "FW", code: "LW",  gridX: 20, gridY: 32, positionId: 4 },
 ];
 
+// 4-2-3-1 formation grid positions (dual pivot + attacking mid)
+const FORMATION_4231: Array<{ pos: Position; code: string; gridX: number; gridY: number; positionId: number }> = [
+  { pos: "GK", code: "GK",  gridX: 50, gridY: 82, positionId: 1 },
+  { pos: "DF", code: "RB",  gridX: 83, gridY: 70, positionId: 2 },
+  { pos: "DF", code: "RCB", gridX: 65, gridY: 76, positionId: 2 },
+  { pos: "DF", code: "LCB", gridX: 35, gridY: 76, positionId: 2 },
+  { pos: "DF", code: "LB",  gridX: 17, gridY: 70, positionId: 2 },
+  { pos: "MD", code: "RDM", gridX: 62, gridY: 58, positionId: 3 },
+  { pos: "MD", code: "LDM", gridX: 38, gridY: 58, positionId: 3 },
+  { pos: "MD", code: "CAM", gridX: 50, gridY: 40, positionId: 3 },
+  { pos: "FW", code: "RW",  gridX: 80, gridY: 28, positionId: 4 },
+  { pos: "FW", code: "ST",  gridX: 50, gridY: 12, positionId: 4 },
+  { pos: "FW", code: "LW",  gridX: 20, gridY: 28, positionId: 4 },
+];
+
 const POSITION_NAME: Record<number, string> = {
   1: "Goalkeeper",
   2: "Defender",
@@ -278,29 +293,30 @@ export interface DemoTeam {
   players: DemoPlayer[];
 }
 
+type FormationSlot = { pos: Position; code: string; gridX: number; gridY: number; positionId: number };
+
 /**
- * Build a demo team from the Soccit character roster.
- * Uses the 11 starters in a 4-3-3 formation + up to 6 bench subs.
+ * Build a demo team from a real-world national team roster.
+ * Maps the 11 starters into the given formation + up to 6 bench subs.
  */
-function buildDemoTeam(
+function buildRealDemoTeam(
   side: 1 | 2,
   teamId: number,
   teamName: string,
-  starterOffset = 0,
-  benchOffset = 0,
+  formation: string,
+  formationSlots: FormationSlot[],
+  starters: Array<{ id: number; name: string; number: string; positionId: number; position: string; positionCode: string }>,
+  bench: Array<{ id: number; name: string; number: string; positionId: number; position: string }>,
 ): DemoTeam {
-  const starterChars = STARTERS;
-  const benchChars = BENCH_PLAYERS;
-
-  const starters: DemoPlayer[] = FORMATION_433.map((slot, i) => {
-    const char = starterChars[(i + starterOffset) % starterChars.length];
+  const starterPlayers: DemoPlayer[] = formationSlots.map((slot, i) => {
+    const p = starters[i];
     return {
-      id: char.number,
-      name: char.name,
-      number: String(char.number),
+      id: p.id,
+      name: p.name,
+      number: p.number,
       starter: true,
       positionId: slot.positionId,
-      position: POSITION_NAME[slot.positionId] ?? char.positionFull,
+      position: POSITION_NAME[slot.positionId] ?? p.position,
       positionCode: slot.code,
       gridX: slot.gridX,
       gridY: slot.gridY,
@@ -308,18 +324,17 @@ function buildDemoTeam(
     };
   });
 
-  // Take up to 6 bench players, offset for team 2 variety
-  const benchCount = Math.min(6, benchChars.length);
+  const benchCount = Math.min(6, bench.length);
   const subs: DemoPlayer[] = Array.from({ length: benchCount }, (_, i) => {
-    const char = benchChars[(i + benchOffset) % benchChars.length];
+    const p = bench[i];
     return {
-      id: char.number,
-      name: char.name,
-      number: String(char.number),
+      id: p.id,
+      name: p.name,
+      number: p.number,
       starter: false,
-      positionId: char.position === "GK" ? 1 : char.position === "DF" ? 2 : char.position === "MD" ? 3 : 4,
-      position: char.positionFull,
-      positionCode: char.position,
+      positionId: p.positionId,
+      position: p.position,
+      positionCode: "",
       gridX: 0,
       gridY: 0,
       onPitch: false,
@@ -330,15 +345,67 @@ function buildDemoTeam(
     side,
     teamId,
     teamName,
-    formation: "4-3-3",
-    players: [...starters, ...subs],
+    formation,
+    players: [...starterPlayers, ...subs],
   };
 }
 
+// ─── France — World Cup 2026 starting XI (4-2-3-1) ───────────
+// Source: en.wikipedia.org/wiki/2026_FIFA_World_Cup (squad + QF v Morocco)
+// Deschamps' dual pivot (Tchouaméni + Koné), Olise as #10, Dembélé-Mbappé-Barcola front three
+const FRANCE_STARTERS = [
+  { id: 16, name: "Mike Maignan",        number: "16", positionId: 1, position: "Goalkeeper", positionCode: "GK" },
+  { id: 5,  name: "Jules Koundé",        number: "5",  positionId: 2, position: "Defender",   positionCode: "RB" },
+  { id: 17, name: "William Saliba",      number: "17", positionId: 2, position: "Defender",   positionCode: "RCB" },
+  { id: 4,  name: "Dayot Upamecano",     number: "4",  positionId: 2, position: "Defender",   positionCode: "LCB" },
+  { id: 19, name: "Théo Hernandez",      number: "19", positionId: 2, position: "Defender",   positionCode: "LB" },
+  { id: 8,  name: "Aurélien Tchouaméni", number: "8",  positionId: 3, position: "Midfielder", positionCode: "RDM" },
+  { id: 6,  name: "Manu Koné",           number: "6",  positionId: 3, position: "Midfielder", positionCode: "LDM" },
+  { id: 11, name: "Michael Olise",       number: "11", positionId: 3, position: "Midfielder", positionCode: "CAM" },
+  { id: 7,  name: "Ousmane Dembélé",     number: "7",  positionId: 4, position: "Forward",    positionCode: "RW" },
+  { id: 10, name: "Kylian Mbappé",       number: "10", positionId: 4, position: "Forward",    positionCode: "ST" },
+  { id: 12, name: "Bradley Barcola",     number: "12", positionId: 4, position: "Forward",    positionCode: "LW" },
+];
+
+const FRANCE_BENCH = [
+  { id: 1,  name: "Brice Samba",        number: "1",  positionId: 1, position: "Goalkeeper" },
+  { id: 15, name: "Ibrahima Konaté",   number: "15", positionId: 2, position: "Defender" },
+  { id: 3,  name: "Lucas Digne",        number: "3",  positionId: 2, position: "Defender" },
+  { id: 13, name: "N'Golo Kanté",       number: "13", positionId: 3, position: "Midfielder" },
+  { id: 18, name: "Warren Zaïre-Emery", number: "18", positionId: 3, position: "Midfielder" },
+  { id: 9,  name: "Marcus Thuram",      number: "9",  positionId: 4, position: "Forward" },
+  { id: 20, name: "Désiré Doué",        number: "20", positionId: 4, position: "Forward" },
+];
+
+// ─── Argentina — World Cup 2026 starting XI (4-3-3) ──────────
+// Source: en.wikipedia.org/wiki/2026_FIFA_World_Cup (squad + QF v Switzerland)
+const ARGENTINA_STARTERS = [
+  { id: 23, name: "Emiliano Martínez",  number: "23", positionId: 1, position: "Goalkeeper", positionCode: "GK" },
+  { id: 26, name: "Nahuel Molina",      number: "26", positionId: 2, position: "Defender",   positionCode: "RB" },
+  { id: 13, name: "Cristian Romero",    number: "13", positionId: 2, position: "Defender",   positionCode: "RCB" },
+  { id: 6,  name: "Lisandro Martínez",  number: "6",  positionId: 2, position: "Defender",   positionCode: "LCB" },
+  { id: 3,  name: "Nicolás Tagliafico", number: "3",  positionId: 2, position: "Defender",   positionCode: "LB" },
+  { id: 24, name: "Enzo Fernández",     number: "24", positionId: 3, position: "Midfielder", positionCode: "CDM" },
+  { id: 20, name: "Alexis Mac Allister",number: "20", positionId: 3, position: "Midfielder", positionCode: "RCM" },
+  { id: 11, name: "Giovani Lo Celso",   number: "11", positionId: 3, position: "Midfielder", positionCode: "LCM" },
+  { id: 10, name: "Lionel Messi",       number: "10", positionId: 4, position: "Forward",    positionCode: "RW" },
+  { id: 9,  name: "Julián Álvarez",     number: "9",  positionId: 4, position: "Forward",    positionCode: "ST" },
+  { id: 22, name: "Lautaro Martínez",   number: "22", positionId: 4, position: "Forward",    positionCode: "LW" },
+];
+
+const ARGENTINA_BENCH = [
+  { id: 1,  name: "Juan Musso",         number: "1",  positionId: 1, position: "Goalkeeper" },
+  { id: 2,  name: "Marcos Senesi",      number: "2",  positionId: 2, position: "Defender" },
+  { id: 4,  name: "Gonzalo Montiel",    number: "4",  positionId: 2, position: "Defender" },
+  { id: 7,  name: "Rodrigo De Paul",    number: "7",  positionId: 3, position: "Midfielder" },
+  { id: 5,  name: "Leandro Paredes",    number: "5",  positionId: 3, position: "Midfielder" },
+  { id: 16, name: "Thiago Almada",      number: "16", positionId: 4, position: "Forward" },
+  { id: 18, name: "Nico Paz",           number: "18", positionId: 4, position: "Forward" },
+];
+
 /**
- * Generate a full demo lineup with two Soccit teams.
- * Team 1 uses starters in order; Team 2 rotates the starter list
- * for visual variety while keeping the same character pool.
+ * Generate a full demo lineup with two real national teams.
+ * France (side 1) vs Argentina (side 2) — World Cup 2026 Final.
  */
 export function demoLineup(fixtureId = 999999): {
   fixtureId: number;
@@ -350,8 +417,8 @@ export function demoLineup(fixtureId = 999999): {
     fixtureId,
     updatedAt: Date.now(),
     teams: [
-      buildDemoTeam(1, 101, "SOCCIT FC"),
-      buildDemoTeam(2, 202, "SOCCIT Reserves", 5, 3),
+      buildRealDemoTeam(1, 101, "France", "4-2-3-1", FORMATION_4231, FRANCE_STARTERS, FRANCE_BENCH),
+      buildRealDemoTeam(2, 202, "Argentina", "4-3-3", FORMATION_433, ARGENTINA_STARTERS, ARGENTINA_BENCH),
     ],
     names: {},
   };

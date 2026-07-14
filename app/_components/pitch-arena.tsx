@@ -15,6 +15,7 @@ import { LiveMatchFeed } from "./live-match-feed";
 import { ConfirmSubsModal, type SubstitutionPrediction } from "./confirm-subs-modal";
 import { tcgCardImage } from "../_lib/api";
 import { assignAvatars } from "../_lib/characters";
+import { DEMO_EVENTS, DEMO_LEADERBOARD } from "../_lib/demo-data";
 import { CardAvatar, CardAvatarFallback } from "./card-avatar";
 import { TeamBadge } from "./team-badge";
 import { formatPlayerName } from "../_lib/match-events";
@@ -582,7 +583,7 @@ export function PitchArena({
         </div>
 
         {/* Tab body */}
-        <div className="flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden">
           {activeTab === "events" && (
             <div className="flex h-full flex-col">
               {/* Sub-tabs */}
@@ -610,8 +611,10 @@ export function PitchArena({
                   pda={matchPda}
                   isDemo={matchPda === "demo"}
                   view="events"
-                  className="h-full"
+                  className="min-h-0 flex-1"
                   showViewLogsLink
+                  demoEvents={matchPda === "demo" ? DEMO_EVENTS : []}
+                  demoLeaderboard={matchPda === "demo" ? DEMO_LEADERBOARD : null}
                   homeTeamName={overview.teams.find((team) => team.side === 1)?.name}
                   awayTeamName={overview.teams.find((team) => team.side === 2)?.name}
                   players={overview.teams.flatMap((team) =>
@@ -638,7 +641,8 @@ export function PitchArena({
               pda={matchPda}
               isDemo={matchPda === "demo"}
               view="leaderboard"
-              className="h-full"
+              className="min-h-0 flex-1"
+              demoLeaderboard={matchPda === "demo" ? DEMO_LEADERBOARD : null}
             />
           )}
         </div>

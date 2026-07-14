@@ -13,7 +13,7 @@ import { demoLineup } from "./characters";
 export const DEMO_PDA = "demo";
 export const DEMO_SETTLED_PDA = "demo-settled";
 
-// ===== SOCCIT FC vs SOCCIT Reserves (LIVE demo) =====
+// ===== France vs Argentina (LIVE demo — World Cup 2026 Final)
 
 export const DEMO_MATCH_SUMMARY: MatchSummary = {
   pda: DEMO_PDA,
@@ -30,7 +30,7 @@ export const DEMO_MATCH_SUMMARY: MatchSummary = {
   },
   live: { statusId: 1, minute: 63, goals: { team1: 2, team2: 1 }, ts: Date.now() },
   finalScore: null,
-  teamNames: { team1: "SOCCIT FC", team2: "SOCCIT Reserves" },
+  teamNames: { team1: "France", team2: "Argentina" },
 };
 
 export const DEMO_MATCH_STATE: MatchState = {
@@ -63,17 +63,17 @@ export const DEMO_LEADERBOARD: Leaderboard = {
 };
 
 export const DEMO_EVENTS: EventEntry[] = [
-  { id: "1", type: "goal", payload: { minute: 24, side: 1 }, players: { out: null, in: { id: 7, name: "Lion", number: "7", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "1", type: "goal", payload: { minute: 24, side: 1 }, players: { out: null, in: { id: 10, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 } } },
   { id: "2", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
-  { id: "3", type: "goal", payload: { minute: 38, side: 2 }, players: { out: null, in: { id: 9, name: "Bull", number: "9", positionId: 4, position: "Forward", side: 2 } } },
-  { id: "4", type: "yellow_card", payload: { minute: 41, side: 1 }, players: { out: null, in: { id: 3, name: "Shark", number: "3", positionId: 2, position: "Defender", side: 1 } } },
+  { id: "3", type: "goal", payload: { minute: 38, side: 2 }, players: { out: null, in: { id: 9, name: "Julián Álvarez", number: "9", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "4", type: "yellow_card", payload: { minute: 41, side: 1 }, players: { out: null, in: { id: 5, name: "Jules Koundé", number: "5", positionId: 2, position: "Defender", side: 1 } } },
   { id: "5", type: "prediction", payload: { user: "rivalX", points: 1, kind: 0 } },
-  { id: "6", type: "goal", payload: { minute: 57, side: 1 }, players: { out: null, in: { id: 10, name: "Eagle", number: "10", positionId: 4, position: "Forward", side: 1 } } },
-  { id: "7", type: "substitution", payload: { minute: 63, side: 1 }, players: { out: { id: 7, name: "Lion", number: "7", positionId: 4, position: "Forward", side: 1 }, in: { id: 12, name: "Bear", number: "12", positionId: 1, position: "Goalkeeper", side: 1 } } },
+  { id: "6", type: "goal", payload: { minute: 57, side: 1 }, players: { out: null, in: { id: 7, name: "Ousmane Dembélé", number: "7", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "7", type: "substitution", payload: { minute: 63, side: 1 }, players: { out: { id: 7, name: "Ousmane Dembélé", number: "7", positionId: 4, position: "Forward", side: 1 }, in: { id: 12, name: "Bradley Barcola", number: "12", positionId: 4, position: "Forward", side: 1 } } },
   { id: "8", type: "prediction", payload: { user: "newbie", points: 3, kind: 3 } },
 ];
 
-// ===== SOCCIT FC vs SOCCIT Reserves (SETTLED demo) =====
+// ===== France vs Argentina (SETTLED demo — World Cup 2026 Final)
 
 export const DEMO_SETTLED_MATCH_SUMMARY: MatchSummary = {
   pda: DEMO_SETTLED_PDA,
@@ -91,7 +91,7 @@ export const DEMO_SETTLED_MATCH_SUMMARY: MatchSummary = {
   // Terminal: backend nulls `live` and moves the score to `finalScore`.
   live: null,
   finalScore: { team1: 2, team2: 1 },
-  teamNames: { team1: "SOCCIT FC", team2: "SOCCIT Reserves" },
+  teamNames: { team1: "France", team2: "Argentina" },
 };
 
 export const DEMO_SETTLED_MATCH_STATE: MatchState = {
@@ -114,8 +114,8 @@ export const DEMO_SETTLED_LINEUP: Lineup = {
   fixtureId: 888888,
   updatedAt: Date.now(),
   teams: [
-    { side: 1, teamId: 301, teamName: "SOCCIT FC", formation: "4-3-3", players: [] },
-    { side: 2, teamId: 302, teamName: "SOCCIT Reserves", formation: "4-3-3", players: [] },
+    { side: 1, teamId: 301, teamName: "France", formation: "4-2-3-1", players: [] },
+    { side: 2, teamId: 302, teamName: "Argentina", formation: "4-3-3", players: [] },
   ],
   names: {},
 };
@@ -133,12 +133,12 @@ export const DEMO_SETTLED_LEADERBOARD: Leaderboard = {
 };
 
 export const DEMO_SETTLED_EVENTS: EventEntry[] = [
-  { id: "s1", type: "goal", payload: { minute: 18, side: 1 }, players: { out: null, in: { id: 3001, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "s1", type: "goal", payload: { minute: 18, side: 1 }, players: { out: null, in: { id: 10, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 } } },
   { id: "s2", type: "prediction", payload: { user: "demoking", points: 3, kind: 2 } },
-  { id: "s3", type: "goal", payload: { minute: 34, side: 2 }, players: { out: null, in: { id: 4001, name: "Lamine Yamal", number: "19", positionId: 4, position: "Forward", side: 2 } } },
-  { id: "s4", type: "yellow_card", payload: { minute: 52, side: 1 }, players: { out: null, in: { id: 3002, name: "Aurélien Tchouaméni", number: "8", positionId: 3, position: "Midfielder", side: 1 } } },
-  { id: "s5", type: "goal", payload: { minute: 67, side: 1 }, players: { out: null, in: { id: 3003, name: "Antoine Griezmann", number: "7", positionId: 4, position: "Forward", side: 1 } } },
-  { id: "s6", type: "substitution", payload: { minute: 75, side: 2 }, players: { out: { id: 4002, name: "Álvaro Morata", number: "9", positionId: 4, position: "Forward", side: 2 }, in: { id: 4003, name: "Mikel Oyarzabal", number: "21", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "s3", type: "goal", payload: { minute: 34, side: 2 }, players: { out: null, in: { id: 22, name: "Lionel Messi", number: "10", positionId: 4, position: "Forward", side: 2 } } },
+  { id: "s4", type: "yellow_card", payload: { minute: 52, side: 1 }, players: { out: null, in: { id: 8, name: "Aurélien Tchouaméni", number: "8", positionId: 3, position: "Midfielder", side: 1 } } },
+  { id: "s5", type: "goal", payload: { minute: 67, side: 1 }, players: { out: null, in: { id: 7, name: "Ousmane Dembélé", number: "7", positionId: 4, position: "Forward", side: 1 } } },
+  { id: "s6", type: "substitution", payload: { minute: 75, side: 2 }, players: { out: { id: 22, name: "Lautaro Martínez", number: "22", positionId: 4, position: "Forward", side: 2 }, in: { id: 16, name: "Thiago Almada", number: "16", positionId: 4, position: "Forward", side: 2 } } },
   { id: "s7", type: "prediction", payload: { user: "rivalX", points: 1, kind: 0 } },
 ];
 
@@ -158,7 +158,7 @@ export const SEED_MATCH_STATE: MatchState = {
   updatedAt: Date.now(),
 };
 
-// ===== Settlement demo (POR/ARG settled version) =====
+// ===== Settlement demo (FRA/ARG settled version) =====
 
 export const DEMO_SETTLEMENT_MATCH: MatchState = {
   fixtureId: 999999,
@@ -184,7 +184,7 @@ export const DEMO_SETTLEMENT_LINEUP: Lineup = {
   fixtureId: 999999,
   updatedAt: Date.now(),
   teams: [
-    { side: 1, teamId: 101, teamName: "Portugal", formation: "4-3-3", players: [] },
+    { side: 1, teamId: 101, teamName: "France", formation: "4-2-3-1", players: [] },
     { side: 2, teamId: 202, teamName: "Argentina", formation: "4-3-3", players: [] },
   ],
   names: {},
@@ -223,5 +223,5 @@ export const SEED_MATCH_SUMMARY: MatchSummary = {
   },
   live: { statusId: 1, minute: 34, goals: { team1: 1, team2: 0 }, ts: Date.now() },
   finalScore: null,
-  teamNames: { team1: "Soccit FC", team2: "Devnet United" },
+  teamNames: { team1: "France", team2: "Argentina" },
 };

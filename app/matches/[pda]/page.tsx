@@ -20,6 +20,7 @@ import { PageShell } from "../../_components/page-shell";
 import { PageTransition } from "../../_components/page-transition";
 import { ConnectWalletModal } from "../../_components/connect-wallet-modal";
 import { OnboardingModal } from "../../_components/onboarding-modal";
+import { EnterMatchModal } from "../../_components/enter-match-modal";
 import { TeamBadge } from "../../_components/team-badge";
 import {
   getMatch,
@@ -90,6 +91,8 @@ export default function MatchDetails() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showVaultModal, setShowVaultModal] = useState(false);
+  const [showEnterModal, setShowEnterModal] = useState(false);
+  const [hasEntered, setHasEntered] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pendingMode, setPendingMode] = useState<ModeKey | null>(null);
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(
@@ -214,14 +217,26 @@ export default function MatchDetails() {
       setShowOnboarding(true);
       return;
     }
-    router.push(`/matches/${pda}/arena?model=${mode}`);
+    // Real match: open the Enter Match modal.
+    // If already entered, route directly to the arena.
+    if (hasEntered) {
+      router.push(`/matches/${pda}/arena?model=${mode}&entered=1`);
+      return;
+    }
+    setShowEnterModal(true);
+  }
+
+  function handleEntered() {
+    setHasEntered(true);
+    setShowEnterModal(false);
+    router.push(`/matches/${pda}/arena?model=score&entered=1`);
   }
 
   function handleOnboardingSuccess() {
     setShowOnboarding(false);
     if (pendingMode) {
-      router.push(`/matches/${pda}/arena?model=${pendingMode}`);
-      setPendingMode(null);
+      // After onboarding, open the Enter Match modal (user still needs to pay entry fee)
+      setShowEnterModal(true);
     }
   }
 
@@ -352,6 +367,7 @@ export default function MatchDetails() {
             <EnterCard
               isLive={isLive}
               isDemo={isDemo}
+              hasEntered={hasEntered}
               entriesPending={entriesPending}
               opensInSecs={entriesPending ? opensAt! - nowSecs : 0}
               onClick={() => handleSelectMode("score")}
@@ -378,6 +394,22 @@ export default function MatchDetails() {
         open={showOnboarding}
         onClose={handleCloseOnboarding}
         onSuccess={handleOnboardingSuccess}
+      />
+
+      <EnterMatchModal
+        open={showEnterModal}
+        onClose={() => {
+          setShowEnterModal(false);
+          setPendingMode(null);
+        }}
+        entryFee={entryFee}
+        poolTotal={poolTotal}
+        participantCount={participantCount}
+        team1Name={team1?.teamName ?? "Home"}
+        team2Name={team2?.teamName ?? "Away"}
+        fixtureId={match?.fixtureId ?? 0}
+        isDemo={isDemo}
+        onEntered={handleEntered}
       />
     </PageShell>
   );
@@ -577,12 +609,14 @@ function formatEntryCountdown(secs: number): string {
 function EnterCard({
   isLive,
   isDemo,
+  hasEntered,
   entriesPending,
   opensInSecs,
   onClick,
 }: {
   isLive: boolean;
   isDemo: boolean;
+  hasEntered: boolean;
   entriesPending: boolean;
   opensInSecs: number;
   onClick: () => void;
@@ -617,15 +651,17 @@ function EnterCard({
     >
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple via-cyan to-purple" />
       <h2 className="font-display text-xl text-foreground">
-        {isLive ? "Enter Live Match" : "Enter Match"}
+        {hasEntered ? "Enter Arena" : isLive ? "Enter Live Match" : "Enter Match"}
       </h2>
       <p className="max-w-xs text-center text-sm text-muted">
-        {isLive
-          ? "Predict the score, subs, and goalscorers as the match unfolds."
-          : "Lock your predictions before kickoff."}
+        {hasEntered
+          ? "You're in! Jump back to the arena to lock more predictions."
+          : isLive
+            ? "Predict the score, subs, and goalscorers as the match unfolds."
+            : "Lock your predictions before kickoff."}
       </p>
       <span className="btn-gradient flex h-12 items-center px-10 font-display text-sm uppercase tracking-[0.1em] text-white transition-transform group-hover:scale-105">
-        {isDemo ? "Try Demo" : "Enter"}
+        {isDemo ? "Try Demo" : hasEntered ? "Arena" : "Enter"}
         <ArrowRight size={16} className="ml-2" />
       </span>
     </PageTransition>

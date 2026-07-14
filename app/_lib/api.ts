@@ -479,6 +479,43 @@ export function preparePrediction(input: PreparePredictionInput) {
   });
 }
 
+// ─── Enter Match (enter-once model) ──────────────────────────
+// These types model the new enter-once tx flow. The backend needs to
+// implement POST /api/match/enter/prepare and GET /api/matches/{pda}/entry/{wallet}.
+
+export type EnterMatchInput = {
+  wallet: string; // base58 — becomes tx fee payer + signer
+  fixtureId: number; // from GET /api/matches row.fixtureId
+};
+
+export type EnterMatchOutput = {
+  transaction: string; // base64 unsigned versioned tx
+  fixtureId: number;
+  matchAccount: string; // match PDA
+  userUsdcAta: string; // user's USDC ATA (created idempotently)
+  entryFee: string; // USDC base units
+  blockhash: string;
+  lastValidBlockHeight: number;
+};
+
+export type EntryStatus = {
+  fixtureId: number;
+  wallet: string;
+  entered: boolean;
+  enteredAt?: number; // epoch ms
+};
+
+export function prepareEnter(input: EnterMatchInput) {
+  return apiJson<EnterMatchOutput>("/api/match/enter/prepare", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getEntryStatus(pda: string, wallet: string) {
+  return apiJson<EntryStatus>(`/api/matches/${pda}/entry/${wallet}`);
+}
+
 export function useLeaderboardStream(
   pda: string,
   onUpdate: (data: Leaderboard) => void,
@@ -504,6 +541,7 @@ export const MATCH_EVENT_TYPES = [
   "status",
   "substitution",
   "red_card",
+  "yellow_card",
 ] as const;
 
 export function useMatchEventsStream(
