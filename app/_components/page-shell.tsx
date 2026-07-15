@@ -24,7 +24,7 @@ export function PageShell({
   return (
     <div
       className={cn(
-        "relative flex h-screen flex-col overflow-hidden",
+        "relative flex h-screen flex-col overflow-x-hidden overflow-y-auto md:overflow-hidden",
         variant === "worldcup" ? "bg-slate-950" : "bg-background bg-cover bg-center bg-no-repeat bg-fixed"
       )}
       style={

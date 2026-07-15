@@ -424,7 +424,7 @@ export function PitchArena({
       : "TXLINE did not provide enough recognised starter positions, so players use a neutral display layout.";
 
   return (
-    <div className={cn("grid h-full grid-cols-1 gap-6 lg:grid-cols-[1fr_40%]", className)}>
+    <div className={cn("grid h-full grid-cols-1 grid-rows-1 gap-6 lg:grid-cols-[1fr_40%]", className)}>
       {/* ===== LEFT COLUMN: PitchCard + BenchCard ===== */}
       <div className="flex min-h-0 min-w-0 flex-col gap-4">
         {/* PitchCard */}
@@ -554,7 +554,7 @@ export function PitchArena({
       </div>
 
       {/* ===== RIGHT COLUMN: SidebarCard ===== */}
-      <div className="flex min-h-0 flex-col bg-surface">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
         {/* Tab header */}
         <div className="flex h-14 flex-shrink-0 items-center border-b border-surface-elevated">
           {[
@@ -611,7 +611,7 @@ export function PitchArena({
                   pda={matchPda}
                   isDemo={matchPda === "demo"}
                   view="events"
-                  className="min-h-0 flex-1"
+                  className="h-full min-h-0 flex-1"
                   showViewLogsLink
                   demoEvents={matchPda === "demo" ? DEMO_EVENTS : []}
                   demoLeaderboard={matchPda === "demo" ? DEMO_LEADERBOARD : null}
@@ -641,7 +641,7 @@ export function PitchArena({
               pda={matchPda}
               isDemo={matchPda === "demo"}
               view="leaderboard"
-              className="min-h-0 flex-1"
+              className="h-full min-h-0 flex-1"
               demoLeaderboard={matchPda === "demo" ? DEMO_LEADERBOARD : null}
             />
           )}

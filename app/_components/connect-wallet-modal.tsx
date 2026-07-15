@@ -13,8 +13,9 @@ export function ConnectWalletModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { wallets, select, connect, connected } = useWallet();
+  const { wallets, wallet, select, connect, connected } = useWallet();
   const [mode, setMode] = useState<"notify" | "wallets">("notify");
+  const [pendingWalletName, setPendingWalletName] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     if (open) setMode("notify");
@@ -23,6 +24,10 @@ export function ConnectWalletModal({
   useEffect(() => {
     if (connected && open) onClose();
   }, [connected, open, onClose]);
+
+  useEffect(() => {
+    if (!open) setPendingWalletName(null);
+  }, [open]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -34,14 +39,23 @@ export function ConnectWalletModal({
     }
   }, [open, onClose]);
 
-  async function handleSelect(walletName: string) {
+  function handleSelect(walletName: string) {
     try {
       select(walletName as Parameters<typeof select>[0]);
-      await connect();
+      setPendingWalletName(walletName);
     } catch {
       // wallet adapter handles its own errors / not-installed state
+      setPendingWalletName(null);
     }
   }
+
+  useEffect(() => {
+    if (!pendingWalletName || !wallet || !open) return;
+    setPendingWalletName(null);
+    connect().catch(() => {
+      // adapter handles its own errors / user cancellation
+    });
+  }, [pendingWalletName, wallet, open, connect]);
 
   return (
     <AnimatePresence>

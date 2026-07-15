@@ -1,252 +1,725 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useWallet } from "@solana/wallet-adapter-react";
 import {
   Search,
   Filter,
   ScrollText,
-  Clock,
   ChevronLeft,
   ChevronRight,
+  Activity,
+  Trophy,
+  Wallet,
+  ArrowRight,
+  AlertCircle,
 } from "lucide-react";
-import { type EventEntry } from "../_lib/api";
-import { cn } from "../_lib/utils";
 import { PageShell } from "../_components/page-shell";
+import { TeamBadge } from "../_components/team-badge";
+import {
+  getMatches,
+  getUserMatches,
+  getLineup,
+  PHASE_LABEL,
+  displayScore,
+  predictionKindLabel,
+  formatUsdcAmount,
+  type MatchSummary,
+  type UserMatch,
+  type UserMatchPrediction,
+  type Lineup,
+} from "../_lib/api";
+import { cn } from "../_lib/utils";
 
+type TabKey = "matches" | "predictions";
 const PAGE_SIZE = 20;
 
 export default function ExplorerPage() {
-  const [events] = useState<EventEntry[]>(() => DEMO_EVENTS);
-  const [filter, setFilter] = useState<string>("all");
+  const { connected, publicKey } = useWallet();
+
+  const [activeTab, setActiveTab] = useState<TabKey>("matches");
+
+  const [matches, setMatches] = useState<MatchSummary[]>([]);
+  const [matchesStatus, setMatchesStatus] = useState<
+    "idle" | "loading" | "error" | "ready"
+  >("idle");
+
+  const [userMatches, setUserMatches] = useState<UserMatch[]>([]);
+  const [userStatus, setUserStatus] = useState<
+    "idle" | "loading" | "error" | "ready"
+  >("idle");
+
+  const [filterPhase, setFilterPhase] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
 
-  const eventTypes = useMemo(
-    () => Array.from(new Set(events.map((e) => e.type))).sort(),
-    [events]
+  useEffect(() => {
+    let active = true;
+    setMatchesStatus("loading");
+    getMatches()
+      .then((rows) => {
+        if (!active) return;
+        setMatches(rows);
+        setMatchesStatus("ready");
+      })
+      .catch(() => {
+        if (active) setMatchesStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!connected || !publicKey) {
+      setUserMatches([]);
+      setUserStatus("idle");
+      return;
+    }
+    let active = true;
+    setUserStatus("loading");
+    getUserMatches(publicKey.toBase58())
+      .then((rows) => {
+        if (!active) return;
+        setUserMatches(rows);
+        setUserStatus("ready");
+      })
+      .catch(() => {
+        if (active) setUserStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [connected, publicKey]);
+
+  const matchesByFixture = useMemo(
+    () => new Map(matches.map((m) => [m.fixtureId, m])),
+    [matches],
   );
 
-  const filteredEvents = useMemo(() => {
-    return events.filter((entry) => {
-      const matchesType = filter === "all" || entry.type === filter;
+  const phaseOptions = useMemo(
+    () => Array.from(new Set(matches.map((m) => m.phase))).sort(),
+    [matches],
+  );
+
+  const filteredMatches = useMemo(() => {
+    return matches.filter((match) => {
+      const phaseOk = filterPhase === "all" || match.phase === filterPhase;
       const term = search.toLowerCase();
+      const team1 = match.teamNames?.team1 ?? "";
+      const team2 = match.teamNames?.team2 ?? "";
       const matchesSearch =
         !term ||
-        entry.type.toLowerCase().includes(term) ||
-        String(entry.players?.in?.name).toLowerCase().includes(term) ||
-        String(entry.players?.out?.name).toLowerCase().includes(term) ||
-        JSON.stringify(entry.payload).toLowerCase().includes(term);
-      return matchesType && matchesSearch;
+        team1.toLowerCase().includes(term) ||
+        team2.toLowerCase().includes(term) ||
+        String(match.fixtureId).includes(term);
+      return phaseOk && matchesSearch;
     });
-  }, [events, filter, search]);
+  }, [matches, filterPhase, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredMatches.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
-  const pageEvents = filteredEvents.slice(
+  const pageMatches = filteredMatches.slice(
     currentPage * PAGE_SIZE,
-    currentPage * PAGE_SIZE + PAGE_SIZE
+    currentPage * PAGE_SIZE + PAGE_SIZE,
+  );
+
+  const totalPoints = userMatches.reduce((sum, m) => sum + m.points, 0);
+  const totalPredictions = userMatches.reduce(
+    (sum, m) => sum + m.predictions.length,
+    0,
   );
 
   return (
     <PageShell>
-      <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 lg:px-8">
+      <div className="flex flex-1 flex-col gap-6">
         {/* Summary */}
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <SummaryCard label="Matches" value="12 tracked" />
-          <SummaryCard label="Predictions" value="1,240" />
-          <SummaryCard label="Last update" value="Live" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <SummaryCard
+            label="Matches Tracked"
+            value={matchesStatus === "ready" ? String(matches.length) : "—"}
+            loading={matchesStatus === "loading"}
+            icon={<Activity size={18} />}
+          />
+          <SummaryCard
+            label="Your Predictions"
+            value={
+              connected
+                ? userStatus === "ready"
+                  ? String(totalPredictions)
+                  : "—"
+                : "—"
+            }
+            loading={userStatus === "loading"}
+            icon={<ScrollText size={18} />}
+          />
+          <SummaryCard
+            label="Career Points"
+            value={
+              connected
+                ? userStatus === "ready"
+                  ? String(totalPoints)
+                  : "—"
+                : "—"
+            }
+            loading={userStatus === "loading"}
+            icon={<Trophy size={18} />}
+          />
         </div>
 
-        {/* Filters */}
-        <div className="mb-4 flex flex-col gap-3 bg-surface p-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
-            <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-              placeholder="Search events, players, payloads…"
-              className="h-10 w-full bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-purple"
+        {/* Logs card */}
+        <div className="mb-6 flex flex-col border border-surface bg-surface">
+          {/* Tabs */}
+          <div className="flex border-b border-surface">
+            <Tab
+              active={activeTab === "matches"}
+              onClick={() => setActiveTab("matches")}
+              icon={<Activity size={16} />}
+              label="All Matches"
+            />
+            <Tab
+              active={activeTab === "predictions"}
+              onClick={() => setActiveTab("predictions")}
+              icon={<ScrollText size={16} />}
+              label="My Predictions"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Filter size={16} className="text-muted" />
-            <select
-              value={filter}
-              onChange={(e) => { setFilter(e.target.value); setPage(0); }}
-              className="h-10 bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan"
-            >
-              <option value="all">All types</option>
-              {eventTypes.map((type) => (
-                <option key={type} value={type}>
-                  {formatType(type)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        {/* Event count + pagination info */}
-        <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wider text-muted">
-          <span>
-            {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
-          </span>
-          <span className="flex items-center gap-2">
-            <Clock size={12} />
-            Page {currentPage + 1}/{totalPages}
-          </span>
-        </div>
-
-        {/* Logs table */}
-        <div className="max-h-[55vh] overflow-y-auto bg-surface">
-          <div className="hidden grid-cols-12 gap-4 border-b border-surface-elevated px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-muted sm:grid sticky top-0 bg-surface z-10">
-            <div className="col-span-2">Time</div>
-            <div className="col-span-2">Type</div>
-            <div className="col-span-3">Players</div>
-            <div className="col-span-2">Side</div>
-            <div className="col-span-3">Payload</div>
-          </div>
-
-          {pageEvents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
-              <ScrollText size={36} className="mb-4 opacity-30" />
-              <p className="text-sm font-medium">No events match your filters.</p>
+          {/* Search / filter */}
+          {activeTab === "matches" && (
+            <div className="flex flex-col gap-3 border-b border-surface-elevated bg-surface p-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                  size={16}
+                />
+                <input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(0);
+                  }}
+                  placeholder="Search teams or fixture ID…"
+                  className="h-10 w-full bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-purple"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter size={16} className="text-muted" />
+                <select
+                  value={filterPhase}
+                  onChange={(e) => {
+                    setFilterPhase(e.target.value);
+                    setPage(0);
+                  }}
+                  className="h-10 bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan"
+                >
+                  <option value="all">All phases</option>
+                  {phaseOptions.map((phase) => (
+                    <option key={phase} value={phase}>
+                      {PHASE_LABEL[phase]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          ) : (
-            <div className="divide-y divide-surface-elevated">
-              {pageEvents.map((entry) => (
-                <LogRow key={entry.id} entry={entry} />
-              ))}
+          )}
+
+          {/* Scrollable panel */}
+          <div className="h-[55vh] overflow-y-auto">
+            {activeTab === "matches" ? (
+              <MatchLogs matches={pageMatches} status={matchesStatus} />
+            ) : (
+              <PredictionLogs
+                userMatches={userMatches}
+                matchesByFixture={matchesByFixture}
+                status={userStatus}
+                connected={connected}
+              />
+            )}
+          </div>
+
+          {/* Pagination */}
+          {activeTab === "matches" && totalPages > 1 && (
+            <div className="flex flex-shrink-0 items-center justify-between border-t border-surface-elevated px-4 py-3">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground disabled:opacity-30"
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted">
+                {currentPage + 1} / {totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setPage((p) => Math.min(totalPages - 1, p + 1))
+                }
+                disabled={currentPage >= totalPages - 1}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground disabled:opacity-30"
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
             </div>
           )}
         </div>
-
-        {/* Pagination controls */}
-        {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-4">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={currentPage === 0}
-              className="flex h-9 w-9 items-center justify-center border border-surface bg-surface text-muted transition-colors hover:border-purple hover:text-foreground disabled:opacity-30 disabled:hover:border-surface disabled:hover:text-muted"
-              aria-label="Previous page"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">
-              {currentPage + 1} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={currentPage >= totalPages - 1}
-              className="flex h-9 w-9 items-center justify-center border border-surface bg-surface text-muted transition-colors hover:border-purple hover:text-foreground disabled:opacity-30 disabled:hover:border-surface disabled:hover:text-muted"
-              aria-label="Next page"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
       </div>
     </PageShell>
   );
 }
 
-function LogRow({ entry }: { entry: EventEntry }) {
-  const minute = (entry.payload as { minute?: number })?.minute ?? null;
-  const side = (entry.payload as { side?: 1 | 2 })?.side ?? null;
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="grid grid-cols-1 gap-2 px-4 py-3 text-sm transition-colors hover:bg-background/50 sm:grid-cols-12 sm:gap-4"
-    >
-      <div className="flex items-center gap-2 sm:col-span-2">
-        <span className="text-xs font-mono text-muted">{entry.id}</span>
-        {minute !== null && (
-          <span className="text-xs font-bold text-cyan">{minute}&apos;</span>
-        )}
-      </div>
-      <div className="sm:col-span-2">
-        <span className="inline-flex items-center border border-surface-elevated bg-background px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-foreground">
-          {formatType(entry.type)}
-        </span>
-      </div>
-      <div className="sm:col-span-3">
-        {entry.players?.in || entry.players?.out ? (
-          <div className="text-xs">
-            {entry.players?.out && (
-              <p className="text-muted">
-                Out: <span className="text-foreground">{entry.players.out.name}</span>
-              </p>
-            )}
-            {entry.players?.in && (
-              <p className="text-muted">
-                In: <span className="text-foreground">{entry.players.in.name}</span>
-              </p>
-            )}
-          </div>
-        ) : (
-          <span className="text-xs text-muted">—</span>
-        )}
-      </div>
-      <div className="sm:col-span-2">
-        {side ? (
-          <span className={cn("text-xs font-bold uppercase", side === 1 ? "text-purple" : "text-cyan")}>
-            {side === 1 ? "Home" : "Away"}
-          </span>
-        ) : (
-          <span className="text-xs text-muted">—</span>
-        )}
-      </div>
-      <div className="sm:col-span-3">
-        <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted">
-          {JSON.stringify(entry.payload, null, 2)}
-        </pre>
-      </div>
-    </motion.div>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({
+  label,
+  value,
+  loading,
+  icon,
+}: {
+  label: string;
+  value: string;
+  loading?: boolean;
+  icon: React.ReactNode;
+}) {
   return (
     <div className="bg-surface p-4">
-      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted">{label}</p>
-      <p className="font-display text-lg text-foreground">{value}</p>
+      <div className="mb-2 flex h-8 w-8 items-center justify-center bg-background text-foreground">
+        {icon}
+      </div>
+      {loading ? (
+        <div className="h-7 w-24 animate-pulse bg-background" />
+      ) : (
+        <p className="font-display text-2xl tabular-nums text-foreground">
+          {value}
+        </p>
+      )}
+      <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-muted">
+        {label}
+      </p>
     </div>
   );
 }
 
-function formatType(type: string) {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function Tab({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-colors sm:flex-none",
+        active
+          ? "border-purple text-foreground"
+          : "border-transparent text-muted hover:text-foreground",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
 }
 
-const DEMO_EVENTS: EventEntry[] = [
-  {
-    id: "1719662400000-0",
-    type: "goal",
-    payload: { minute: 24, side: 1, scorerId: 10 },
-    players: {
-      out: null,
-      in: { id: 10, name: "Kylian Mbappé", number: "10", positionId: 4, position: "Forward", side: 1 },
-    },
-  },
-  {
-    id: "1719662400001-0",
-    type: "yellow_card",
-    payload: { minute: 41, side: 2, playerId: 6 },
-    players: {
-      out: null,
-      in: { id: 6, name: "Lisandro Martínez", number: "6", positionId: 2, position: "Defender", side: 2 },
-    },
-  },
-  {
-    id: "1719662400002-0",
-    type: "substitution",
-    payload: { minute: 63, side: 2, playerOutId: 11, playerInId: 7 },
-    players: {
-      out: { id: 11, name: "Giovani Lo Celso", number: "11", positionId: 3, position: "Midfielder", side: 2 },
-      in: { id: 7, name: "Rodrigo De Paul", number: "7", positionId: 3, position: "Midfielder", side: 2 },
-    },
-  },
-];
+function MatchLogs({
+  matches,
+  status,
+}: {
+  matches: MatchSummary[];
+  status: "idle" | "loading" | "error" | "ready";
+}) {
+  if (status === "loading") {
+    return (
+      <div className="space-y-3 p-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-20 animate-pulse bg-background" />
+        ))}
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-rose">
+        <AlertCircle size={32} className="mb-3" />
+        <p className="font-bold uppercase tracking-wider">Matches unavailable</p>
+        <p className="mt-1 text-sm">Couldn&apos;t load the match log.</p>
+      </div>
+    );
+  }
+
+  if (matches.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-muted">
+        <ScrollText size={36} className="mb-4 opacity-30" />
+        <p className="font-display text-xl tracking-wider">No matches found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface">
+      <div className="sticky top-0 z-10 hidden grid-cols-12 gap-4 border-b border-surface-elevated bg-surface px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-muted sm:grid">
+        <div className="col-span-4">Match</div>
+        <div className="col-span-2">Phase</div>
+        <div className="col-span-2">Score</div>
+        <div className="col-span-2">Pool</div>
+        <div className="col-span-2 text-right">Entries</div>
+      </div>
+      <div className="divide-y divide-surface-elevated">
+        {matches.map((match) => (
+          <MatchLogRow key={match.pda} match={match} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MatchLogRow({ match }: { match: MatchSummary }) {
+  const team1 = match.teamNames?.team1 ?? `Team ${match.onchain.team1Id}`;
+  const team2 = match.teamNames?.team2 ?? `Team ${match.onchain.team2Id}`;
+  const score = displayScore(match);
+  const pool = formatUsdcAmount(match.onchain.poolTotal);
+
+  return (
+    <Link
+      href={`/matches/${match.pda}`}
+      className="grid grid-cols-1 gap-3 px-4 py-5 text-base transition-colors hover:bg-background/50 sm:grid-cols-12 sm:gap-4"
+    >
+      <div className="flex items-center gap-3 sm:col-span-4">
+        <div className="flex -space-x-2">
+          <TeamBadge name={team1} size="md" />
+          <TeamBadge name={team2} size="md" />
+        </div>
+        <div>
+          <p className="font-bold text-foreground">
+            {team1} vs {team2}
+          </p>
+          <p className="text-xs text-muted">Fixture #{match.fixtureId}</p>
+        </div>
+      </div>
+      <div className="flex items-center sm:col-span-2">
+        <PhaseBadge phase={match.phase} />
+      </div>
+      <div className="flex items-center sm:col-span-2">
+        {score ? (
+          <span className="font-display text-xl tabular-nums text-foreground">
+            {score.team1} - {score.team2}
+          </span>
+        ) : (
+          <span className="text-sm text-muted">vs</span>
+        )}
+      </div>
+      <div className="flex items-center sm:col-span-2">
+        <span className="tabular-nums text-foreground">${pool}</span>
+      </div>
+      <div className="flex items-center justify-end gap-2 sm:col-span-2">
+        <span className="tabular-nums text-foreground">
+          {match.onchain.participantCount}
+        </span>
+        <ArrowRight size={16} className="text-muted" />
+      </div>
+    </Link>
+  );
+}
+
+function PhaseBadge({ phase }: { phase: MatchSummary["phase"] }) {
+  const color =
+    phase === "LIVE"
+      ? "text-rose border-rose/30 bg-rose/10"
+      : phase === "OPEN"
+        ? "text-emerald border-emerald/30 bg-emerald/10"
+        : phase === "UPCOMING"
+          ? "text-cyan border-cyan/30 bg-cyan/10"
+          : "text-muted border-surface-elevated bg-background";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+        color,
+      )}
+    >
+      {phase === "LIVE" && (
+        <span className="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-rose" />
+      )}
+      {PHASE_LABEL[phase]}
+    </span>
+  );
+}
+
+function PredictionLogs({
+  userMatches,
+  matchesByFixture,
+  status,
+  connected,
+}: {
+  userMatches: UserMatch[];
+  matchesByFixture: Map<number, MatchSummary>;
+  status: "idle" | "loading" | "error" | "ready";
+  connected: boolean;
+}) {
+  const [players, setPlayers] = useState<Map<number, { name: string; side: number }>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    if (!connected || userMatches.length === 0) return;
+    let active = true;
+
+    async function load() {
+      const maps = await Promise.all(
+        userMatches.map(async (um) => {
+          const match = matchesByFixture.get(um.fixtureId);
+          if (!match) return new Map<number, { name: string; side: number }>();
+          try {
+            const lineup = await getLineup(match.pda);
+            return lineupToPlayerMap(lineup);
+          } catch {
+            return new Map<number, { name: string; side: number }>();
+          }
+        }),
+      );
+      if (!active) return;
+      const merged = new Map<number, { name: string; side: number }>();
+      for (const map of maps) {
+        for (const [id, data] of map) {
+          merged.set(id, data);
+        }
+      }
+      setPlayers(merged);
+    }
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [connected, userMatches, matchesByFixture]);
+
+  if (!connected) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center text-muted">
+        <Wallet size={36} className="mb-4 opacity-30" />
+        <p className="font-display text-xl tracking-wider">
+          Connect Your Wallet
+        </p>
+        <p className="mt-2 max-w-sm text-sm">
+          Your prediction log will appear once a wallet is connected.
+        </p>
+      </div>
+    );
+  }
+
+  if (status === "loading") {
+    return (
+      <div className="space-y-3 p-4">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-24 animate-pulse bg-background" />
+        ))}
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-rose">
+        <AlertCircle size={32} className="mb-3" />
+        <p className="font-bold uppercase tracking-wider">
+          Predictions unavailable
+        </p>
+        <p className="mt-1 text-sm">
+          Couldn&apos;t load your prediction history.
+        </p>
+      </div>
+    );
+  }
+
+  if (userMatches.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center text-muted">
+        <ScrollText size={36} className="mb-4 opacity-30" />
+        <p className="font-display text-xl tracking-wider">
+          No Predictions Yet
+        </p>
+        <p className="mt-2 max-w-sm text-sm">
+          Enter a match and submit predictions to build your log.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 p-4">
+      {userMatches.map((userMatch) => (
+        <PredictionMatchCard
+          key={userMatch.fixtureId}
+          userMatch={userMatch}
+          match={matchesByFixture.get(userMatch.fixtureId) ?? null}
+          players={players}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PredictionMatchCard({
+  userMatch,
+  match,
+  players,
+}: {
+  userMatch: UserMatch;
+  match: MatchSummary | null;
+  players: Map<number, { name: string; side: number }>;
+}) {
+  const team1 = match?.teamNames?.team1 ?? "Home";
+  const team2 = match?.teamNames?.team2 ?? "Away";
+  const score = match ? displayScore(match) : null;
+  const final = userMatch.final;
+
+  return (
+    <div className="border border-surface-elevated bg-background p-4">
+      <div className="mb-4 flex flex-col gap-3 border-b border-surface-elevated pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex -space-x-2">
+            <TeamBadge name={team1} size="sm" />
+            <TeamBadge name={team2} size="sm" />
+          </div>
+          <div>
+            <p className="font-bold text-foreground">
+              {team1} vs {team2}
+            </p>
+            <p className="text-xs text-muted">
+              Fixture #{userMatch.fixtureId}
+              {score && (
+                <span className="ml-2 font-display text-foreground">
+                  {score.team1} - {score.team2}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              Rank
+            </p>
+            <p className="font-display text-xl tabular-nums text-foreground">
+              {userMatch.rank !== null ? `#${userMatch.rank + 1}` : "—"}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              Points
+            </p>
+            <p className="font-display text-xl tabular-nums text-foreground">
+              {userMatch.points}
+            </p>
+          </div>
+          {final && (
+            <span className="border border-surface-elevated bg-surface px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted">
+              Final
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {userMatch.predictions.map((prediction, i) => (
+          <PredictionPill
+            key={`${prediction.kind}-${i}`}
+            prediction={prediction}
+            players={players}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PredictionPill({
+  prediction,
+  players,
+}: {
+  prediction: UserMatchPrediction;
+  players: Map<number, { name: string; side: number }>;
+}) {
+  const sideText =
+    prediction.side === 1 ? "Home" : prediction.side === 2 ? "Away" : null;
+
+  return (
+    <div className="flex flex-col gap-1 bg-surface p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+          {predictionKindLabel(prediction.kind)}
+        </span>
+        {sideText && (
+          <span
+            className={cn(
+              "text-[10px] font-bold uppercase tracking-wider",
+              prediction.side === 1 ? "text-purple" : "text-cyan",
+            )}
+          >
+            {sideText}
+          </span>
+        )}
+      </div>
+      <p className="text-sm font-medium text-foreground">
+        {predictionText(prediction, players)}
+      </p>
+      {prediction.score && (
+        <p className="font-display text-lg tabular-nums text-foreground">
+          {prediction.score.score1} - {prediction.score.score2}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function predictionText(
+  prediction: UserMatchPrediction,
+  players: Map<number, { name: string; side: number }>,
+): string {
+  switch (prediction.kind) {
+    case 3:
+      return prediction.score
+        ? `Predicted ${prediction.score.score1}-${prediction.score.score2}`
+        : "Score prediction";
+    case 0: {
+      const p = players.get(prediction.outPlayerId);
+      return p
+        ? `Sub out ${p.name}`
+        : `Sub out player #${prediction.outPlayerId}`;
+    }
+    case 1: {
+      const p = players.get(prediction.inPlayerId);
+      return p ? `Sub in ${p.name}` : `Sub in player #${prediction.inPlayerId}`;
+    }
+    case 2: {
+      const out = players.get(prediction.outPlayerId);
+      const inn = players.get(prediction.inPlayerId);
+      if (out && inn) return `Sub out ${out.name}, in ${inn.name}`;
+      return `Sub out #${prediction.outPlayerId}, in #${prediction.inPlayerId}`;
+    }
+    default:
+      return "Prediction";
+  }
+}
+
+function lineupToPlayerMap(
+  lineup: Lineup,
+): Map<number, { name: string; side: number }> {
+  const map = new Map<number, { name: string; side: number }>();
+  for (const team of lineup.teams) {
+    for (const player of team.players) {
+      map.set(player.id, { name: player.name, side: team.side });
+    }
+  }
+  return map;
+}
