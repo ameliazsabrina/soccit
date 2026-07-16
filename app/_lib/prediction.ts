@@ -1,7 +1,7 @@
 "use client";
 
 import type { Connection, SendOptions } from "@solana/web3.js";
-import { VersionedTransaction } from "@solana/web3.js";
+import { Transaction } from "@solana/web3.js";
 import type { Adapter } from "@solana/wallet-adapter-base";
 import {
   preparePrediction,
@@ -26,14 +26,14 @@ export interface SubmitPredictionResult {
  * Full client-side prediction submission flow:
  *
  *   1. POST /api/prediction/prepare  → unsigned base64 transaction
- *   2. deserialize → VersionedTransaction
+ *   2. deserialize → legacy Transaction
  *   3. wallet.signTransaction(tx)
  *   4. connection.sendRawTransaction(tx.serialize())
  *   5. confirmTransaction
  *
  * There is no backend `/api/prediction/submit`. The user signs and submits the
- * prepared Solana transaction directly to Devnet. The connected wallet must hold
- * enough of the Soccit mock USDC (SOCCIT_USDC_MINT) to cover `entryFee`.
+ * prepared Solana transaction directly to Devnet. Entry is paid separately;
+ * prediction transactions must always report an entry fee of zero.
  */
 export async function submitPrediction(
   req: SubmitPredictionRequest
@@ -51,17 +51,20 @@ export async function submitPrediction(
   // 1. Prepare — ask the backend to build the unsigned Solana transaction.
   const prepare = await preparePrediction(input);
 
+  // Never sign a prediction that could charge the user a second entry fee.
+  if (prepare.entryFee !== "0") {
+    throw new Error(
+      "Prediction preparation returned a non-zero entry fee. Transaction blocked.",
+    );
+  }
+
   // 2. Deserialize the base64 transaction.
   const txBytes = Buffer.from(prepare.transaction, "base64");
-  const tx = VersionedTransaction.deserialize(txBytes);
+  const tx = Transaction.from(txBytes);
 
   // 3. Sign with the connected wallet.
-  // `signTransaction` on the adapter expects a VersionedTransaction in the
-  // standard wallet-adapter API (wallets that support versioned txs).
-  // Some adapters expose only `signTransaction` for legacy Transaction; fall
-  // back is not feasible for versioned, so we require versioned support.
-  const signedTx = await (adapter.signTransaction as (t: VersionedTransaction) =>
-    Promise<VersionedTransaction>)(tx);
+  const signedTx = await (adapter.signTransaction as (t: Transaction) =>
+    Promise<Transaction>)(tx);
 
   // 4. Send the signed transaction to Devnet.
   const sendOptions: SendOptions = {

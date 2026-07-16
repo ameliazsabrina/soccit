@@ -467,7 +467,7 @@ export type PreparePredictionOutput = {
   matchAccount: string; // match-account PDA (base58) — canonical route id
   userUsdcAta: string; // user's USDC ATA (created idempotently by tx)
   usdcMint: string;
-  entryFee: string; // USDC base units (6 dp)
+  entryFee: string; // enter-once model: must always be "0"
   blockhash: string;
   lastValidBlockHeight: number;
 };
@@ -480,8 +480,8 @@ export function preparePrediction(input: PreparePredictionInput) {
 }
 
 // ─── Enter Match (enter-once model) ──────────────────────────
-// These types model the new enter-once tx flow. The backend needs to
-// implement POST /api/match/enter/prepare and GET /api/matches/{pda}/entry/{wallet}.
+// The entry transaction pays the match fee once. Arena access is granted only
+// after the status endpoint confirms the wallet's on-chain entry.
 
 export type EnterMatchInput = {
   wallet: string; // base58 — becomes tx fee payer + signer
@@ -489,7 +489,7 @@ export type EnterMatchInput = {
 };
 
 export type EnterMatchOutput = {
-  transaction: string; // base64 unsigned versioned tx
+  transaction: string; // base64 serialized unsigned legacy Solana tx
   fixtureId: number;
   matchAccount: string; // match PDA
   userUsdcAta: string; // user's USDC ATA (created idempotently)

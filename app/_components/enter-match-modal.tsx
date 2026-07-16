@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, ArrowRight, Check } from "lucide-react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { formatUsdc, calculatePrizes } from "../_lib/api";
-import { submitEnter } from "../_lib/entry";
+import { formatUsdc, calculatePrizes, getEntryStatus } from "../_lib/api";
+import {
+  EntryConfirmationPendingError,
+  submitEnter,
+  waitForEntryConfirmation,
+} from "../_lib/entry";
 import { TeamBadge } from "./team-badge";
 
 export interface EnterMatchModalProps {
@@ -17,11 +21,18 @@ export interface EnterMatchModalProps {
   team1Name: string;
   team2Name: string;
   fixtureId: number;
+  matchPda: string;
   isDemo: boolean;
   onEntered: () => void;
 }
 
-type ModalState = "confirm" | "submitting" | "success" | "error";
+type ModalState =
+  | "confirm"
+  | "submitting"
+  | "verifying"
+  | "pending"
+  | "success"
+  | "error";
 
 export function EnterMatchModal({
   open,
@@ -32,6 +43,7 @@ export function EnterMatchModal({
   team1Name,
   team2Name,
   fixtureId,
+  matchPda,
   isDemo,
   onEntered,
 }: EnterMatchModalProps) {
@@ -83,9 +95,19 @@ export function EnterMatchModal({
     setErrorMsg(null);
 
     try {
+      // A retry must verify status before preparing another payment. This also
+      // handles users whose entry was confirmed in another tab or session.
+      const existingEntry = await getEntryStatus(matchPda, publicKey.toBase58());
+      if (existingEntry.entered) {
+        setState("success");
+        setTimeout(onEntered, 1200);
+        return;
+      }
+
       const result = await submitEnter({
         connection,
         adapter: wallet.adapter,
+        expectedMatchPda: matchPda,
         input: {
           wallet: publicKey.toBase58(),
           fixtureId,
@@ -99,10 +121,35 @@ export function EnterMatchModal({
         onEntered();
       }, 1500);
     } catch (err) {
+      if (err instanceof EntryConfirmationPendingError) {
+        setSignature(err.signature);
+        setState("pending");
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Entry transaction failed.";
       setErrorMsg(msg);
       setState("error");
     }
+  }
+
+  async function handleCheckAgain() {
+    if (!publicKey) {
+      setErrorMsg("Reconnect the wallet used for the entry transaction.");
+      setState("error");
+      return;
+    }
+
+    setState("verifying");
+    const entry = await waitForEntryConfirmation(
+      matchPda,
+      publicKey.toBase58(),
+    );
+    if (entry?.entered) {
+      setState("success");
+      setTimeout(onEntered, 1200);
+      return;
+    }
+    setState("pending");
   }
 
   return (
@@ -218,12 +265,49 @@ export function EnterMatchModal({
               <div className="flex flex-col items-center px-8 py-12 text-center">
                 <Loader2 size={32} className="animate-spin text-cyan" />
                 <h2 className="unica-one mt-4 text-xl text-foreground">
-                  CONFIRM IN WALLET
+                  CONFIRMING ENTRY
                 </h2>
                 <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted">
-                  Confirm the entry transaction in your wallet to pay the entry
-                  fee and join the match.
+                  Confirm the entry transaction in your wallet. We&apos;ll unlock
+                  the arena after the backend verifies your entry.
                 </p>
+              </div>
+            )}
+
+            {state === "verifying" && (
+              <div className="flex flex-col items-center px-8 py-12 text-center">
+                <Loader2 size={32} className="animate-spin text-cyan" />
+                <h2 className="unica-one mt-4 text-xl text-foreground">
+                  CHECKING STATUS
+                </h2>
+                <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted">
+                  Waiting for the backend to confirm your match entry. No new
+                  payment transaction will be sent.
+                </p>
+              </div>
+            )}
+
+            {state === "pending" && (
+              <div className="flex flex-col items-center px-8 py-10 text-center">
+                <Loader2 size={30} className="text-cyan" />
+                <h2 className="unica-one mt-4 text-xl text-foreground">
+                  CONFIRMATION PENDING
+                </h2>
+                <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
+                  Your transaction was submitted, but the entry index is still
+                  updating. Check again without sending another payment.
+                </p>
+                {signature && (
+                  <p className="mt-2 font-mono text-xs text-muted">
+                    {signature.slice(0, 8)}…{signature.slice(-4)}
+                  </p>
+                )}
+                <button
+                  onClick={handleCheckAgain}
+                  className="mt-6 flex h-11 items-center justify-center gap-2 border border-foreground px-8 font-display text-sm uppercase tracking-[0.1em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+                >
+                  Check Again
+                </button>
               </div>
             )}
 

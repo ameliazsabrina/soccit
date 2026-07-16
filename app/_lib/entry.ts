@@ -1,31 +1,68 @@
 "use client";
 
 import type { Connection, SendOptions } from "@solana/web3.js";
-import { VersionedTransaction } from "@solana/web3.js";
+import { Transaction } from "@solana/web3.js";
 import type { Adapter } from "@solana/wallet-adapter-base";
 import {
   prepareEnter,
+  getEntryStatus,
   type EnterMatchInput,
   type EnterMatchOutput,
+  type EntryStatus,
 } from "./api";
+
+const ENTRY_CONFIRMATION_ATTEMPTS = 15;
+const ENTRY_CONFIRMATION_INTERVAL_MS = 1_000;
 
 export interface SubmitEnterRequest {
   connection: Connection;
   adapter: Adapter;
   input: EnterMatchInput;
+  expectedMatchPda: string;
 }
 
 export interface SubmitEnterResult {
   signature: string;
   prepare: EnterMatchOutput;
+  entry: EntryStatus;
   slot: number;
+}
+
+export class EntryConfirmationPendingError extends Error {
+  constructor(public readonly signature: string) {
+    super("Entry transaction was confirmed, but entry status is still updating.");
+    this.name = "EntryConfirmationPendingError";
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function waitForEntryConfirmation(
+  pda: string,
+  wallet: string,
+): Promise<EntryStatus | null> {
+  for (let attempt = 0; attempt < ENTRY_CONFIRMATION_ATTEMPTS; attempt += 1) {
+    try {
+      const entry = await getEntryStatus(pda, wallet);
+      if (entry.entered) return entry;
+    } catch {
+      // The entry index can briefly lag the confirmed transaction. Retry the
+      // same read and let the caller surface a pending state after the timeout.
+    }
+    if (attempt < ENTRY_CONFIRMATION_ATTEMPTS - 1) {
+      await delay(ENTRY_CONFIRMATION_INTERVAL_MS);
+    }
+  }
+  return null;
 }
 
 /**
  * Full client-side entry fee payment flow:
  *
  *   1. POST /api/match/enter/prepare  → unsigned base64 transaction
- *   2. deserialize → VersionedTransaction
+ *   2. deserialize → legacy Transaction
  *   3. wallet.signTransaction(tx)
  *   4. connection.sendRawTransaction(tx.serialize())
  *   5. confirmTransaction
@@ -37,7 +74,7 @@ export interface SubmitEnterResult {
 export async function submitEnter(
   req: SubmitEnterRequest
 ): Promise<SubmitEnterResult> {
-  const { connection, adapter, input } = req;
+  const { connection, adapter, input, expectedMatchPda } = req;
 
   if (!adapter.publicKey) {
     throw new Error("Wallet not connected.");
@@ -50,13 +87,17 @@ export async function submitEnter(
   // 1. Prepare — ask the backend to build the unsigned Solana transaction.
   const prepare = await prepareEnter(input);
 
+  if (prepare.matchAccount !== expectedMatchPda) {
+    throw new Error("Entry transaction does not match the requested match.");
+  }
+
   // 2. Deserialize the base64 transaction.
   const txBytes = Buffer.from(prepare.transaction, "base64");
-  const tx = VersionedTransaction.deserialize(txBytes);
+  const tx = Transaction.from(txBytes);
 
   // 3. Sign with the connected wallet.
-  const signedTx = await (adapter.signTransaction as (t: VersionedTransaction) =>
-    Promise<VersionedTransaction>)(tx);
+  const signedTx = await (adapter.signTransaction as (t: Transaction) =>
+    Promise<Transaction>)(tx);
 
   // 4. Send the signed transaction to Devnet.
   const sendOptions: SendOptions = {
@@ -80,9 +121,16 @@ export async function submitEnter(
     );
   }
 
+  const entry = await waitForEntryConfirmation(
+    prepare.matchAccount,
+    input.wallet,
+  );
+  if (!entry) throw new EntryConfirmationPendingError(signature);
+
   return {
     signature,
     prepare,
+    entry,
     slot: confirmation.context.slot,
   };
 }

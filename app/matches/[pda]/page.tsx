@@ -26,6 +26,7 @@ import {
   getMatch,
   getLineup,
   getUser,
+  getEntryStatus,
   getLeaderboard,
   isValidPda,
   formatUsdc,
@@ -61,6 +62,7 @@ import {
 import { useWallet } from "@solana/wallet-adapter-react";
 
 type ModeKey = "sub" | "score";
+type EntryState = "checking" | "entered" | "not-entered" | "error";
 
 export default function MatchDetails() {
   const params = useParams();
@@ -92,7 +94,10 @@ export default function MatchDetails() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showVaultModal, setShowVaultModal] = useState(false);
   const [showEnterModal, setShowEnterModal] = useState(false);
-  const [hasEntered, setHasEntered] = useState(false);
+  const [entryState, setEntryState] = useState<EntryState>(
+    isDemo ? "entered" : "not-entered",
+  );
+  const hasEntered = entryState === "entered";
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pendingMode, setPendingMode] = useState<ModeKey | null>(null);
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(
@@ -123,6 +128,30 @@ export default function MatchDetails() {
       .then(setProfile)
       .catch(() => setProfile(null));
   }, [connected, publicKey, isDemo]);
+
+  useEffect(() => {
+    if (isDemo) {
+      setEntryState("entered");
+      return;
+    }
+    if (!connected || !publicKey || !isValidPda(pda)) {
+      setEntryState("not-entered");
+      return;
+    }
+
+    let cancelled = false;
+    setEntryState("checking");
+    getEntryStatus(pda, publicKey.toBase58())
+      .then((entry) => {
+        if (!cancelled) setEntryState(entry.entered ? "entered" : "not-entered");
+      })
+      .catch(() => {
+        if (!cancelled) setEntryState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, publicKey, pda, isDemo]);
 
   useEffect(() => {
     if (connected && publicKey && pendingMode && !profile) {
@@ -198,7 +227,7 @@ export default function MatchDetails() {
     }
   }
 
-  function handleSelectMode(mode: ModeKey | "result") {
+  async function handleSelectMode(mode: ModeKey | "result") {
     if (mode === "result") {
       router.push(`/matches/${pda}/settlement`);
       return;
@@ -217,19 +246,38 @@ export default function MatchDetails() {
       setShowOnboarding(true);
       return;
     }
+    if (entryState === "checking") return;
+    if (entryState === "error" && publicKey) {
+      setEntryState("checking");
+      try {
+        const entry = await getEntryStatus(pda, publicKey.toBase58());
+        if (entry.entered) {
+          setEntryState("entered");
+          router.push(`/matches/${pda}/arena?model=${mode}`);
+          return;
+        }
+        setEntryState("not-entered");
+      } catch {
+        setEntryState("error");
+        return;
+      }
+    }
     // Real match: open the Enter Match modal.
     // If already entered, route directly to the arena.
     if (hasEntered) {
-      router.push(`/matches/${pda}/arena?model=${mode}&entered=1`);
+      router.push(`/matches/${pda}/arena?model=${mode}`);
       return;
     }
+    setPendingMode(mode);
     setShowEnterModal(true);
   }
 
   function handleEntered() {
-    setHasEntered(true);
+    const mode = pendingMode ?? "score";
+    setEntryState("entered");
     setShowEnterModal(false);
-    router.push(`/matches/${pda}/arena?model=score&entered=1`);
+    setPendingMode(null);
+    router.push(`/matches/${pda}/arena?model=${mode}`);
   }
 
   function handleOnboardingSuccess() {
@@ -368,6 +416,8 @@ export default function MatchDetails() {
               isLive={isLive}
               isDemo={isDemo}
               hasEntered={hasEntered}
+              entryChecking={entryState === "checking"}
+              entryError={entryState === "error"}
               entriesPending={entriesPending}
               opensInSecs={entriesPending ? opensAt! - nowSecs : 0}
               onClick={() => handleSelectMode("score")}
@@ -408,6 +458,7 @@ export default function MatchDetails() {
         team1Name={team1?.teamName ?? "Home"}
         team2Name={team2?.teamName ?? "Away"}
         fixtureId={match?.fixtureId ?? 0}
+        matchPda={pda}
         isDemo={isDemo}
         onEntered={handleEntered}
       />
@@ -610,6 +661,8 @@ function EnterCard({
   isLive,
   isDemo,
   hasEntered,
+  entryChecking,
+  entryError,
   entriesPending,
   opensInSecs,
   onClick,
@@ -617,6 +670,8 @@ function EnterCard({
   isLive: boolean;
   isDemo: boolean;
   hasEntered: boolean;
+  entryChecking: boolean;
+  entryError: boolean;
   entriesPending: boolean;
   opensInSecs: number;
   onClick: () => void;
@@ -651,17 +706,37 @@ function EnterCard({
     >
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple via-cyan to-purple" />
       <h2 className="font-display text-xl text-foreground">
-        {hasEntered ? "Enter Arena" : isLive ? "Enter Live Match" : "Enter Match"}
+        {entryChecking
+          ? "Checking Entry"
+          : entryError
+            ? "Retry Entry Check"
+          : hasEntered
+            ? "Enter Arena"
+            : isLive
+              ? "Enter Live Match"
+              : "Enter Match"}
       </h2>
       <p className="max-w-xs text-center text-sm text-muted">
-        {hasEntered
+        {entryChecking
+          ? "Verifying your wallet's entry status…"
+          : entryError
+            ? "Entry status is unavailable. Retry before entering or paying."
+          : hasEntered
           ? "You're in! Jump back to the arena to lock more predictions."
           : isLive
             ? "Predict the score, subs, and goalscorers as the match unfolds."
             : "Lock your predictions before kickoff."}
       </p>
       <span className="btn-gradient flex h-12 items-center px-10 font-display text-sm uppercase tracking-[0.1em] text-white transition-transform group-hover:scale-105">
-        {isDemo ? "Try Demo" : hasEntered ? "Arena" : "Enter"}
+        {isDemo
+          ? "Try Demo"
+          : entryChecking
+            ? "Checking…"
+            : entryError
+              ? "Retry"
+              : hasEntered
+                ? "Arena"
+                : "Enter"}
         <ArrowRight size={16} className="ml-2" />
       </span>
     </PageTransition>

@@ -22,6 +22,7 @@ import type { SubstitutionPrediction } from "../../../_components/confirm-subs-m
 import {
   getMatch,
   getLineup,
+  getEntryStatus,
   displayScore,
   isValidPda,
   isTerminalPhase,
@@ -83,6 +84,7 @@ const DEMO_MATCH: MatchState = {
 const DEMO_LINEUP: Lineup = demoLineup();
 
 type ArenaModel = "sub" | "score" | "goalscorer";
+type EntryState = "checking" | "entered" | "not-entered" | "error";
 
 function playerRating(positionId: number | null, starter: boolean): number {
   const broadPosition = positionId != null && positionId >= 34
@@ -122,10 +124,6 @@ export default function ArenaPage() {
   const isSeed = rawPda === SOCCIT_SEED_MATCH_PDA || searchParams.get("seed") === "1";
   const pda = isDemo ? DEMO_PDA : rawPda;
 
-  // Entry gate: demo always allowed. Real matches require ?entered=1 (set by
-  // the match page after a successful entry tx). In the future this will be a
-  // backend check (GET /api/matches/{pda}/entry/{wallet}) instead of a URL flag.
-  const hasEntered = isDemo || isSeed || searchParams.get("entered") === "1";
   const modelParam = searchParams.get("model");
   const model: ArenaModel = ["sub", "score", "goalscorer"].includes(modelParam ?? "")
     ? (modelParam as ArenaModel)
@@ -137,6 +135,7 @@ export default function ArenaPage() {
 
   function buildModelHref(m: string) {
     const qs = new URLSearchParams(searchParams.toString());
+    qs.delete("entered");
     qs.set("model", m);
     return `/matches/${pda}/arena?${qs.toString()}`;
   }
@@ -159,6 +158,9 @@ export default function ArenaPage() {
   const [lockedPredictions, setLockedPredictions] = useState<SubstitutionPrediction[]>([]);
   const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
   const [showLoadingTransition, setShowLoadingTransition] = useState(true);
+  const [entryState, setEntryState] = useState<EntryState>(
+    isDemo ? "entered" : "checking",
+  );
   const notifs = useNotifications();
   const submitNotifId = useRef<string | null>(null);
 
@@ -206,6 +208,7 @@ export default function ArenaPage() {
 
   function handleTeamSelected(selectedSide: 1 | 2) {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("entered");
     params.set("side", String(selectedSide));
     router.replace(`/matches/${pda}/arena?${params.toString()}`);
     setShowTeamPicker(false);
@@ -225,6 +228,49 @@ export default function ArenaPage() {
     loadMatch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pda, isDemo, isSeed]);
+
+  async function loadEntryStatus() {
+    if (isDemo) {
+      setEntryState("entered");
+      return;
+    }
+    if (!connected || !publicKey || !isValidPda(pda)) {
+      setEntryState("not-entered");
+      return;
+    }
+
+    setEntryState("checking");
+    try {
+      const entry = await getEntryStatus(pda, publicKey.toBase58());
+      setEntryState(entry.entered ? "entered" : "not-entered");
+    } catch {
+      setEntryState("error");
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    if (isDemo) {
+      setEntryState("entered");
+      return;
+    }
+    if (!connected || !publicKey || !isValidPda(pda)) {
+      setEntryState("not-entered");
+      return;
+    }
+
+    setEntryState("checking");
+    getEntryStatus(pda, publicKey.toBase58())
+      .then((entry) => {
+        if (!cancelled) setEntryState(entry.entered ? "entered" : "not-entered");
+      })
+      .catch(() => {
+        if (!cancelled) setEntryState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, publicKey, pda, isDemo]);
 
   async function loadMatch() {
     setLoading(true);
@@ -301,6 +347,13 @@ export default function ArenaPage() {
     });
 
     try {
+      const entry = await getEntryStatus(pda, walletBase58);
+      if (!entry.entered) {
+        setEntryState("not-entered");
+        throw new Error("Enter this match before submitting a prediction.");
+      }
+      setEntryState("entered");
+
       const result = await submitPrediction({
         connection,
         adapter: wallet.adapter,
@@ -329,15 +382,12 @@ export default function ArenaPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submission failed.";
       setLocked(false);
-      const usdcHint = /insufficient funds|0x1|custom program error/i.test(msg)
-        ? " — your wallet may need the Soccit mock USDC to pay the entry fee."
-        : "";
       if (submitNotifId.current) notifs.dismiss(submitNotifId.current);
       notifs.push({
         id: "submit-error",
         type: "error",
         title: "Submission failed",
-        message: `${msg}${usdcHint}`,
+        message: msg,
         duration: 8000,
       });
     } finally {
@@ -424,9 +474,40 @@ export default function ArenaPage() {
   }
 
   // ── Entry gate ──────────────────────────────────────────────
-  // Only users who've paid the entry fee can access the arena.
-  // Demo/seed always allowed. Real matches require ?entered=1.
-  if (!hasEntered) {
+  // The backend status endpoint is authoritative; URL state never grants access.
+  if (entryState === "checking") {
+    return (
+      <PageShell>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+          <RefreshCw size={28} className="animate-spin text-cyan" />
+          <h2 className="font-display text-2xl text-foreground">Checking Entry</h2>
+          <p className="text-sm text-muted">Verifying this wallet&apos;s match access…</p>
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (entryState === "error") {
+    return (
+      <PageShell>
+        <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
+          <AlertCircle className="mb-4 text-rose" size={48} />
+          <h2 className="font-display text-2xl text-foreground">Entry Check Failed</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            We couldn&apos;t verify your entry. Arena access remains locked until the backend confirms it.
+          </p>
+          <button
+            onClick={loadEntryStatus}
+            className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+          >
+            <RefreshCw size={16} /> Retry Check
+          </button>
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (entryState !== "entered") {
     return (
       <PageShell>
         <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
