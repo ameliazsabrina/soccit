@@ -28,10 +28,21 @@ same process:
   Any browser origin can call the API. (Verified live — see snippets below.)
 - **No bearer auth for reads.** All `GET` endpoints are public; no token, cookie, or API key
   is required.
-- **User writes require a wallet signature.** `POST /api/user` and `PATCH /api/user/:wallet/avatar`
-  require a `message` + `signature` in the request body. The server verifies that the signature
-  was produced by the wallet (ed25519 via tweetnacl). There is no session — every write is
-  independently signed.
+- **Onboarding is signature-based; profile edits use a session token.** There are two auth
+  primitives:
+  - **A wallet ed25519 signature** proves wallet ownership. It is required exactly twice: to
+    **register** (`POST /api/user`, sign `Soccit onboarding: <wallet>`) and to **open a session**
+    (`POST /api/auth/session`, sign `Soccit session: <wallet> @ <issuedAt>`). The server verifies
+    the signature with tweetnacl.
+  - **A Bearer session token** (a short HS256 JWT) authorizes subsequent profile edits. Send it as
+    `Authorization: Bearer <token>`. `PATCH /api/user/:wallet/avatar` and
+    `PATCH /api/user/:wallet/username` require it — they no longer take a per-write signature. The
+    token's subject must match the `:wallet` in the path.
+  - **`POST /api/user` returns a session token** in its response (`session`), so a freshly
+    registered user can edit their profile immediately without a second signature. Existing users
+    call `POST /api/auth/session` to get one. Tokens expire (default 24h — see `session.expiresAt`).
+  - Session auth requires the API to be started with `SESSION_JWT_SECRET` set. Without it,
+    `POST /api/auth/session` returns `503` and `POST /api/user` returns `"session": null`.
 
 ### CORS — verified
 
@@ -136,6 +147,7 @@ These types are referenced by multiple endpoints.
 
 ```ts
 export type AvatarId =
+  | "avatar-0"
   | "avatar-1"
   | "avatar-2"
   | "avatar-3"
@@ -143,7 +155,12 @@ export type AvatarId =
   | "avatar-5"
   | "avatar-6"
   | "avatar-7"
-  | "avatar-8";
+  | "avatar-8"
+  | "avatar-9"
+  | "avatar-10"
+  | "avatar-11";
+// 12 avatars in all. The canonical list (with `src`) is served by GET /api/avatars (#9).
+// Each descriptor's `src` is a relative path, e.g. "/avatars/avatar-3.webp".
 
 // A player resolved against the stored lineup index.
 export type ResolvedPlayer = {
@@ -297,7 +314,7 @@ type MatchSummary = {
       "startTime": 1782446400,
       "team1Id": 3220,
       "team2Id": 1619,
-      "usdcMint": "2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac",
+      "usdcMint": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
       "winners": [null, null, null]
     },
     "live": { "statusId": 4, "minute": 90, "goals": { "team1": 2, "team2": 0 }, "ts": 1782958444741 },
@@ -456,8 +473,11 @@ type PreparePredictionOutput = {
   those, `prepare` returns `entryFee: "0"` and the tx transfers nothing. Show the user the returned
   `entryFee` so they know whether this pick costs anything.
 - On the paying (first) pick the wallet **must already hold at least `entryFee` of `usdcMint`**,
-  plus a little SOL for network fees. `usdcMint` is whatever mint the match was created with — read
-  it from the response (do not assume mainnet USDC).
+  plus a little SOL for network fees. `usdcMint` is the canonical per-cluster USDC mint the match was
+  created with (devnet: `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`) — read it from the response.
+  `prepare` now **preflights the balance** on the paying pick: if the wallet holds less than
+  `entryFee` of `usdcMint`, it returns **`402`** with `required`/`available`/`mint` instead of
+  letting the tx fail at simulation with a bare SPL Token `0x1`.
 - **Do not track slots client-side** — the server reads the wallet's on-chain entry and returns the
   correct `slotIndex`/`prediction` PDA. Just call `prepare` again for each additional pick.
 - **Entry window (opens 10 min before kickoff):** a match's room becomes entry-able at
@@ -476,6 +496,8 @@ type PreparePredictionOutput = {
 | `404`  | `{ "error": "No match found for fixture <id>" }`                        | No on-chain Match account for that `fixtureId`.  |
 | `409`  | `{ "error": "Match <id> is not open for predictions (status: <label>)" }` | Match exists but status is not `OPEN`.         |
 | `409`  | `{ "error": "Entries for match <id> open 10 minutes before kickoff (starts at <ts>)" }` | Called before the entry window opens (>10 min before kickoff). |
+| `409`  | `{ "error": "Match <id> was created against USDC mint … must be recreated" }` | Match was provisioned against a non-canonical (mock) mint — it can't accept predictions and must be recreated. |
+| `402`  | `{ "error": "Insufficient USDC balance …", "required": "5000000", "available": "0", "mint": "4zMMC9…" }` | Wallet holds less than `entryFee` of the match's USDC mint on the paying pick. |
 | `500`  | `Internal Server Error` (plain text)                                    | Solana RPC failed (fetching match / blockhash).  |
 
 **Verified live (validation + open match):**
@@ -493,7 +515,7 @@ $ curl -s -X POST https://13.213.196.237.sslip.io/api/prediction/prepare \
     -d '{"wallet":"G6vSMwTKg9ZvF1dP8T5tN2jEZkvzaErw8SkEqcBAdu9R","fixtureId":18172379,
          "side":1,"kind":0,"outPlayerId":0,"inPlayerId":0,"lockMinute":45}'
 {"transaction":"AQAAAAAAAA…","fixtureId":18172379,"prediction":"…","matchAccount":"AH9SCug…",
- "userUsdcAta":"…","usdcMint":"2SJtTmJJ83maUrmoDMc6ZYgGM9migp9FjEKMbARm4cac","entryFee":"5000000",
+ "userUsdcAta":"…","usdcMint":"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU","entryFee":"5000000",
  "slotIndex":0,"blockhash":"…","lastValidBlockHeight":…}
 
 # a score prediction (final score 2–1) → side 0, kind 3, goals in out/in
@@ -926,23 +948,24 @@ Returns the list of available avatars and their image sources.
 ```ts
 type AvatarDescriptor = {
   id: AvatarId;
-  src: string; // relative path, e.g. "/avatars/avatar-1.png"
+  src: string; // relative path, e.g. "/avatars/avatar-1.webp"
 };
 
-type AvatarsResponse = AvatarDescriptor[];
+type AvatarsResponse = AvatarDescriptor[]; // 12 descriptors, avatar-0 … avatar-11
 ```
 
-> `src` is a relative path (`/avatars/<id>.png`). The frontend is responsible for hosting/serving
-> those images; the API does not serve the image binaries.
+> `src` is a relative path (`/avatars/<id>.webp`). The frontend is responsible for hosting/serving
+> those avatar images; the API does not serve the avatar binaries. (This is separate from
+> `GET /api/assets/:path` (#19), which serves competition banner/logo assets, not avatars.)
 
-**Verified live:**
+**Verified live (2026-07-11 — 12 avatars):**
 
 ```bash
 $ curl https://13.213.196.237.sslip.io/api/avatars
-[{"id":"avatar-1","src":"/avatars/avatar-1.png"},
- {"id":"avatar-2","src":"/avatars/avatar-2.png"},
+[{"id":"avatar-0","src":"/avatars/avatar-0.webp"},
+ {"id":"avatar-1","src":"/avatars/avatar-1.webp"},
  ...
- {"id":"avatar-8","src":"/avatars/avatar-8.png"}]
+ {"id":"avatar-11","src":"/avatars/avatar-11.webp"}]
 ```
 
 ---
@@ -964,7 +987,7 @@ type RegisterUserInput = {
 };
 ```
 
-- **Success:** `200` → `UserProfile`
+- **Success:** `200` → `RegisterUserResponse` (a `UserProfile` plus an embedded session token)
 
 ```ts
 type UserProfile = {
@@ -972,6 +995,12 @@ type UserProfile = {
   username: string;
   avatar: AvatarId | null;
   createdAt: number; // epoch ms
+};
+
+type RegisterUserResponse = UserProfile & {
+  // A ready-to-use session token so the new user can edit their profile without re-signing.
+  // `null` when the API has no SESSION_JWT_SECRET configured — fall back to POST /api/auth/session.
+  session: { token: string; expiresAt: number } | null; // expiresAt is epoch ms
 };
 ```
 
@@ -1005,11 +1034,17 @@ curl -X POST https://13.213.196.237.sslip.io/api/user \
   "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PB5wsfV",
   "username": "alice",
   "avatar": "avatar-3",
-  "createdAt": 1719662400000
+  "createdAt": 1719662400000,
+  "session": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5eFFl…",
+    "expiresAt": 1719748800000
+  }
 }
 ```
 
-_(schema example — requires a valid wallet signature, not fetched from production)_
+_(schema example — requires a valid wallet signature, not fetched from production. `session` is
+`null` if the API has no `SESSION_JWT_SECRET`; store `session.token` and send it as a Bearer token
+on `PATCH /api/user/:wallet/avatar` and `.../username`.)_
 
 **Verified live (validation path):**
 
@@ -1056,8 +1091,10 @@ HTTP/2 404
 
 ### 12. `PATCH /api/user/:wallet/avatar`
 
-Updates a user's avatar. The request must be signed by the wallet.
+Updates a user's avatar. **Requires a Bearer session token** whose subject matches `:wallet` (get
+one from `POST /api/user` or `POST /api/auth/session`). No per-write signature.
 
+- **Auth:** `Authorization: Bearer <session token>` (required).
 - **Path params:**
   - `wallet` — 32–44 char wallet string. The path `wallet` is merged into the validated body
     server-side (so you do not repeat it in the JSON body).
@@ -1066,8 +1103,6 @@ Updates a user's avatar. The request must be signed by the wallet.
 ```ts
 type SetAvatarInput = {
   avatar: AvatarId;
-  message: string;
-  signature: string;
 };
 ```
 
@@ -1075,32 +1110,73 @@ type SetAvatarInput = {
 
 **Error statuses:**
 
-| Status | Body                                                  | When                                        |
-| ------ | ---------------------------------------------------- | ------------------------------------------- |
-| `400`  | `{ "error": "invalid body" }`                        | Body/path fails schema validation.          |
-| `401`  | `{ "error": "Wallet signature verification failed" }` | Signature does not verify.                  |
-| `404`  | `{ "error": "No profile found for wallet <wallet>" }` | No profile to update.                       |
+| Status | Body                                                  | When                                                          |
+| ------ | ---------------------------------------------------- | ------------------------------------------------------------- |
+| `400`  | `{ "error": "invalid body" }`                        | Body/path fails schema validation (bad `avatar`/wallet).      |
+| `401`  | `{ "error": "Missing bearer token" }`                | No `Authorization: Bearer …` header.                          |
+| `401`  | `{ "error": "Bad token signature" }` / `"Malformed token"` | Token is not a valid JWT signed by this API.            |
+| `401`  | `{ "error": "Token expired" }`                       | Token past its `exp` — open a new session.                    |
+| `401`  | `{ "error": "Wallet mismatch" }`                     | Token subject ≠ the `:wallet` in the path.                    |
+| `404`  | `{ "error": "No profile found for wallet <wallet>" }` | No profile to update.                                        |
 
 **Example request:**
 
 ```bash
 curl -X PATCH https://13.213.196.237.sslip.io/api/user/9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PB5wsfV/avatar \
   -H "content-type: application/json" \
-  -d '{
-    "avatar": "avatar-5",
-    "message": "<signed message>",
-    "signature": "<base58 ed25519 signature>"
-  }'
+  -H "authorization: Bearer <session token>" \
+  -d '{ "avatar": "avatar-5" }'
 ```
 
-**Verified live (validation path):**
+**Verified live (auth path):**
 
 ```bash
 $ curl -i -X PATCH https://13.213.196.237.sslip.io/api/user/11111111111111111111111111111111/avatar \
-    -H "content-type: application/json" -d '{}'
-HTTP/2 400
-{"error":"invalid body"}
+    -H "content-type: application/json" -d '{"avatar":"avatar-5"}'
+HTTP/2 401
+{"error":"Missing bearer token"}
 ```
+
+---
+
+### 12b. `PATCH /api/user/:wallet/username`
+
+Updates a user's username. **Requires a Bearer session token** whose subject matches `:wallet`
+(same auth as `PATCH .../avatar`). No per-write signature.
+
+- **Auth:** `Authorization: Bearer <session token>` (required).
+- **Path params:**
+  - `wallet` — 32–44 char wallet string. Merged into the validated body server-side.
+- **Request body:**
+
+```ts
+type SetUsernameInput = {
+  username: string; // 3–20 chars, /^[a-zA-Z0-9_]+$/
+};
+```
+
+- **Success:** `200` → `UserProfile` (see above)
+
+**Error statuses:**
+
+| Status | Body                                                  | When                                                     |
+| ------ | ---------------------------------------------------- | -------------------------------------------------------- |
+| `400`  | `{ "error": "invalid body" }`                        | `username` fails schema validation.                      |
+| `401`  | `{ "error": "Missing bearer token" }` / `"Token expired"` / `"Wallet mismatch"` / … | Session token missing/invalid/expired, or subject ≠ path wallet. |
+| `409`  | `{ "error": "Username <username> is already taken" }` | The new username is taken by another wallet.             |
+| `404`  | `{ "error": "No profile found for wallet <wallet>" }` | No profile to update.                                   |
+
+**Example request:**
+
+```bash
+curl -X PATCH https://13.213.196.237.sslip.io/api/user/9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PB5wsfV/username \
+  -H "content-type: application/json" \
+  -H "authorization: Bearer <session token>" \
+  -d '{ "username": "alice2" }'
+```
+
+> **REST only.** There is no tRPC equivalent for `setUsername` — the tRPC `user` router exposes
+> `register`, `get`, `setAvatar`, `matches`, and `avatars` only.
 
 ---
 
@@ -1221,6 +1297,236 @@ _(schema example — a `503` is returned until `TXLINE_API_TOKEN` is set on the 
 
 ---
 
+### 15. `POST /api/auth/session`
+
+Exchanges a one-time wallet signature for a **Bearer session token** used to authorize profile
+edits (`PATCH .../avatar`, `PATCH .../username`). Existing users call this; freshly registered users
+already have a token from `POST /api/user`.
+
+- **Path params:** none
+- **Request body:**
+
+```ts
+type SessionInput = {
+  wallet: string; // 32–44 chars (base58 wallet address)
+  message: string; // exactly `Soccit session: <wallet> @ <issuedAt>` (issuedAt = epoch ms)
+  signature: string; // base58 ed25519 signature of `message` by `wallet`
+};
+```
+
+- **Success:** `200` → `SessionOutput`
+
+```ts
+type SessionOutput = {
+  token: string; // HS256 JWT — send as `Authorization: Bearer <token>`
+  expiresAt: number; // epoch ms; re-authenticate after this
+};
+```
+
+**How to build `message`:** take the current time as epoch **milliseconds** (`Date.now()`) as
+`issuedAt`, format `Soccit session: <wallet> @ <issuedAt>`, and have the wallet sign that exact
+string. The server rejects messages more than **5 minutes** old (or 5 minutes in the future), so
+sign it right before the call.
+
+**Error statuses:**
+
+| Status | Body                                                        | When                                                       |
+| ------ | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `400`  | `{ "error": "invalid body" }`                              | Body fails schema validation.                              |
+| `401`  | `{ "error": "Malformed message" }`                         | `message` is not the expected `Soccit session: …` format.  |
+| `401`  | `{ "error": "Message wallet mismatch" }`                   | Wallet in `message` ≠ `wallet` field.                      |
+| `401`  | `{ "error": "Message expired" }`                           | `issuedAt` is >5 min from now.                             |
+| `401`  | `{ "error": "Invalid signature" }`                         | Signature does not verify against `wallet`+`message`.      |
+| `503`  | `{ "error": "SESSION_JWT_SECRET is required for session auth" }` | The API has no session secret configured.            |
+
+**Example request:**
+
+```bash
+curl -X POST https://13.213.196.237.sslip.io/api/auth/session \
+  -H "content-type: application/json" \
+  -d '{
+    "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PB5wsfV",
+    "message": "Soccit session: 9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PB5wsfV @ 1719662400000",
+    "signature": "<base58 ed25519 signature>"
+  }'
+```
+
+> **REST only.** There is no tRPC equivalent — session auth is exposed on the REST surface only.
+
+---
+
+### 16. `GET /api/config`
+
+Static **platform configuration**: fee split, prize distribution, scoring weights, and USDC
+decimals. Use it to render fee/prize breakdowns and to format USDC amounts (all on-chain money
+values are base-unit integer strings — divide by `10 ** usdcDecimals`).
+
+- **Path params:** none
+- **Query params:** none
+- **Success:** `200` → `PlatformConfig`
+
+```ts
+type PlatformConfig = {
+  platformFeePct: number; // platform's cut of the gross pool, as a percentage (e.g. 20 = 20%)
+  prizeSplit: [number, number, number]; // 1st/2nd/3rd split of the NET (post-fee) pool, percentages
+  scoring: {
+    scoreExact: number; // points for an exact-scoreline pick
+    scoreOutcome: number; // points for a correct-outcome (wrong goals) pick
+    subCombo: number; // points for a correct OUT+IN combo pick
+    subPartial: number; // points for a correct single OUT or IN pick
+  };
+  usdcDecimals: number; // 6 — base units per USDC (money strings are integers in these units)
+};
+```
+
+**Example** (schema — the values are the current backend constants):
+
+```bash
+$ curl -s https://13.213.196.237.sslip.io/api/config
+{"platformFeePct":20,"prizeSplit":[50,30,20],
+ "scoring":{"scoreExact":5,"scoreOutcome":3,"subCombo":3,"subPartial":1},
+ "usdcDecimals":6}
+```
+
+> ⚠️ **Not yet on the staging URL** — returns `404` until the `api` service is redeployed
+> (checked 2026-07-11). These are backend constants, not per-match values; it never errors and needs
+> no auth. **tRPC equivalent:** `config.get` (query, no input).
+
+---
+
+### 17. `GET /api/competitions`
+
+The **competition catalog** — the tournaments shown on the home/landing surface (e.g. World Cup,
+Champions League), including "coming soon" ones. Use it to render competition banners and to link to
+each competition's bracket via its `slug`.
+
+- **Path params:** none
+- **Query params:** none
+- **Success:** `200` → `Competition[]`
+
+```ts
+type Competition = {
+  slug: string; // URL-safe id — use for GET /api/competitions/:slug/bracket
+  label: string; // human-readable banner label
+  bannerBg: string; // relative asset path, e.g. "assets/events/fwc-banner-bg.webp"
+  logo: string; // relative asset path, e.g. "assets/events/fwc-logo-white.svg"
+  comingSoon: boolean; // true → show as teaser, no bracket/markets yet
+  competitionId: number | null; // TxLINE competition id once wired; null until then
+};
+```
+
+The `bannerBg` / `logo` paths are served by `GET /api/assets/:path` (#19).
+
+**Example** (schema — the current catalog):
+
+```bash
+$ curl -s https://13.213.196.237.sslip.io/api/competitions
+[
+  {"slug":"worldcup","label":"Predict World Cup 2026 Bracket",
+   "bannerBg":"assets/events/fwc-banner-bg.webp","logo":"assets/events/fwc-logo-white.svg",
+   "comingSoon":false,"competitionId":null},
+  {"slug":"ucl","label":"UEFA Champions League",
+   "bannerBg":"assets/events/ucl-banner-bg.webp","logo":"assets/events/ucl-logo-white.svg",
+   "comingSoon":true,"competitionId":null}
+]
+```
+
+> ⚠️ **Not yet on the staging URL** — returns `404` until the `api` service is redeployed
+> (checked 2026-07-11). Static catalog; never errors, no auth. **tRPC equivalent:**
+> `competitions.list` (query, no input).
+
+---
+
+### 18. `GET /api/competitions/:slug/bracket`
+
+The **knockout bracket** for a competition, with each slot's live score and advance/eliminate state
+derived from Redis (live feed) + on-chain match status. Poll it (or refetch on a match SSE event)
+to keep the bracket UI fresh; `updatedAt` tells you when the snapshot was built.
+
+- **Path params:**
+  - `slug` — competition slug from `GET /api/competitions` (e.g. `worldcup`).
+- **Success:** `200` → `Bracket`
+
+```ts
+type BracketTeam = {
+  name: string;
+  code: string; // ISO-ish country/team code, e.g. "us", "gb-eng"
+  advancing: boolean; // won this slot (derived from live score)
+  eliminated: boolean; // lost a *final* slot (only true once the match is RESOLVED/SETTLED)
+};
+
+type BracketMatch = {
+  id: string; // stable slot id, e.g. "r32-1"
+  fixtureId: number | null; // TxLINE fixture id once pinned to this slot; null until then
+  home: BracketTeam;
+  away: BracketTeam;
+  homeScore: number | null; // live goals; null before kickoff / when not yet ingested
+  awayScore: number | null;
+  status: "scheduled" | "live" | "final"; // final once the on-chain match is RESOLVED/SETTLED
+  winner: "home" | "away" | null; // null while level or before a decisive score
+};
+
+type BracketRound = {
+  name: string; // e.g. "Round of 32"
+  shortName: string; // e.g. "R32"
+  matches: BracketMatch[];
+};
+
+type Bracket = {
+  updatedAt: number; // epoch ms — when this snapshot was assembled
+  rounds: BracketRound[]; // ordered R32 → final
+};
+```
+
+**Error statuses:**
+
+| Status | Body                                                    | When                                       |
+| ------ | ------------------------------------------------------ | ------------------------------------------ |
+| `404`  | `{ "error": "No bracket found for competition <slug>" }` | Unknown/`comingSoon` slug with no bracket. |
+
+> **Path caveat:** this is a dedicated path, deliberately **not** `/api/events/:slug` — the SSE
+> route `GET /api/events/:pda` would otherwise swallow it. **tRPC equivalent:** `competitions.bracket`
+> (query, `{ slug }` input).
+
+---
+
+### 19. `GET /api/assets/:path`
+
+Serves **binary brand/event assets** (banner images, logos) stored in MongoDB — the paths returned
+by `GET /api/competitions` (`bannerBg`, `logo`). This is a raw asset endpoint: the body is the file
+bytes, not JSON.
+
+- **Path params:**
+  - `path` — the full asset path, slashes and all, e.g. `assets/events/fwc-logo-white.svg`. (The
+    route is a catch-all, so nested paths work: `GET /api/assets/assets/events/fwc-logo-white.svg`.)
+- **Success:** `200` → the raw asset bytes, with headers:
+  - `Content-Type` — the asset's stored MIME type (e.g. `image/webp`, `image/svg+xml`).
+  - `Cache-Control: public, max-age=31536000, immutable` — safe to cache aggressively.
+  - `ETag: "<hash>"` — send it back as `If-None-Match` to get a `304`.
+- **`304 Not Modified`** → returned (empty body) when your `If-None-Match` matches the current `ETag`.
+
+**Error statuses:**
+
+| Status | Body                             | When                          |
+| ------ | -------------------------------- | ----------------------------- |
+| `404`  | `{ "error": "asset not found" }` | No asset stored at that path. |
+
+**Example:**
+
+```bash
+$ curl -s -o logo.svg -D - \
+    https://13.213.196.237.sslip.io/api/assets/assets/events/fwc-logo-white.svg
+HTTP/2 200
+content-type: image/svg+xml
+cache-control: public, max-age=31536000, immutable
+etag: "…"
+```
+
+> Because responses are immutable + long-cached, you can hotlink these directly from `<img src>`
+> — no need to proxy them. **REST only** (no tRPC equivalent).
+
+---
+
 ## tRPC API
 
 The same backend mounts a tRPC router at:
@@ -1230,23 +1536,31 @@ The same backend mounts a tRPC router at:
 ```
 
 It runs the identical business logic as the REST endpoints, but returns the standard tRPC error
-envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes:
+envelope instead of `{ "error": string }`. Most procedures map 1:1 to the REST routes:
 
-| tRPC procedure       | REST equivalent                          | Type         |
-| -------------------- | ---------------------------------------- | ------------ |
-| `match.list`         | `GET /api/matches`                        | query        |
-| `match.get`          | `GET /api/match/:pda`                     | query        |
-| `schedule.list`      | `GET /api/schedule`                       | query        |
-| `prediction.prepare` | `POST /api/prediction/prepare`            | mutation     |
-| `leaderboard.get`    | `GET /api/leaderboard/:pda`               | query        |
-| `leaderboard.stream` | `GET /api/leaderboard/:pda/stream`        | subscription |
-| `events.stream`      | `GET /api/events/:pda`                    | subscription |
-| `lineup.get`         | `GET /api/lineup/:pda`                    | query        |
-| `user.register`      | `POST /api/user`                         | mutation     |
-| `user.get`           | `GET /api/user/:wallet`                  | query        |
-| `user.setAvatar`     | `PATCH /api/user/:wallet/avatar`         | mutation     |
-| `user.matches`       | `GET /api/user/:wallet/matches`          | query        |
-| `user.avatars`       | `GET /api/avatars`                       | query        |
+| tRPC procedure         | REST equivalent                          | Type         |
+| ---------------------- | ---------------------------------------- | ------------ |
+| `match.list`           | `GET /api/matches`                        | query        |
+| `match.get`            | `GET /api/match/:pda`                     | query        |
+| `schedule.list`        | `GET /api/schedule`                       | query        |
+| `prediction.prepare`   | `POST /api/prediction/prepare`            | mutation     |
+| `leaderboard.get`      | `GET /api/leaderboard/:pda`               | query        |
+| `leaderboard.stream`   | `GET /api/leaderboard/:pda/stream`        | subscription |
+| `events.stream`        | `GET /api/events/:pda`                    | subscription |
+| `lineup.get`           | `GET /api/lineup/:pda`                    | query        |
+| `user.register`        | `POST /api/user`                         | mutation     |
+| `user.get`             | `GET /api/user/:wallet`                  | query        |
+| `user.setAvatar`       | `PATCH /api/user/:wallet/avatar`         | mutation     |
+| `user.matches`         | `GET /api/user/:wallet/matches`          | query        |
+| `user.avatars`         | `GET /api/avatars`                       | query        |
+| `config.get`           | `GET /api/config`                         | query        |
+| `competitions.list`    | `GET /api/competitions`                   | query        |
+| `competitions.bracket` | `GET /api/competitions/:slug/bracket`     | query        |
+
+> **REST-only endpoints (no tRPC equivalent):** `POST /api/auth/session`,
+> `PATCH /api/user/:wallet/username`, and `GET /api/assets/:path`. The tRPC `user.setAvatar`
+> mutation is **not** wallet-authenticated (there is no session middleware on the tRPC transport),
+> so profile edits that must enforce wallet ownership should go through the REST `PATCH` routes.
 
 > Subscriptions (`leaderboard.stream`, `events.stream`) require a tRPC client transport that
 > supports streaming (e.g. `httpSubscriptionLink` / SSE link). If you are not already using a
@@ -1318,9 +1632,11 @@ envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes
 
 #### `user.setAvatar`
 
-- **Input:** `{ wallet: string; avatar: AvatarId; message: string; signature: string }`
+- **Input:** `{ wallet: string; avatar: AvatarId }`
 - **Output:** `UserProfile`
-- **Errors:** `InvalidSignatureError → UNAUTHORIZED`; `UserNotFoundError → NOT_FOUND`
+- **Errors:** `UserNotFoundError → NOT_FOUND`
+- ⚠️ **Not wallet-authenticated** on the tRPC transport (no Bearer check). Prefer the REST
+  `PATCH /api/user/:wallet/avatar` (#12), which requires a session token, when ownership matters.
 
 #### `user.matches`
 
@@ -1334,17 +1650,39 @@ envelope instead of `{ "error": string }`. Procedures map 1:1 to the REST routes
 - **Output:** `AvatarsResponse`
 - **Errors:** none expected
 
+#### `config.get`
+
+- **Input:** none
+- **Output:** `PlatformConfig` (same shape as REST #16)
+- **Errors:** none expected
+
+#### `competitions.list`
+
+- **Input:** none
+- **Output:** `Competition[]` (same shape as REST #17)
+- **Errors:** none expected
+
+#### `competitions.bracket`
+
+- **Input:** `{ slug: string }` (competition slug)
+- **Output:** `Bracket` (same shape as REST #18)
+- **Errors:** `BracketNotFoundError → NOT_FOUND`
+
 ### tRPC error mapping
 
 The backend maps domain errors to tRPC codes (`services/api/src/server/trpc.ts`):
 
 | Domain error                                                                          | tRPC code               | HTTP status |
 | ------------------------------------------------------------------------------------- | ----------------------- | ----------- |
-| `MatchNotFoundError`, `LeaderboardNotReadyError`, `LineupNotReadyError`, `UserNotFoundError` | `NOT_FOUND`        | 404         |
+| `MatchNotFoundError`, `LeaderboardNotReadyError`, `LineupNotReadyError`, `UserNotFoundError`, `BracketNotFoundError` | `NOT_FOUND` | 404 |
 | `InvalidSignatureError`                                                               | `UNAUTHORIZED`          | 401         |
 | `UsernameTakenError`, `WalletAlreadyRegisteredError`, `MatchNotOpenError`              | `CONFLICT`              | 409         |
 | `TxlineNotConfiguredError`                                                            | `PRECONDITION_FAILED`   | 412         |
 | anything else                                                                         | `INTERNAL_SERVER_ERROR` | 500         |
+
+> The session/auth errors (`InvalidSessionRequestError`, `SessionConfigError`, `UnauthorizedError`)
+> and `PATCH .../username` are only reachable on the REST surface (see #12, #12b, #15), so they don't
+> appear in the tRPC mapping.
 
 Input validation failures (malformed PDA / wallet) produce tRPC `BAD_REQUEST` (400) from Zod.
 
@@ -1379,8 +1717,10 @@ Use the `apiJson` helper from Quick Start. General rules:
   when Solana RPC fails while reading on-chain state for a known PDA; treat `5xx` as **retryable**.
 - **`400`** means a **frontend validation bug or malformed input** (malformed match PDA / wallet /
   body). Fix client-side validation; do not retry blindly.
-- **`401`** means **wallet signature verification failed**. Re-prompt the user to sign the
-  message with the correct wallet.
+- **`401`** means **auth failed**. On `POST /api/user` / `POST /api/auth/session` it's a bad
+  wallet signature — re-prompt the user to sign the message with the correct wallet. On
+  `PATCH /api/user/:wallet/avatar` / `.../username` it's a missing/expired/mismatched **session
+  token** — open a fresh session (`POST /api/auth/session`) and retry with the new Bearer token.
 - **`409`** means a **state conflict**: a duplicate username or wallet on registration, or a
   **match not open** for predictions on `POST /api/prediction/prepare`. Surface the specific
   message to the user.
@@ -1412,6 +1752,13 @@ Use the `apiJson` helper from Quick Start. General rules:
 | Endpoint                         | Method | Status | Meaning                                  | Response shape                                                  |
 | -------------------------------- | ------ | ------ | ---------------------------------------- | -------------------------------------------------------------- |
 | `/healthz`                       | GET    | 200    | API alive + ingestor health probe        | `{ "ok": true, "worker": { alive, heartbeatAgeMs } \| null, "feed": { lastBeatAgeMs } \| null }` |
+| `/api/config`                    | GET    | 200    | Platform config (fees/prizes/scoring)    | `PlatformConfig`                                             |
+| `/api/competitions`              | GET    | 200    | Competition catalog                      | `Competition[]`                                             |
+| `/api/competitions/:slug/bracket`| GET    | 200    | Knockout bracket snapshot                | `Bracket`                                                   |
+| `/api/competitions/:slug/bracket`| GET    | 404    | Unknown/coming-soon slug                 | `{ "error": "No bracket found for competition <slug>" }`    |
+| `/api/assets/:path`              | GET    | 200    | Raw asset bytes (immutable, ETagged)     | binary (`image/webp`, `image/svg+xml`, …)                  |
+| `/api/assets/:path`              | GET    | 304    | Cache hit (matched `If-None-Match`)      | empty body                                                  |
+| `/api/assets/:path`              | GET    | 404    | No asset at that path                    | `{ "error": "asset not found" }`                            |
 | `/api/matches`                   | GET    | 200    | Match-discovery list (possibly empty)    | `MatchSummary[]`                                              |
 | `/api/matches`                   | GET    | 500    | RPC lookup failed scanning chain state   | `Internal Server Error` (plain text)                          |
 | `/api/schedule`                  | GET    | 200    | Fixture schedule (possibly empty)        | `ScheduleFixture[]`                                          |
@@ -1440,7 +1787,11 @@ Use the `apiJson` helper from Quick Start. General rules:
 | `/api/events/:pda`                | GET    | 400    | Invalid match address                    | `{ "error": "invalid match address" }`                        |
 | `/api/events/:pda`                | GET    | 404    | Unknown PDA (before stream opens)        | `{ "error": "No match found for match account <pda>" }`       |
 | `/api/avatars`                   | GET    | 200    | Avatar list returned                     | `AvatarDescriptor[]`                                          |
-| `/api/user`                      | POST   | 200    | Profile registered                       | `UserProfile`                                                 |
+| `/api/auth/session`              | POST   | 200    | Session token issued                     | `SessionOutput` (`{ token, expiresAt }`)                     |
+| `/api/auth/session`              | POST   | 400    | Invalid body                             | `{ "error": "invalid body" }`                                |
+| `/api/auth/session`              | POST   | 401    | Message/signature invalid or stale       | `{ "error": "Invalid signature" }` / `"Message expired"` / … |
+| `/api/auth/session`              | POST   | 503    | `SESSION_JWT_SECRET` not configured      | `{ "error": "SESSION_JWT_SECRET is required for session auth" }` |
+| `/api/user`                      | POST   | 200    | Profile registered (+ session token)     | `RegisterUserResponse` (`UserProfile` + `session`)           |
 | `/api/user`                      | POST   | 400    | Invalid body                             | `{ "error": "invalid body" }`                                |
 | `/api/user`                      | POST   | 401    | Signature verification failed            | `{ "error": "Wallet signature verification failed" }`        |
 | `/api/user`                      | POST   | 409    | Username taken                           | `{ "error": "Username <username> is already taken" }`        |
@@ -1450,8 +1801,13 @@ Use the `apiJson` helper from Quick Start. General rules:
 | `/api/user/:wallet`              | GET    | 404    | No profile for wallet                    | `{ "error": "No profile found for wallet <wallet>" }`        |
 | `/api/user/:wallet/avatar`       | PATCH  | 200    | Avatar updated                           | `UserProfile`                                                 |
 | `/api/user/:wallet/avatar`       | PATCH  | 400    | Invalid body                             | `{ "error": "invalid body" }`                                |
-| `/api/user/:wallet/avatar`       | PATCH  | 401    | Signature verification failed            | `{ "error": "Wallet signature verification failed" }`        |
+| `/api/user/:wallet/avatar`       | PATCH  | 401    | Missing/invalid/expired session token    | `{ "error": "Missing bearer token" }` / `"Token expired"` / `"Wallet mismatch"` |
 | `/api/user/:wallet/avatar`       | PATCH  | 404    | No profile for wallet                    | `{ "error": "No profile found for wallet <wallet>" }`        |
+| `/api/user/:wallet/username`     | PATCH  | 200    | Username updated                         | `UserProfile`                                                 |
+| `/api/user/:wallet/username`     | PATCH  | 400    | Invalid body                             | `{ "error": "invalid body" }`                                |
+| `/api/user/:wallet/username`     | PATCH  | 401    | Missing/invalid/expired session token    | `{ "error": "Missing bearer token" }` / `"Token expired"` / `"Wallet mismatch"` |
+| `/api/user/:wallet/username`     | PATCH  | 409    | Username taken                           | `{ "error": "Username <username> is already taken" }`        |
+| `/api/user/:wallet/username`     | PATCH  | 404    | No profile for wallet                    | `{ "error": "No profile found for wallet <wallet>" }`        |
 | `/api/user/:wallet/matches`      | GET    | 200    | Participation array (possibly empty)     | `UserMatchesResponse`                                         |
 | `/api/user/:wallet/matches`      | GET    | 400    | Invalid wallet                           | `{ "error": "invalid wallet" }`                              |
 | `/trpc/*`                        | ALL    | 2xx/4xx/5xx | tRPC procedures                     | tRPC envelope (`{ "result": … }` / `{ "error": … }`)         |
@@ -1476,10 +1832,14 @@ Use the `apiJson` helper from Quick Start. General rules:
       "not available yet" UI rather than an error. A `404` here can mean either an unknown PDA or
       data not computed yet (`match` may still `500` if Solana RPC is down — treat `5xx` as retry).
 - [ ] **Validate client-side before calling** — match PDA / wallet are both base58, 32–44 chars;
-      username 3–20 chars matching `/^[a-zA-Z0-9_]+$/`; avatar one of `avatar-1`…`avatar-8`.
-- [ ] **Sign register/avatar messages** — sign the expected message
-      (`Soccit onboarding: <wallet>` for registration) with the wallet and send `message` +
-      base58 `signature` in the body. Handle `401` by re-prompting the signature.
+      username 3–20 chars matching `/^[a-zA-Z0-9_]+$/`; avatar one of `avatar-0`…`avatar-11` (fetch
+      the canonical list from `GET /api/avatars`).
+- [ ] **Register with a signature, then hold a session token** — to register, sign
+      `Soccit onboarding: <wallet>` and send `message` + base58 `signature` to `POST /api/user`; the
+      response includes a `session` token. For an existing user, sign
+      `Soccit session: <wallet> @ <Date.now()>` and call `POST /api/auth/session`. Store the
+      returned `token` and send it as `Authorization: Bearer <token>` on
+      `PATCH /api/user/:wallet/avatar` and `.../username`. Re-open a session on `401`/expiry.
 - [ ] **Render empty states** — `user/:wallet/matches` returns `[]` (200) and a leaderboard may
       have an empty `ranking`. Show friendly empty-state UI.
 - [ ] **Retry transient server failures** — back off and retry on `5xx`.
@@ -1490,7 +1850,8 @@ _Source of truth: `services/api/src/index.ts`, `services/api/src/server/root.ts`
 `services/api/src/server/trpc.ts`, `services/api/src/modules/match/pda.ts`,
 `services/api/src/modules/match/match.service.ts`, `services/api/src/onchain/program.ts`,
 `services/api/src/modules/prediction/prediction.service.ts`, the module `*.schema.ts` /
-`*.errors.ts` files, `Caddyfile`, and `docker-compose.yml`. Live
+`*.errors.ts` files (including `auth/`, `config/`, `competitions/`, `bracket/`, and `assets/`),
+`Caddyfile`, and `docker-compose.yml`. Live
 verification of the REST/SSE surface was performed against `https://13.213.196.237.sslip.io` on
 2026-06-29; examples for the PDA-keyed fixture endpoints (`match`, `leaderboard`, `lineup`,
 `events`) were updated for the fixtureId→PDA migration on 2026-06-30 and are illustrative pending
@@ -1509,4 +1870,19 @@ Redis heartbeat) and `feed` (data-freshness) probes, after the TxLINE worker was
 crash-looping on a poison beat and freezing ingestion; the worker now isolates per-beat failures and
 writes `txline:worker:heartbeat` / `txline:scores:lastBeatAt`. The added fields are backward
 compatible (`ok` unchanged) — verified via the `/healthz` route integration test and live on the
-staging URL on 2026-07-04 (`worker.alive: true` after the crash-loop fix deployed)._
+staging URL on 2026-07-04 (`worker.alive: true` after the crash-loop fix deployed).
+
+On 2026-07-11 the doc was reconciled with the current `services/api` surface: the profile-edit auth
+model moved from a per-write wallet signature to a **Bearer session token** — `POST /api/user` now
+returns an embedded `session`, `POST /api/auth/session` (#15) issues tokens, and
+`PATCH /api/user/:wallet/avatar` (#12) plus the new `PATCH /api/user/:wallet/username` (#12b) require
+`Authorization: Bearer`. Newly documented endpoints: `POST /api/auth/session` (#15),
+`GET /api/config` (#16), `GET /api/competitions` (#17), `GET /api/competitions/:slug/bracket` (#18),
+and `GET /api/assets/:path` (#19), plus the `config.get` / `competitions.list` / `competitions.bracket`
+tRPC procedures. The avatar set is now `avatar-0`…`avatar-11` (12, confirmed live via `GET /api/avatars`).
+Deploy state as checked against the staging URL on 2026-07-11: the session-auth surface is **live** —
+`POST /api/auth/session`, `PATCH /api/user/:wallet/avatar`, and `PATCH /api/user/:wallet/username` all
+return the documented `400`/`401` bodies (e.g. `"Missing bearer token"`). The `GET /api/config`,
+`GET /api/competitions`, `GET /api/competitions/:slug/bracket`, and `GET /api/assets/:path` routes
+still return `404` — they are in branch `backend-programs` but not yet on the deployed `api` service,
+so their example bodies are schema illustrations pending redeploy._

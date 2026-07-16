@@ -42,8 +42,27 @@ describe("normalize (real TxLINE wire format)", () => {
     expect(events[0]).toMatchObject({ type: "goal", minute: 2 });
   });
 
-  it("does not emit a domain event for a yellow card", () => {
-    expect(normalize(fx("yellow_card"))).toHaveLength(0);
+  it("treats a yellow card as its own internal event, never a substitution", () => {
+    const raw: RawEvent = {
+      FixtureId: 1,
+      Action: "yellow_card",
+      Clock: { Seconds: 1092 },
+      Data: { Participant: 2, PlayerId: 33 },
+    };
+    const events = normalize(raw);
+    expect(events.map((e) => e.type)).toEqual(["yellow_card"]);
+    expect(events[0]).toMatchObject({
+      type: "yellow_card",
+      side: 2,
+      playerId: 33,
+      minute: 18,
+    });
+  });
+
+  it("emits a yellow_card from the real fixture beat (defaults side when absent)", () => {
+    const events = normalize(fx("yellow_card"));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "yellow_card", minute: 18 });
   });
 
   it("emits a non-terminal status for the half-time whistle", () => {

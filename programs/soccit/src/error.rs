@@ -40,4 +40,6 @@ pub enum SoccitError {
     ScoreOutOfRange,
     #[msg("The entry window for this match has not opened yet")]
     EntryNotOpenYet,
+    #[msg("Wallet must enter the match (pay the entry fee) before predicting")]
+    MatchNotEntered,
 }

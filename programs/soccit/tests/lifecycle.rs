@@ -92,6 +92,11 @@ fn read_prediction(svm: &LiteSVM, pred_key: &Pubkey) -> soccit::Prediction {
     soccit::Prediction::try_deserialize(&mut &acc.data[..]).expect("deserialize prediction")
 }
 
+fn read_entry(svm: &LiteSVM, entry_key: &Pubkey) -> soccit::Entry {
+    let acc = svm.get_account(entry_key).expect("entry exists");
+    soccit::Entry::try_deserialize(&mut &acc.data[..]).expect("deserialize entry")
+}
+
 fn create_match(
     svm: &mut LiteSVM,
     admin: &Keypair,
@@ -158,12 +163,37 @@ fn new_funded_user(
     (user, ata)
 }
 
-fn place_prediction(
+/// Enter-once: pays the entry fee and creates the wallet's Entry account.
+fn enter_match(
     svm: &mut LiteSVM,
     user: &Keypair,
     user_ata: &Pubkey,
     match_key: &Pubkey,
     vault: &Pubkey,
+) -> Result<(), String> {
+    let (entry, _) = entry_pda(match_key, &user.pubkey());
+    let ix = Instruction {
+        program_id: program_id(),
+        accounts: soccit::accounts::EnterMatch {
+            user: user.pubkey(),
+            match_account: *match_key,
+            entry,
+            user_usdc_ata: *user_ata,
+            vault: *vault,
+            token_program: anchor_spl::token::ID,
+            system_program: anchor_lang::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: soccit::instruction::EnterMatch {}.data(),
+    };
+    send(svm, &[ix], &user.pubkey(), &[user])
+}
+
+#[allow(clippy::too_many_arguments)]
+fn place_prediction(
+    svm: &mut LiteSVM,
+    user: &Keypair,
+    match_key: &Pubkey,
     side: u8,
     kind: u8,
     out_id: u32,
@@ -180,9 +210,6 @@ fn place_prediction(
             match_account: *match_key,
             entry,
             prediction: pred,
-            user_usdc_ata: *user_ata,
-            vault: *vault,
-            token_program: anchor_spl::token::ID,
             system_program: anchor_lang::system_program::ID,
         }
         .to_account_metas(None),
@@ -277,13 +304,18 @@ fn full_lifecycle_pays_top3_and_drains_vault() {
         .send()
         .unwrap();
 
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 2, 3, 7, 64, 1).unwrap();
-    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 1, 0, 9, 70, 0).unwrap();
-    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 0, 11, 0, 75, 1).unwrap();
-    place_prediction(&mut svm, &u3, &u3_ata, &m, &vault, 1, 0, 21, 0, 80, 0).unwrap();
+    // Enter-once: each wallet pays the entry fee a single time, then predicts free.
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
+    enter_match(&mut svm, &u2, &u2_ata, &m, &vault).unwrap();
+    enter_match(&mut svm, &u3, &u3_ata, &m, &vault).unwrap();
 
-    // Pay-per-match: three unique wallets each paid one entry fee, regardless of
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 2, 3, 7, 64, 1).unwrap();
+    place_prediction(&mut svm, &u2, &m, 2, 1, 0, 9, 70, 0).unwrap();
+    place_prediction(&mut svm, &u2, &m, 2, 0, 11, 0, 75, 1).unwrap();
+    place_prediction(&mut svm, &u3, &m, 1, 0, 21, 0, 80, 0).unwrap();
+
+    // Enter-once: three unique wallets each paid one entry fee, regardless of
     // how many slots they filled.
     let pool = 3 * ENTRY_FEE;
     assert_eq!(
@@ -392,7 +424,8 @@ fn settle_rejects_double_and_non_resolver() {
         .owner(&platform.pubkey())
         .send()
         .unwrap();
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
     resolve(
         &mut svm,
         &resolver,
@@ -440,6 +473,22 @@ fn settle_rejects_double_and_non_resolver() {
 }
 
 #[test]
+fn place_prediction_requires_entry() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    let mint = CreateMint::new(&mut svm, &admin)
+        .decimals(6)
+        .send()
+        .unwrap();
+    let (m, _vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
+    let (u1, _u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+
+    // No enter_match first → the Entry account does not exist → predicting fails.
+    let no_entry = place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0);
+    assert!(no_entry.is_err(), "predicting before entering must fail");
+}
+
+#[test]
 fn place_prediction_rejects_bad_inputs() {
     let (mut svm, admin) = setup();
     let resolver = Keypair::new();
@@ -449,9 +498,10 @@ fn place_prediction_rejects_bad_inputs() {
         .unwrap();
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
 
-    assert!(place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 3, 0, 14, 0, 60, 0).is_err());
-    assert!(place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 2, 14, 0, 60, 0).is_err());
+    assert!(place_prediction(&mut svm, &u1, &m, 3, 0, 14, 0, 60, 0).is_err());
+    assert!(place_prediction(&mut svm, &u1, &m, 1, 2, 14, 0, 60, 0).is_err());
 }
 
 #[test]
@@ -464,10 +514,11 @@ fn slot_cap_blocks_sixth_pick() {
         .unwrap();
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
 
     for slot in 0u8..5 {
         let pid = (slot as u32) + 1;
-        place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, pid, 0, 60, slot).unwrap();
+        place_prediction(&mut svm, &u1, &m, 1, 0, pid, 0, 60, slot).unwrap();
     }
     assert_eq!(
         read_match(&svm, &m).participant_count,
@@ -475,7 +526,7 @@ fn slot_cap_blocks_sixth_pick() {
         "one wallet, one entry"
     );
 
-    let sixth = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 6, 0, 60, 5);
+    let sixth = place_prediction(&mut svm, &u1, &m, 1, 0, 6, 0, 60, 5);
     assert!(sixth.is_err(), "sixth pick must fail");
 }
 
@@ -489,9 +540,10 @@ fn duplicate_player_blocked() {
         .unwrap();
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
 
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
-    let dup = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 64, 1);
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
+    let dup = place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 64, 1);
     assert!(dup.is_err(), "reusing a player id must fail");
 }
 
@@ -505,14 +557,15 @@ fn side_locked_after_first_pick() {
         .unwrap();
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
 
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
-    let flipped = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 2, 0, 15, 0, 64, 1);
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
+    let flipped = place_prediction(&mut svm, &u1, &m, 2, 0, 15, 0, 64, 1);
     assert!(flipped.is_err(), "second pick on the other side must fail");
 }
 
 #[test]
-fn pay_per_match_charges_one_fee_across_slots() {
+fn enter_once_charges_fee_and_picks_are_free() {
     let (mut svm, admin) = setup();
     let resolver = Keypair::new();
     let mint = CreateMint::new(&mut svm, &admin)
@@ -522,28 +575,72 @@ fn pay_per_match_charges_one_fee_across_slots() {
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
 
-    // Three picks by the same wallet: only the first is charged.
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 15, 0, 64, 1).unwrap();
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 16, 0, 68, 2).unwrap();
-
+    // The fee moves on enter_match only.
+    let entered_ts = 1_700_000_000;
+    warp_clock(&mut svm, entered_ts);
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
     assert_eq!(
         token_balance(&svm, &vault),
         ENTRY_FEE,
-        "vault charged exactly one entry fee for three picks"
+        "vault charged exactly one entry fee on enter"
     );
     assert_eq!(read_match(&svm, &m).pool_total, ENTRY_FEE, "pool tracks one fee");
     assert_eq!(
         token_balance(&svm, &u1_ata),
         100_000_000 - ENTRY_FEE,
-        "wallet debited once"
+        "wallet debited once on enter"
+    );
+    let (entry_key, _) = entry_pda(&m, &u1.pubkey());
+    assert_eq!(
+        read_entry(&svm, &entry_key).entered_at,
+        entered_ts,
+        "entered_at stamped with the entry clock"
     );
 
-    // fee_paid is recorded on the first prediction only.
+    // Every later pick is free.
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 0, 15, 0, 64, 1).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 0, 16, 0, 68, 2).unwrap();
+
+    assert_eq!(
+        token_balance(&svm, &vault),
+        ENTRY_FEE,
+        "vault unchanged after three free picks"
+    );
+    assert_eq!(read_match(&svm, &m).pool_total, ENTRY_FEE, "pool unchanged");
+    assert_eq!(
+        token_balance(&svm, &u1_ata),
+        100_000_000 - ENTRY_FEE,
+        "wallet not debited by picks"
+    );
+
+    // fee_paid is 0 on every prediction under enter-once.
     let (p0, _) = pred_pda(&m, &u1.pubkey(), 0);
     let (p1, _) = pred_pda(&m, &u1.pubkey(), 1);
-    assert_eq!(read_prediction(&svm, &p0).fee_paid, ENTRY_FEE);
+    assert_eq!(read_prediction(&svm, &p0).fee_paid, 0);
     assert_eq!(read_prediction(&svm, &p1).fee_paid, 0);
+}
+
+#[test]
+fn enter_match_rejects_double_entry() {
+    let (mut svm, admin) = setup();
+    let resolver = Keypair::new();
+    let mint = CreateMint::new(&mut svm, &admin)
+        .decimals(6)
+        .send()
+        .unwrap();
+    let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
+    let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
+    svm.expire_blockhash();
+    let again = enter_match(&mut svm, &u1, &u1_ata, &m, &vault);
+    assert!(again.is_err(), "entering a match twice must fail");
+    assert_eq!(
+        token_balance(&svm, &vault),
+        ENTRY_FEE,
+        "no second fee charged"
+    );
 }
 
 #[test]
@@ -556,9 +653,10 @@ fn score_prediction_stores_scoreline_and_ignores_side() {
         .unwrap();
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
 
     // KIND_SCORE (3): side=0, score1=2 in out_id, score2=1 in in_id.
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 0, 3, 2, 1, 90, 0).unwrap();
+    place_prediction(&mut svm, &u1, &m, 0, 3, 2, 1, 90, 0).unwrap();
 
     let (p0, _) = pred_pda(&m, &u1.pubkey(), 0);
     let pred = read_prediction(&svm, &p0);
@@ -567,15 +665,15 @@ fn score_prediction_stores_scoreline_and_ignores_side() {
     assert_eq!(pred.in_player_id, 1, "score2 in in field");
 
     // A score-first entry leaves the side unset, so a later sub can lock either side.
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 2, 0, 21, 0, 70, 1).unwrap();
-    let flipped = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 22, 0, 72, 2);
+    place_prediction(&mut svm, &u1, &m, 2, 0, 21, 0, 70, 1).unwrap();
+    let flipped = place_prediction(&mut svm, &u1, &m, 1, 0, 22, 0, 72, 2);
     assert!(
         flipped.is_err(),
         "once a sub locks side 2, the other side must fail"
     );
 
     // Score picks are exempt from the side lock even after a sub set it.
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 0, 3, 0, 0, 90, 2).unwrap();
+    place_prediction(&mut svm, &u1, &m, 0, 3, 0, 0, 90, 2).unwrap();
     assert_eq!(read_match(&svm, &m).participant_count, 1, "one wallet, one entry");
 }
 
@@ -595,21 +693,22 @@ fn entry_gate_blocks_before_window_then_opens_ten_min_before_ko() {
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
 
     // 1h before KO → more than 10 min before the window opens → rejected.
-    let too_early = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0);
+    let too_early = enter_match(&mut svm, &u1, &u1_ata, &m, &vault);
     assert!(too_early.is_err(), "entry before KO-10min must fail");
 
     // Still one second too early.
     warp_clock(&mut svm, start - 601);
-    let just_early = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0);
+    let just_early = enter_match(&mut svm, &u1, &u1_ata, &m, &vault);
     assert!(just_early.is_err(), "entry 10min+1s before KO must fail");
 
-    // Exactly KO-10min → the window opens.
+    // Exactly KO-10min → the window opens and the wallet enters.
     warp_clock(&mut svm, start - 600);
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
 
-    // Stays open in-play (after kickoff).
+    // Predictions stay open in-play (after kickoff).
     warp_clock(&mut svm, start + 1800);
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 15, 0, 60, 1).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 0, 15, 0, 60, 1).unwrap();
 }
 
 #[test]
@@ -624,7 +723,8 @@ fn entry_gate_disabled_when_start_time_zero() {
     let (m, vault) = create_match_with_start(&mut svm, &admin, &mint, &resolver.pubkey(), 0);
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
     warp_clock(&mut svm, 1_000_000_000);
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
 }
 
 #[test]
@@ -637,9 +737,10 @@ fn score_out_of_range_rejected() {
         .unwrap();
     let (m, vault) = create_match(&mut svm, &admin, &mint, &resolver.pubkey());
     let (u1, u1_ata) = new_funded_user(&mut svm, &admin, &mint, 100_000_000);
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
 
     // score1 = 100 > MAX_GOALS (99)
-    let bad = place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 0, 3, 100, 1, 90, 0);
+    let bad = place_prediction(&mut svm, &u1, &m, 0, 3, 100, 1, 90, 0);
     assert!(bad.is_err(), "score above MAX_GOALS must fail");
 }
 
@@ -662,8 +763,10 @@ fn under_three_participants_pays_solo_eighty_percent() {
         .send()
         .unwrap();
 
-    place_prediction(&mut svm, &u1, &u1_ata, &m, &vault, 1, 0, 14, 0, 60, 0).unwrap();
-    place_prediction(&mut svm, &u2, &u2_ata, &m, &vault, 2, 0, 21, 0, 70, 0).unwrap();
+    enter_match(&mut svm, &u1, &u1_ata, &m, &vault).unwrap();
+    enter_match(&mut svm, &u2, &u2_ata, &m, &vault).unwrap();
+    place_prediction(&mut svm, &u1, &m, 1, 0, 14, 0, 60, 0).unwrap();
+    place_prediction(&mut svm, &u2, &m, 2, 0, 21, 0, 70, 0).unwrap();
     assert_eq!(
         read_match(&svm, &m).participant_count,
         2,

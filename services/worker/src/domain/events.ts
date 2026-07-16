@@ -39,11 +39,19 @@ export interface RedCardEvent extends Base {
   minute?: number;
 }
 
+export interface YellowCardEvent extends Base {
+  type: "yellow_card";
+  side: Side;
+  playerId?: number;
+  minute?: number;
+}
+
 export type DomainEvent =
   | SubstitutionEvent
   | GoalEvent
   | StatusChangeEvent
-  | RedCardEvent;
+  | RedCardEvent
+  | YellowCardEvent;
 
 export function isSubstitution(e: DomainEvent): e is SubstitutionEvent {
   return e.type === "substitution";

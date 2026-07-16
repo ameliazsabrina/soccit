@@ -1,5 +1,4 @@
 import { PublicKey, Transaction } from "@solana/web3.js";
-import { createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import {
   type DecodedEntry,
   type DecodedMatch,
@@ -10,7 +9,6 @@ import {
   buildPlacePredictionInstruction,
   fetchEntry,
   fetchMatch,
-  fetchTokenBalance,
   getConnection,
   getProgramId,
   matchPda,
@@ -22,8 +20,8 @@ import { MatchNotFoundError } from "../match/match.errors.js";
 import { ENTRY_LEAD_SECS, isEntryWindowOpen } from "../match/phase.js";
 import {
   EntryNotOpenYetError,
-  InsufficientEntryBalanceError,
   MatchMintMismatchError,
+  MatchNotEnteredError,
   MatchNotOpenError,
 } from "./prediction.errors.js";
 
@@ -56,8 +54,8 @@ export interface BuildPreparePredictionTxArgs {
   programId: PublicKey;
   matchAccount: PublicKey;
   match: DecodedMatch;
-  /** The caller's existing Entry, or null if this is their first pick. */
-  entry: DecodedEntry | null;
+  /** The caller's existing Entry — required under enter-once. */
+  entry: DecodedEntry;
   wallet: PublicKey;
   input: PreparePredictionInput;
   blockhash: string;
@@ -78,26 +76,19 @@ export function buildPreparePredictionTx(
     lastValidBlockHeight,
   } = args;
 
-  const slotIndex = entry ? entry.slotsUsed : 0;
-  const feeCharged = entry ? 0n : match.entryFee;
+  // Enter-once: the wallet has already entered, so this pick fills the next free
+  // slot and is always free (the fee was paid in enter_match).
+  const slotIndex = entry.slotsUsed;
 
-  // User wallets are on-curve, so the standard ATA derivation applies.
+  // The wallet's ATA already exists (created on enter); we surface it in the
+  // output but the place_prediction tx no longer touches it.
   const userUsdcAta = associatedTokenAddress(match.usdcMint, wallet);
   const prediction = predictionPda(programId, matchAccount, wallet, slotIndex);
-
-  const createAtaIx = createAssociatedTokenAccountIdempotentInstruction(
-    wallet, // payer
-    userUsdcAta,
-    wallet, // owner
-    match.usdcMint,
-  );
 
   const placeIx = buildPlacePredictionInstruction({
     programId,
     user: wallet,
     matchAccount,
-    userUsdcAta,
-    vault: match.vault,
     side: input.side,
     kind: input.kind,
     outId: input.outPlayerId,
@@ -110,7 +101,7 @@ export function buildPreparePredictionTx(
   tx.feePayer = wallet;
   tx.recentBlockhash = blockhash;
   tx.lastValidBlockHeight = lastValidBlockHeight;
-  tx.add(createAtaIx, placeIx);
+  tx.add(placeIx);
 
   const serialized = tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -123,7 +114,8 @@ export function buildPreparePredictionTx(
     matchAccount: matchAccount.toBase58(),
     userUsdcAta: userUsdcAta.toBase58(),
     usdcMint: match.usdcMint.toBase58(),
-    entryFee: feeCharged.toString(),
+    // Enter-once: predictions are always free.
+    entryFee: "0",
     slotIndex,
     startTime: Number(match.startTime),
     blockhash,
@@ -153,22 +145,11 @@ export async function preparePrediction(
     throw new EntryNotOpenYetError(input.fixtureId, startTime);
   }
 
+  // Enter-once: the wallet must have entered (paid the fee) first. Without an
+  // Entry account the on-chain place_prediction would fail; return a clean 403.
   const entry = await fetchEntry(matchAccount, wallet);
-
-  // Preflight the entry-fee balance on the paying (first) pick — later picks are
-  // free (pay-per-match). Fail with a clear 4xx instead of a bare 0x1 at submit.
-  const feeCharged = entry ? 0n : match.entryFee;
-  if (feeCharged > 0n) {
-    const userUsdcAta = associatedTokenAddress(match.usdcMint, wallet);
-    const balance = await fetchTokenBalance(userUsdcAta);
-    if (balance < feeCharged) {
-      throw new InsufficientEntryBalanceError(
-        input.fixtureId,
-        feeCharged,
-        balance,
-        match.usdcMint.toBase58(),
-      );
-    }
+  if (!entry) {
+    throw new MatchNotEnteredError(input.fixtureId, wallet.toBase58());
   }
 
   const { blockhash, lastValidBlockHeight } =

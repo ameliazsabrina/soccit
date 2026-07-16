@@ -10,7 +10,7 @@ export type Soccit = {
     "name": "soccit",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Soccit — on-chain escrow & settlement for live soccer-substitution predictions"
+    "description": "soccit"
   },
   "instructions": [
     {
@@ -208,16 +208,16 @@ export type Soccit = {
       ]
     },
     {
-      "name": "placePrediction",
+      "name": "enterMatch",
       "discriminator": [
-        79,
-        46,
-        195,
-        197,
-        50,
-        91,
-        88,
-        229
+        25,
+        72,
+        131,
+        252,
+        111,
+        231,
+        207,
+        149
       ],
       "accounts": [
         {
@@ -275,10 +275,6 @@ export type Soccit = {
           }
         },
         {
-          "name": "prediction",
-          "writable": true
-        },
-        {
           "name": "userUsdcAta",
           "writable": true
         },
@@ -289,6 +285,83 @@ export type Soccit = {
         {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "placePrediction",
+      "discriminator": [
+        79,
+        46,
+        195,
+        197,
+        50,
+        91,
+        88,
+        229
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "matchAccount",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  116,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_id",
+                "account": "match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "matchAccount"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "prediction",
+          "writable": true
         },
         {
           "name": "systemProgram",
@@ -610,15 +683,16 @@ export type Soccit = {
       "code": 6018,
       "name": "entryNotOpenYet",
       "msg": "The entry window for this match has not opened yet"
+    },
+    {
+      "code": 6019,
+      "name": "matchNotEntered",
+      "msg": "Wallet must enter the match (pay the entry fee) before predicting"
     }
   ],
   "types": [
     {
       "name": "entry",
-      "docs": [
-        "One per (match, wallet). Tracks the wallet's slot usage, locked side,",
-        "and the players already consumed across its slots."
-      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -654,6 +728,13 @@ export type Soccit = {
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "enteredAt",
+            "docs": [
+              "Unix seconds at which the wallet entered (paid the fee) for this match."
+            ],
+            "type": "i64"
           }
         ]
       }

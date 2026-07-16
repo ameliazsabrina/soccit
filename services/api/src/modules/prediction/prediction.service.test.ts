@@ -1,5 +1,4 @@
 import { PublicKey, Transaction } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { describe, expect, it } from "vitest";
 import {
   type DecodedEntry,
@@ -94,11 +93,12 @@ const entryWithSlots = (slotsUsed: number, side = 1): DecodedEntry => ({
   slotsUsed,
   playerCount: slotsUsed,
   bump: 255,
+  enteredAt: 1_782_446_400n,
 });
 
 function build(
   over: Partial<PreparePredictionInput> = {},
-  entry: DecodedEntry | null = null,
+  entry: DecodedEntry = entryWithSlots(0),
 ) {
   return buildPreparePredictionTx({
     programId: PROGRAM_ID,
@@ -124,13 +124,12 @@ describe("buildPreparePredictionTx", () => {
     expect(tx.recentBlockhash).toBe(BLOCKHASH);
   });
 
-  it("prepends an idempotent create-ATA ix and then the place_prediction ix", () => {
+  it("carries a single fee-free place_prediction ix (no create-ATA, no fee accounts)", () => {
     const out = build();
     const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
-    expect(tx.instructions).toHaveLength(2);
+    expect(tx.instructions).toHaveLength(1);
 
-    // The place_prediction ix targets the program and carries the right discriminator/args.
-    const place = tx.instructions[1]!;
+    const place = tx.instructions[0]!;
     expect(place.programId.toBase58()).toBe(PROGRAM_ID.toBase58());
     expect(place.data.subarray(0, 8).equals(PLACE_DISC)).toBe(true);
     expect(place.data.readUInt8(8)).toBe(input.side);
@@ -138,9 +137,10 @@ describe("buildPreparePredictionTx", () => {
     expect(place.data.readUInt32LE(10)).toBe(input.outPlayerId);
     expect(place.data.readUInt32LE(14)).toBe(input.inPlayerId);
     expect(place.data.readUInt16LE(18)).toBe(input.lockMinute);
-    expect(place.data.readUInt8(20)).toBe(0); // first pick → slot 0
+    expect(place.data.readUInt8(20)).toBe(0); // slot 0 (entry has 0 slots used)
 
-    // user(signer/writable) → match → entry → prediction → userAta → vault → tokenProgram → system
+    // user(signer/writable) → match → entry → prediction → system (5 keys).
+    expect(place.keys).toHaveLength(5);
     expect(place.keys[0]).toMatchObject({ isSigner: true, isWritable: true });
     expect(place.keys[0]!.pubkey.toBase58()).toBe(WALLET.toBase58());
     expect(place.keys[1]!.pubkey.toBase58()).toBe(matchAccount.toBase58());
@@ -150,34 +150,23 @@ describe("buildPreparePredictionTx", () => {
     expect(place.keys[3]!.pubkey.toBase58()).toBe(
       predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58(),
     );
-    expect(place.keys[5]!.pubkey.toBase58()).toBe(vault.toBase58());
-    expect(place.keys[6]!.pubkey.toBase58()).toBe(TOKEN_PROGRAM_ID.toBase58());
   });
 
-  it("charges the full entry fee and uses slot 0 on a wallet's first pick (no entry)", () => {
-    const out = build();
+  it("enter-once: every pick is free and fills the next free slot", () => {
+    const out = build({}, entryWithSlots(2));
     const expectedAta = associatedTokenAddress(DEVNET_USDC_MINT, WALLET);
     expect(out.userUsdcAta).toBe(expectedAta.toBase58());
     expect(out.usdcMint).toBe(DEVNET_USDC_MINT.toBase58());
-    expect(out.entryFee).toBe("5000000");
-    expect(out.slotIndex).toBe(0);
-    expect(out.startTime).toBe(0); // encodeMatch leaves start_time 0 (gate disabled)
-    expect(out.prediction).toBe(
-      predictionPda(PROGRAM_ID, matchAccount, WALLET, 0).toBase58(),
-    );
-    expect(out.matchAccount).toBe(matchAccount.toBase58());
-  });
-
-  it("pay-per-match: a later pick charges 0 and uses the next free slot", () => {
-    const out = build({}, entryWithSlots(2));
     expect(out.entryFee).toBe("0");
     expect(out.slotIndex).toBe(2);
+    expect(out.startTime).toBe(0); // encodeMatch leaves start_time 0 (gate disabled)
     expect(out.prediction).toBe(
       predictionPda(PROGRAM_ID, matchAccount, WALLET, 2).toBase58(),
     );
+    expect(out.matchAccount).toBe(matchAccount.toBase58());
 
     const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
-    expect(tx.instructions[1]!.data.readUInt8(20)).toBe(2); // slot in the ix
+    expect(tx.instructions[0]!.data.readUInt8(20)).toBe(2); // slot in the ix
   });
 
   it("builds a KIND_SCORE pick: kind=3, side=0, score1/score2 in out/in fields", () => {
@@ -188,7 +177,7 @@ describe("buildPreparePredictionTx", () => {
       inPlayerId: 1,
     });
     const tx = Transaction.from(Buffer.from(out.transaction, "base64"));
-    const place = tx.instructions[1]!;
+    const place = tx.instructions[0]!;
     expect(place.data.readUInt8(8)).toBe(0); // side
     expect(place.data.readUInt8(9)).toBe(KIND_SCORE); // kind
     expect(place.data.readUInt32LE(10)).toBe(2); // score1

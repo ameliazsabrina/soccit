@@ -3,8 +3,10 @@ import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { config } from "../src/config.js";
 import { loadKeypair } from "../src/keeper.js";
 import {
+  buildEnterMatchInstruction,
   buildPlacePredictionInstruction,
   decodeMatch,
+  entryPda,
   matchPda,
   predictionPda,
 } from "@soccit/onchain/program";
@@ -34,21 +36,41 @@ async function main(): Promise<void> {
   const match = decodeMatch(info.data as Buffer);
 
   const userUsdcAta = getAssociatedTokenAddressSync(match.usdcMint, user.publicKey);
+  const entry = entryPda(programId, matchAccount, user.publicKey);
   const prediction = predictionPda(programId, matchAccount, user.publicKey, slotIndex);
 
   console.error(`> user:       ${user.publicKey.toBase58()}`);
   console.error(`> match:      ${matchAccount.toBase58()}`);
   console.error(`> mint:       ${match.usdcMint.toBase58()}`);
   console.error(`> user ATA:   ${userUsdcAta.toBase58()}`);
+  console.error(`> entry:      ${entry.toBase58()}`);
   console.error(`> prediction: ${prediction.toBase58()}`);
   console.error(`> side=${side} kind=${kind} out=${outId} in=${inId} lock=${lockMinute} slot=${slotIndex}`);
+
+  // Enter-once: pay the fee (creating the Entry) only if the wallet hasn't yet;
+  // subsequent picks are free.
+  const entered = await connection.getAccountInfo(entry);
+  if (!entered) {
+    const enterTx = new Transaction().add(
+      buildEnterMatchInstruction({
+        programId,
+        user: user.publicKey,
+        matchAccount,
+        userUsdcAta,
+        vault: match.vault,
+      }),
+    );
+    const enterSig = await connection.sendTransaction(enterTx, [user], {
+      skipPreflight: false,
+    });
+    await connection.confirmTransaction(enterSig, "confirmed");
+    console.error(`> entered match, sig: ${enterSig}`);
+  }
 
   const ix = buildPlacePredictionInstruction({
     programId,
     user: user.publicKey,
     matchAccount,
-    userUsdcAta,
-    vault: match.vault,
     side,
     kind,
     outId,

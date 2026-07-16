@@ -4,8 +4,10 @@ import {
   EntryNotOpenYetError,
   InsufficientEntryBalanceError,
   MatchMintMismatchError,
+  MatchNotEnteredError,
   MatchNotOpenError,
 } from "../modules/prediction/prediction.errors.js";
+import { WalletAlreadyEnteredError } from "../modules/entry/entry.errors.js";
 import { LeaderboardNotReadyError } from "../modules/leaderboard/leaderboard.errors.js";
 import { LineupNotReadyError } from "../modules/lineup/lineup.errors.js";
 import { RpcUnavailableError } from "../modules/portfolio/portfolio.errors.js";
@@ -57,12 +59,20 @@ function mapDomainError(err: unknown): TRPCError | null {
       cause: err,
     });
   }
+  if (err instanceof MatchNotEnteredError) {
+    return new TRPCError({
+      code: "FORBIDDEN",
+      message: err.message,
+      cause: err,
+    });
+  }
   if (
     err instanceof UsernameTakenError ||
     err instanceof WalletAlreadyRegisteredError ||
     err instanceof MatchNotOpenError ||
     err instanceof EntryNotOpenYetError ||
-    err instanceof MatchMintMismatchError
+    err instanceof MatchMintMismatchError ||
+    err instanceof WalletAlreadyEnteredError
   ) {
     return new TRPCError({
       code: "CONFLICT",

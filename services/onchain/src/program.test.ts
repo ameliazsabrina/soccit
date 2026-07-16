@@ -8,6 +8,7 @@ import {
   STATUS_RESOLVED,
   assertCanonicalMint,
   buildCreateMatchInstruction,
+  buildEnterMatchInstruction,
   buildPlacePredictionInstruction,
   buildResolveInstruction,
   buildSettleInstruction,
@@ -24,6 +25,7 @@ const PROGRAM_ID = new PublicKey("TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v");
 const RESOLVE_DISC = Buffer.from([246, 150, 236, 206, 108, 63, 58, 10]);
 const SETTLE_DISC = Buffer.from([247, 163, 22, 141, 33, 169, 225, 56]);
 const CREATE_DISC = Buffer.from([107, 2, 184, 145, 70, 142, 17, 165]);
+const ENTER_DISC = Buffer.from([25, 72, 131, 252, 111, 231, 207, 149]);
 const PLACE_DISC = Buffer.from([79, 46, 195, 197, 50, 91, 88, 229]);
 const MATCH_DISC = Buffer.from([236, 63, 169, 38, 15, 56, 196, 162]);
 
@@ -112,7 +114,12 @@ describe("decodeEntry", () => {
   const ENTRY_DISC = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
 
   const encodeEntry = (
-    over: { side?: number; slotsUsed?: number; playerCount?: number } = {},
+    over: {
+      side?: number;
+      slotsUsed?: number;
+      playerCount?: number;
+      enteredAt?: bigint;
+    } = {},
   ) => {
     const buf = Buffer.alloc(ENTRY_ACCOUNT_LEN);
     ENTRY_DISC.copy(buf, 0);
@@ -122,17 +129,24 @@ describe("decodeEntry", () => {
     buf.writeUInt8(over.slotsUsed ?? 0, 73);
     buf.writeUInt8(over.playerCount ?? 0, 114);
     buf.writeUInt8(255, 115); // bump
+    buf.writeBigInt64LE(over.enteredAt ?? 0n, 116); // entered_at
     return buf;
   };
 
-  it("reads side / slotsUsed for a score-first (unset side) entry", () => {
+  it("reads side / slotsUsed / enteredAt for a score-first (unset side) entry", () => {
     const decoded = decodeEntry(
-      encodeEntry({ side: 0, slotsUsed: 2, playerCount: 1 }),
+      encodeEntry({
+        side: 0,
+        slotsUsed: 2,
+        playerCount: 1,
+        enteredAt: 1_782_446_400n,
+      }),
     );
     expect(decoded.side).toBe(0);
     expect(decoded.slotsUsed).toBe(2);
     expect(decoded.playerCount).toBe(1);
     expect(decoded.bump).toBe(255);
+    expect(decoded.enteredAt).toBe(1_782_446_400n);
   });
 
   it("rejects a wrong discriminator", () => {
@@ -204,17 +218,13 @@ describe("buildSettleInstruction", () => {
 });
 
 describe("buildPlacePredictionInstruction", () => {
-  it("encodes args and derives the prediction PDA", () => {
+  it("encodes args and derives the prediction PDA (enter-once: no fee accounts)", () => {
     const user = PublicKey.unique();
     const matchAccount = matchPda(PROGRAM_ID, 17926593n);
-    const userUsdcAta = PublicKey.unique();
-    const vault = PublicKey.unique();
     const ix = buildPlacePredictionInstruction({
       programId: PROGRAM_ID,
       user,
       matchAccount,
-      userUsdcAta,
-      vault,
       side: 1,
       kind: 2,
       outId: 10101970,
@@ -230,15 +240,46 @@ describe("buildPlacePredictionInstruction", () => {
     expect(ix.data.readUInt16LE(18)).toBe(20);
     expect(ix.data.readUInt8(20)).toBe(3);
     expect(ix.data.length).toBe(21);
+    // user → match → entry → prediction → system (no ATA/vault/token program).
+    expect(ix.keys).toHaveLength(5);
     const entry = entryPda(PROGRAM_ID, matchAccount, user);
     const pred = predictionPda(PROGRAM_ID, matchAccount, user, 3);
     expect(ix.keys[2]!.pubkey.toBase58()).toBe(entry.toBase58());
     expect(ix.keys[3]!.pubkey.toBase58()).toBe(pred.toBase58());
+    expect(ix.keys[1]).toMatchObject({ isWritable: false }); // match no longer mutated
     expect(ix.keys[0]).toMatchObject({
       pubkey: user,
       isSigner: true,
       isWritable: true,
     });
+  });
+});
+
+describe("buildEnterMatchInstruction", () => {
+  it("encodes discriminator-only data and orders the fee accounts", () => {
+    const user = PublicKey.unique();
+    const matchAccount = matchPda(PROGRAM_ID, 17926593n);
+    const userUsdcAta = PublicKey.unique();
+    const vault = PublicKey.unique();
+    const ix = buildEnterMatchInstruction({
+      programId: PROGRAM_ID,
+      user,
+      matchAccount,
+      userUsdcAta,
+      vault,
+    });
+    expect(ix.data.subarray(0, 8).equals(ENTER_DISC)).toBe(true);
+    expect(ix.data.length).toBe(8);
+    // user → match → entry → user_usdc_ata → vault → token program → system.
+    expect(ix.keys).toHaveLength(7);
+    const entry = entryPda(PROGRAM_ID, matchAccount, user);
+    expect(ix.keys[0]).toMatchObject({ isSigner: true, isWritable: true });
+    expect(ix.keys[0]!.pubkey.toBase58()).toBe(user.toBase58());
+    expect(ix.keys[1]!.pubkey.toBase58()).toBe(matchAccount.toBase58());
+    expect(ix.keys[1]).toMatchObject({ isWritable: true });
+    expect(ix.keys[2]!.pubkey.toBase58()).toBe(entry.toBase58());
+    expect(ix.keys[3]!.pubkey.toBase58()).toBe(userUsdcAta.toBase58());
+    expect(ix.keys[4]!.pubkey.toBase58()).toBe(vault.toBase58());
   });
 });
 

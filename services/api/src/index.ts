@@ -63,8 +63,12 @@ import {
   EntryNotOpenYetError,
   InsufficientEntryBalanceError,
   MatchMintMismatchError,
+  MatchNotEnteredError,
   MatchNotOpenError,
 } from "./modules/prediction/prediction.errors.js";
+import { enterInput } from "./modules/entry/entry.schema.js";
+import { prepareEnter, getEntryStatus } from "./modules/entry/entry.service.js";
+import { WalletAlreadyEnteredError } from "./modules/entry/entry.errors.js";
 import {
   InvalidSignatureError,
   UserNotFoundError,
@@ -190,9 +194,30 @@ app.post("/api/prediction/prepare", async (c) => {
   } catch (err) {
     if (err instanceof MatchNotFoundError)
       return c.json({ error: err.message }, 404);
+    if (err instanceof MatchNotEnteredError)
+      return c.json({ error: err.message, wallet: err.wallet }, 403);
     if (err instanceof MatchNotOpenError || err instanceof EntryNotOpenYetError)
       return c.json({ error: err.message }, 409);
     if (err instanceof MatchMintMismatchError)
+      return c.json({ error: err.message }, 409);
+    throw err;
+  }
+});
+
+app.post("/api/match/enter/prepare", async (c) => {
+  const parsed = enterInput.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "invalid body" }, 400);
+  try {
+    return c.json(await prepareEnter(parsed.data));
+  } catch (err) {
+    if (err instanceof MatchNotFoundError)
+      return c.json({ error: err.message }, 404);
+    if (
+      err instanceof MatchNotOpenError ||
+      err instanceof EntryNotOpenYetError ||
+      err instanceof MatchMintMismatchError ||
+      err instanceof WalletAlreadyEnteredError
+    )
       return c.json({ error: err.message }, 409);
     if (err instanceof InsufficientEntryBalanceError)
       return c.json(
@@ -204,6 +229,21 @@ app.post("/api/prediction/prepare", async (c) => {
         },
         402,
       );
+    throw err;
+  }
+});
+
+app.get("/api/matches/:pda/entry/:wallet", async (c) => {
+  const pda = c.req.param("pda");
+  if (!isValidPda(pda)) return c.json({ error: "invalid match address" }, 400);
+  const parsedWallet = walletInput.safeParse({ wallet: c.req.param("wallet") });
+  if (!parsedWallet.success) return c.json({ error: "invalid wallet" }, 400);
+  try {
+    const fixtureId = await resolveFixtureId(pda);
+    return c.json(await getEntryStatus(fixtureId, parsedWallet.data.wallet));
+  } catch (err) {
+    if (err instanceof MatchNotFoundError)
+      return c.json({ error: err.message }, 404);
     throw err;
   }
 });

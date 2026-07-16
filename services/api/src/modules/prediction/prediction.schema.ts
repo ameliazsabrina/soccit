@@ -72,8 +72,8 @@ export const preparePredictionOutput = z.object({
   matchAccount: z.string(),
   userUsdcAta: z.string(),
   usdcMint: z.string(),
-  // Fee actually charged by THIS transaction: the match entry fee on a wallet's
-  // first pick, or "0" for a later pick (pay-per-match).
+  // Enter-once: predictions are always free (the entry fee is paid separately via
+  // enter_match), so this is always "0". Retained for output-shape stability.
   entryFee: z.string(),
   // The server-derived slot this pick occupies (0 for the first pick).
   slotIndex: z.number().int().min(0),

@@ -43,6 +43,9 @@ const ENTRY_DISCRIMINATOR = Buffer.from([63, 18, 152, 113, 215, 246, 221, 250]);
 const CREATE_MATCH_DISCRIMINATOR = Buffer.from([
   107, 2, 184, 145, 70, 142, 17, 165,
 ]);
+const ENTER_MATCH_DISCRIMINATOR = Buffer.from([
+  25, 72, 131, 252, 111, 231, 207, 149,
+]);
 const PLACE_PREDICTION_DISCRIMINATOR = Buffer.from([
   79, 46, 195, 197, 50, 91, 88, 229,
 ]);
@@ -203,10 +206,13 @@ export interface DecodedEntry {
   slotsUsed: number;
   playerCount: number;
   bump: number;
+  /** Unix seconds at which the wallet entered (paid the fee) for this match. */
+  enteredAt: bigint;
 }
 
-// 8 disc + 32 owner + 32 match_key + 1 side + 1 slots_used + 40 players + 1 count + 1 bump
-export const ENTRY_ACCOUNT_LEN = 116;
+// 8 disc + 32 owner + 32 match_key + 1 side + 1 slots_used + 40 players
+//   + 1 count + 1 bump + 8 entered_at(i64) = 124
+export const ENTRY_ACCOUNT_LEN = 124;
 
 export function decodeEntry(buf: Buffer): DecodedEntry {
   if (buf.length < ENTRY_ACCOUNT_LEN) {
@@ -224,6 +230,7 @@ export function decodeEntry(buf: Buffer): DecodedEntry {
     slotsUsed: buf.readUInt8(73),
     playerCount: buf.readUInt8(114),
     bump: buf.readUInt8(115),
+    enteredAt: buf.readBigInt64LE(116),
   };
 }
 
@@ -255,12 +262,47 @@ export function entryPda(
   )[0];
 }
 
-export interface PlacePredictionParams {
+export interface EnterMatchParams {
   programId: PublicKey;
   user: PublicKey;
   matchAccount: PublicKey;
   userUsdcAta: PublicKey;
   vault: PublicKey;
+}
+
+/**
+ * Enter-once: the wallet pays the match entry fee a single time, creating its
+ * Entry account. Data is the discriminator only — no args. Account order mirrors
+ * the Rust `EnterMatch` context exactly.
+ */
+export function buildEnterMatchInstruction(
+  params: EnterMatchParams,
+): TransactionInstruction {
+  const { programId, user, matchAccount, userUsdcAta, vault } = params;
+  const entry = entryPda(programId, matchAccount, user);
+
+  const data = Buffer.alloc(8);
+  ENTER_MATCH_DISCRIMINATOR.copy(data, 0);
+
+  return new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: user, isSigner: true, isWritable: true },
+      { pubkey: matchAccount, isSigner: false, isWritable: true },
+      { pubkey: entry, isSigner: false, isWritable: true },
+      { pubkey: userUsdcAta, isSigner: false, isWritable: true },
+      { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+}
+
+export interface PlacePredictionParams {
+  programId: PublicKey;
+  user: PublicKey;
+  matchAccount: PublicKey;
   side: number;
   kind: number;
   outId: number;
@@ -276,8 +318,6 @@ export function buildPlacePredictionInstruction(
     programId,
     user,
     matchAccount,
-    userUsdcAta,
-    vault,
     side,
     kind,
     outId,
@@ -301,12 +341,9 @@ export function buildPlacePredictionInstruction(
     programId,
     keys: [
       { pubkey: user, isSigner: true, isWritable: true },
-      { pubkey: matchAccount, isSigner: false, isWritable: true },
+      { pubkey: matchAccount, isSigner: false, isWritable: false },
       { pubkey: entry, isSigner: false, isWritable: true },
       { pubkey: prediction, isSigner: false, isWritable: true },
-      { pubkey: userUsdcAta, isSigner: false, isWritable: true },
-      { pubkey: vault, isSigner: false, isWritable: true },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     data,

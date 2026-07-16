@@ -71,6 +71,16 @@ export function normalize(
         minute,
       });
       break;
+
+    case "yellow_card":
+      events.push({
+        type: "yellow_card",
+        ...base,
+        side: side ?? 1,
+        playerId: d?.PlayerId,
+        minute,
+      });
+      break;
   }
 
   if (action && (STATUS_ACTIONS.has(action) || terminal.has(action))) {

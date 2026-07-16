@@ -18,6 +18,17 @@ export class EntryNotOpenYetError extends Error {
   }
 }
 
+export class MatchNotEnteredError extends Error {
+  readonly wallet: string;
+  constructor(fixtureId: number, wallet: string) {
+    super(
+      `Wallet ${wallet} must enter match ${fixtureId} (pay the entry fee) before predicting`,
+    );
+    this.name = "MatchNotEnteredError";
+    this.wallet = wallet;
+  }
+}
+
 export class MatchMintMismatchError extends Error {
   readonly expectedMint: string;
   readonly actualMint: string;

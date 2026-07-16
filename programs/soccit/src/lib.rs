@@ -29,6 +29,10 @@ pub mod soccit {
         )
     }
 
+    pub fn enter_match(ctx: Context<EnterMatch>) -> Result<()> {
+        instructions::enter_match::enter_match_handler(ctx)
+    }
+
     pub fn place_prediction(
         ctx: Context<PlacePrediction>,
         side: u8,

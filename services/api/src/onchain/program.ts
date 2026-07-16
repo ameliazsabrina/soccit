@@ -27,6 +27,7 @@ export {
   KIND_COMBO,
   KIND_SCORE,
   associatedTokenAddress,
+  buildEnterMatchInstruction,
   buildPlacePredictionInstruction,
   decodeEntry,
   decodeMatch,
@@ -71,8 +72,8 @@ export async function fetchTokenBalance(ata: PublicKey): Promise<bigint> {
 }
 
 /**
- * The caller's Entry for a match, or null if they have not picked yet. Used to
- * report the pay-per-match fee (0 once an entry exists) and the next free slot.
+ * The caller's Entry for a match, or null if they have not entered yet. Under
+ * enter-once, its presence gates predictions and drives the next free slot.
  */
 export async function fetchEntry(
   matchAccount: PublicKey,

@@ -71,6 +71,7 @@ function fakeEntry(
     slotsUsed: 1,
     playerCount: 0,
     bump: 0,
+    enteredAt: 0n,
     ...overrides,
   };
 }

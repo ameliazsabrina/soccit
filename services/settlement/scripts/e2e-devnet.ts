@@ -18,6 +18,7 @@ import {
 } from "@solana/spl-token";
 import {
   buildCreateMatchInstruction,
+  buildEnterMatchInstruction,
   buildPlacePredictionInstruction,
   buildResolveInstruction,
   buildSettleInstruction,
@@ -121,17 +122,32 @@ async function main(): Promise<void> {
   );
   console.log(`created match ${matchId} -> ${match.toBase58()}`);
 
-  // --- 3 users each place one prediction (each pays ENTRY_FEE into vault) ---
+  // --- Enter-once: each user pays ENTRY_FEE once, then places a free pick ---
   for (let i = 0; i < users.length; i++) {
+    const user = users[i]!;
+    const userAta = userAtas[i]!;
+    await send(
+      conn,
+      [
+        buildEnterMatchInstruction({
+          programId: PROGRAM_ID,
+          user: user.publicKey,
+          matchAccount: match,
+          userUsdcAta: userAta,
+          vault,
+        }),
+      ],
+      [user],
+    );
+    console.log(`user ${i} entered (paid ENTRY_FEE)`);
+
     await send(
       conn,
       [
         buildPlacePredictionInstruction({
           programId: PROGRAM_ID,
-          user: users[i].publicKey,
+          user: user.publicKey,
           matchAccount: match,
-          userUsdcAta: userAtas[i],
-          vault,
           side: 1,
           kind: KIND_OUT,
           outId: 10 + i, // distinct player ids
@@ -140,9 +156,9 @@ async function main(): Promise<void> {
           slotIndex: 0,
         }),
       ],
-      [users[i]],
+      [user],
     );
-    console.log(`user ${i} placed prediction`);
+    console.log(`user ${i} placed prediction (free)`);
   }
 
   const m1 = decodeMatch(Buffer.from((await conn.getAccountInfo(match))!.data));
@@ -159,9 +175,9 @@ async function main(): Promise<void> {
         resolver: funder.publicKey,
         matchAccount: match,
         terminalPhase: 1,
-        winner1: users[0].publicKey,
-        winner2: users[1].publicKey,
-        winner3: users[2].publicKey,
+        winner1: users[0]!.publicKey,
+        winner2: users[1]!.publicKey,
+        winner3: users[2]!.publicKey,
       }),
     ],
     [funder],
@@ -171,9 +187,9 @@ async function main(): Promise<void> {
   );
 
   const before = {
-    w0: await bal(conn, userAtas[0]),
-    w1: await bal(conn, userAtas[1]),
-    w2: await bal(conn, userAtas[2]),
+    w0: await bal(conn, userAtas[0]!),
+    w1: await bal(conn, userAtas[1]!),
+    w2: await bal(conn, userAtas[2]!),
     plat: await bal(conn, platformAta),
   };
   await send(
@@ -185,18 +201,18 @@ async function main(): Promise<void> {
         matchAccount: match,
         vaultAuthority,
         vault,
-        winner1Ata: userAtas[0],
-        winner2Ata: userAtas[1],
-        winner3Ata: userAtas[2],
+        winner1Ata: userAtas[0]!,
+        winner2Ata: userAtas[1]!,
+        winner3Ata: userAtas[2]!,
         platformAta,
       }),
     ],
     [funder],
   );
   const after = {
-    w0: await bal(conn, userAtas[0]),
-    w1: await bal(conn, userAtas[1]),
-    w2: await bal(conn, userAtas[2]),
+    w0: await bal(conn, userAtas[0]!),
+    w1: await bal(conn, userAtas[1]!),
+    w2: await bal(conn, userAtas[2]!),
     plat: await bal(conn, platformAta),
     vault: await bal(conn, vault),
   };

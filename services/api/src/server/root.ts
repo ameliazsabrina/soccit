@@ -45,6 +45,16 @@ import {
   preparePredictionOutput,
 } from "../modules/prediction/prediction.schema.js";
 import { preparePrediction } from "../modules/prediction/prediction.service.js";
+import {
+  enterInput,
+  entryStatusInput,
+  entryStatusOutput,
+  enterOutput,
+} from "../modules/entry/entry.schema.js";
+import {
+  getEntryStatus,
+  prepareEnter,
+} from "../modules/entry/entry.service.js";
 import { platformConfigOutput } from "../modules/config/config.schema.js";
 import { getPlatformConfig } from "../modules/config/config.service.js";
 import { competitionsOutput } from "../modules/competitions/competitions.schema.js";
@@ -166,6 +176,20 @@ const predictionRouter = router({
     .mutation(({ input }) => preparePrediction(input)),
 });
 
+const entryRouter = router({
+  prepare: publicProcedure
+    .input(enterInput)
+    .output(enterOutput)
+    .mutation(({ input }) => prepareEnter(input)),
+
+  status: publicProcedure
+    .input(entryStatusInput)
+    .output(entryStatusOutput)
+    .query(async ({ input }) =>
+      getEntryStatus(await resolveFixtureId(input.pda), input.wallet),
+    ),
+});
+
 const configRouter = router({
   get: publicProcedure.output(platformConfigOutput).query(() => getPlatformConfig()),
 });
@@ -183,6 +207,7 @@ export const appRouter = router({
   match: matchRouter,
   schedule: scheduleRouter,
   prediction: predictionRouter,
+  entry: entryRouter,
   leaderboard: leaderboardRouter,
   events: eventsRouter,
   lineup: lineupRouter,

@@ -35,6 +35,8 @@ pub struct Entry {
     pub players: [u32; MAX_PLAYERS],
     pub player_count: u8,
     pub bump: u8,
+    /// Unix seconds at which the wallet entered (paid the fee) for this match.
+    pub entered_at: i64,
 }
 
 #[account]

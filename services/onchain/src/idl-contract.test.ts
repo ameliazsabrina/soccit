@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   MATCH_ACCOUNT_LEN,
   buildCreateMatchInstruction,
+  buildEnterMatchInstruction,
   buildPlacePredictionInstruction,
   buildResolveInstruction,
   buildSettleInstruction,
@@ -57,14 +58,23 @@ describe("IDL contract — instruction discriminators & account counts", () => {
         }),
     },
     {
+      name: "enter_match",
+      ix: () =>
+        buildEnterMatchInstruction({
+          programId: PROGRAM_ID,
+          user: onCurve(),
+          matchAccount: onCurve(),
+          userUsdcAta: onCurve(),
+          vault: onCurve(),
+        }),
+    },
+    {
       name: "place_prediction",
       ix: () =>
         buildPlacePredictionInstruction({
           programId: PROGRAM_ID,
           user: onCurve(),
           matchAccount: onCurve(),
-          userUsdcAta: onCurve(),
-          vault: onCurve(),
           side: 1,
           kind: 0,
           outId: 10,

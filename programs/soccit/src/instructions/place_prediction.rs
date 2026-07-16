@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 use crate::{
     constants::*,
@@ -14,18 +13,17 @@ pub struct PlacePrediction<'info> {
     pub user: Signer<'info>,
 
     #[account(
-        mut,
         seeds = [MATCH_SEED, &match_account.match_id.to_le_bytes()],
         bump = match_account.bump,
     )]
     pub match_account: Account<'info, Match>,
 
+    // Enter-once: the Entry must already exist (created by `enter_match`). A
+    // wallet that has not entered cannot place a prediction.
     #[account(
-        init_if_needed,
-        payer = user,
-        space = 8 + Entry::INIT_SPACE,
+        mut,
         seeds = [ENTRY_SEED, match_account.key().as_ref(), user.key().as_ref()],
-        bump,
+        bump = entry.bump,
     )]
     pub entry: Account<'info, Entry>,
 
@@ -38,20 +36,6 @@ pub struct PlacePrediction<'info> {
     )]
     pub prediction: Account<'info, Prediction>,
 
-    #[account(
-        mut,
-        constraint = user_usdc_ata.mint == match_account.usdc_mint @ SoccitError::MintMismatch,
-        constraint = user_usdc_ata.owner == user.key(),
-    )]
-    pub user_usdc_ata: Account<'info, TokenAccount>,
-
-    #[account(
-        mut,
-        address = match_account.vault @ SoccitError::VaultMismatch,
-    )]
-    pub vault: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -68,7 +52,7 @@ pub fn place_prediction_handler(
         ctx.accounts.match_account.status == STATUS_OPEN,
         SoccitError::MatchNotOpen
     );
-    
+
     let start_time = ctx.accounts.match_account.start_time;
     if start_time != 0 {
         let now = Clock::get()?.unix_timestamp;
@@ -95,22 +79,13 @@ pub fn place_prediction_handler(
     }
 
     let entry = &mut ctx.accounts.entry;
-    let first_pick = entry.owner == Pubkey::default();
+    // The wallet must have entered the match (paid the fee) before predicting.
+    require!(
+        entry.owner == ctx.accounts.user.key(),
+        SoccitError::MatchNotEntered
+    );
 
-    if first_pick {
-        entry.owner = ctx.accounts.user.key();
-        entry.match_key = ctx.accounts.match_account.key();
-        entry.side = if is_score { 0 } else { side };
-        entry.slots_used = 0;
-        entry.player_count = 0;
-        entry.bump = ctx.bumps.entry;
-
-        let m = &mut ctx.accounts.match_account;
-        m.participant_count = m
-            .participant_count
-            .checked_add(1)
-            .ok_or(SoccitError::Overflow)?;
-    } else if !is_score {
+    if !is_score {
         if entry.side == 0 {
             entry.side = side;
         } else {
@@ -145,31 +120,6 @@ pub fn place_prediction_handler(
     }
     entry.slots_used += 1;
 
-    // Pay-per-match: the entry fee is charged once, on a wallet's first pick in
-    // this match. Later picks (in additional slots) are free.
-    let fee = if first_pick {
-        ctx.accounts.match_account.entry_fee
-    } else {
-        0
-    };
-
-    if first_pick {
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.key(),
-                Transfer {
-                    from: ctx.accounts.user_usdc_ata.to_account_info(),
-                    to: ctx.accounts.vault.to_account_info(),
-                    authority: ctx.accounts.user.to_account_info(),
-                },
-            ),
-            fee,
-        )?;
-
-        let m = &mut ctx.accounts.match_account;
-        m.pool_total = m.pool_total.checked_add(fee).ok_or(SoccitError::Overflow)?;
-    }
-
     let match_key = ctx.accounts.match_account.key();
     let p = &mut ctx.accounts.prediction;
     p.owner = ctx.accounts.user.key();
@@ -179,7 +129,8 @@ pub fn place_prediction_handler(
     p.out_player_id = out_id;
     p.in_player_id = in_id;
     p.lock_minute = lock_minute;
-    p.fee_paid = fee;
+    // Enter-once: predictions are always free; the fee is paid in enter_match.
+    p.fee_paid = 0;
     p.slot_index = slot_index;
     p.bump = ctx.bumps.prediction;
     Ok(())
