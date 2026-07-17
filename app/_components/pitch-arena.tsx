@@ -424,9 +424,9 @@ export function PitchArena({
       : "TXLINE did not provide enough recognised starter positions, so players use a neutral display layout.";
 
   return (
-    <div className={cn("grid h-full grid-cols-1 grid-rows-1 gap-6 lg:grid-cols-[1fr_40%]", className)}>
+    <div className={cn("grid min-h-0 flex-none grid-cols-1 gap-6 lg:h-full lg:flex-1 lg:grid-rows-1 lg:grid-cols-[1fr_40%]", className)}>
       {/* ===== LEFT COLUMN: PitchCard + BenchCard ===== */}
-      <div className="flex min-h-0 min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain">
         {/* PitchCard */}
         <div className="relative flex h-[300px] flex-shrink-0 flex-col overflow-hidden bg-purple/10 sm:h-[380px] lg:h-[440px]">
           {/* Pitch surface — fills the card body top-to-bottom. */}
@@ -554,7 +554,7 @@ export function PitchArena({
       </div>
 
       {/* ===== RIGHT COLUMN: SidebarCard ===== */}
-      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
+      <div className="flex h-[70svh] min-h-0 max-h-[640px] flex-col overflow-hidden bg-surface lg:h-full lg:max-h-none">
         {/* Tab header */}
         <div className="flex h-14 flex-shrink-0 items-center border-b border-surface-elevated">
           {[
@@ -585,7 +585,7 @@ export function PitchArena({
         {/* Tab body */}
         <div className="min-h-0 flex-1 overflow-hidden">
           {activeTab === "events" && (
-            <div className="flex h-full flex-col">
+            <div className="flex h-full min-h-0 flex-col">
               {/* Sub-tabs */}
               <div className="flex flex-shrink-0 border-b border-surface-elevated">
                 {(["overview", "streams"] as EventsSubTab[]).map((st) => (
@@ -611,7 +611,7 @@ export function PitchArena({
                   pda={matchPda}
                   isDemo={matchPda === "demo"}
                   view="events"
-                  className="h-full min-h-0 flex-1"
+                  className="min-h-0 flex-1"
                   showViewLogsLink
                   demoEvents={matchPda === "demo" ? DEMO_EVENTS : []}
                   demoLeaderboard={matchPda === "demo" ? DEMO_LEADERBOARD : null}
@@ -882,7 +882,7 @@ function OverviewTab({ overview }: { overview: ArenaMatchOverview }) {
     : overview.statusLabel;
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       <div className="sticky top-0 z-10 border-b border-surface-elevated bg-surface p-4">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <ScoreboardTeam team={home} align="left" />

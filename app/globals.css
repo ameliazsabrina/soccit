@@ -271,6 +271,13 @@ body {
   animation: marquee 25s linear infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+    transform: none;
+  }
+}
+
 @keyframes gradient-shift {
   0% {
     background-position: 0% 50%;

@@ -42,10 +42,10 @@ export function PageShell({
 
       {edgeToEdge ? (
         <>
-          <div className="relative z-20 mx-auto w-full max-w-[1200px] px-8 pt-8 lg:px-8">
+          <div className="relative z-40 mx-auto w-full max-w-[1200px] px-8 pt-8 lg:px-8">
             <TopNav variant={variant} arenaTabs={arenaTabs} />
           </div>
-          <main className="relative z-20 flex w-full flex-1 flex-col">
+          <main className="relative z-20 flex min-h-0 w-full flex-1 flex-col overflow-hidden">
             {children}
           </main>
         </>

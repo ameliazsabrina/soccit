@@ -32,6 +32,7 @@ const FWC_BANNER_BG = "/assets/events/fwc-banner-bg.webp";
 const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
 const UCL_BANNER_BG = "/assets/events/ucl-banner-bg.webp";
 const UCL_LOGO_WHITE = "/assets/events/ucl-logo-white.svg";
+const SPAIN_ARGENTINA_PDA = "3APNEZMud1boavyxTyHyAAaoEkyxPKXuj5pr17b3yb8e";
 
 const FILTERS = [
   { key: "all", label: "All Markets" },
@@ -42,6 +43,40 @@ const FILTERS = [
 ] as const;
 
 type FilterKey = (typeof FILTERS)[number]["key"];
+
+const DEMO_PDA = "demo";
+
+const DEMO_MATCH: MatchSummary = {
+  pda: DEMO_PDA,
+  fixtureId: 999999,
+  featured: false,
+  phase: "LIVE",
+  onchain: {
+    status: 0,
+    statusLabel: "OPEN",
+    settled: false,
+    entryFee: "1000000",
+    poolTotal: "5000000",
+    participantCount: 12,
+    startTime: 0,
+    team1Id: 101,
+    team2Id: 202,
+    usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    winners: [null, null, null],
+  },
+  live: {
+    statusId: 1,
+    minute: 63,
+    goals: { team1: 2, team2: 1 },
+    ts: Date.now(),
+  },
+  finalScore: null,
+  teamNames: { team1: "France", team2: "Argentina" },
+};
+
+function includeDemoMatch(matches: MatchSummary[]): MatchSummary[] {
+  return [DEMO_MATCH, ...matches.filter((match) => match.pda !== DEMO_PDA)];
+}
 
 // Every phase must land in exactly one tab so no card is orphaned. FINISHED
 // (full-time, settlement pending) buckets with RESOLVED under "Resolving";
@@ -92,7 +127,7 @@ export default function MatchEvents() {
     setError(null);
     try {
       const list = await getMatches();
-      setMatches(list);
+      setMatches(includeDemoMatch(list));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load matches.");
     } finally {
@@ -105,7 +140,7 @@ export default function MatchEvents() {
   const refreshMatches = useCallback(async () => {
     try {
       const list = await getMatches();
-      setMatches(list);
+      setMatches(includeDemoMatch(list));
       setError(null);
     } catch {
       // Ignore poll failures; the next tick retries.
@@ -120,7 +155,8 @@ export default function MatchEvents() {
   // cards OPEN → LIVE → FINISHED → SETTLED without a manual refresh. Poll faster
   // while anything is in-play, and refetch on window focus.
   const hasLive = useMemo(
-    () => matches?.some((m) => m.phase === "LIVE") ?? false,
+    () =>
+      matches?.some((m) => m.pda !== DEMO_PDA && m.phase === "LIVE") ?? false,
     [matches],
   );
 
@@ -287,15 +323,29 @@ export default function MatchEvents() {
 
 const EVENTS = [
   {
+    id: "fwc2026-final",
+    eyebrow: "World Cup 2026 · Final Match",
+    label: "Spain vs Argentina",
+    cta: "Enter Match",
+    href: `/matches/${SPAIN_ARGENTINA_PDA}`,
+    // Temporary artwork; replace this path when the final-match banner arrives.
+    bg: FWC_BANNER_BG,
+    logo: FWC_LOGO_WHITE,
+  },
+  {
     id: "fwc2026",
+    eyebrow: "Events",
     label: "Predict World Cup 2026 Bracket",
+    cta: "Enter Event",
     href: "/matches/events/worldcup",
     bg: FWC_BANNER_BG,
     logo: FWC_LOGO_WHITE,
   },
   {
     id: "ucl",
+    eyebrow: "Events",
     label: "UEFA Champions League",
+    cta: "Enter Event",
     href: "/matches/events/ucl",
     bg: UCL_BANNER_BG,
     logo: UCL_LOGO_WHITE,
@@ -317,69 +367,75 @@ function FeaturedBanner() {
   const event = EVENTS[active];
 
   return (
-    <Link
-      href={event.href}
-      className="group relative flex min-h-[260px] flex-col items-center justify-center overflow-hidden border-b border-surface p-8 text-center transition-all sm:min-h-[300px]"
+    <section
+      className="relative min-h-[260px] overflow-hidden border-b border-surface sm:min-h-[300px]"
+      aria-label="Featured matches and events"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
     >
-      {/* Background */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700 group-hover:scale-105 group-hover:brightness-110"
-        style={{ backgroundImage: `url('${event.bg}')` }}
-      />
-      <div className="absolute inset-0 bg-slate-950/50 transition-colors duration-500 group-hover:bg-slate-950/40" />
-
-      {/* EVENTS flag */}
-      <div className="absolute left-8 top-8 z-20">
-        <span className="border border-white/30 bg-white/10 px-4 py-2 font-tech text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur-sm">
-          Events
-        </span>
-      </div>
-
-      {/* Logo */}
-      <div className="relative z-10 mb-5 h-20 w-20 sm:h-24 sm:w-24">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={event.logo}
-          alt={event.label}
-          className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
+      <Link
+        href={event.href}
+        className="group absolute inset-0 flex flex-col items-center justify-center p-8 text-center focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+      >
+        {/* Background */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat motion-safe:transition-[transform,filter] motion-safe:duration-500 motion-safe:ease-out group-hover:scale-105 group-hover:brightness-110"
+          style={{ backgroundImage: `url('${event.bg}')` }}
         />
-      </div>
+        <div className="absolute inset-0 bg-slate-950/50 transition-colors duration-150 group-hover:bg-slate-950/40" />
 
-      {/* Title */}
-      <h2 className="font-wc relative z-10 max-w-2xl text-2xl text-white transition-transform duration-500 group-hover:scale-105 sm:text-3xl md:text-4xl">
-        {event.label}
-      </h2>
-
-      {/* Enter event button */}
-      <div className="relative z-10 mt-5">
-        <span className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 font-display text-sm uppercase tracking-[0.1em] text-white">
-          enter event
-          <span className="material-symbols-outlined text-base">
-            arrow_forward
+        <div className="absolute left-8 top-8 z-20">
+          <span className="border border-white/30 bg-white/10 px-4 py-2 font-tech text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur-sm">
+            {event.eyebrow}
           </span>
-        </span>
-      </div>
+        </div>
+
+        <div className="relative z-10 mb-5 h-20 w-20 sm:h-24 sm:w-24">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={event.logo}
+            alt=""
+            className="h-full w-full object-contain motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out group-hover:scale-105"
+          />
+        </div>
+
+        <h2 className="font-wc relative z-10 max-w-2xl text-2xl text-white motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out group-hover:scale-105 sm:text-3xl md:text-4xl">
+          {event.label}
+        </h2>
+
+        <div className="relative z-10 mt-5">
+          <span className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 font-display text-sm uppercase tracking-[0.1em] text-white">
+            {event.cta}
+            <span className="material-symbols-outlined text-base" aria-hidden="true">
+              arrow_forward
+            </span>
+          </span>
+        </div>
+      </Link>
 
       {/* Carousel dots */}
-      <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-        {EVENTS.map((_, i) => (
-          <span
-            key={i}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setActive(i);
-            }}
-            className={cn(
-              "h-2 w-2 rounded-full transition-all",
-              i === active ? "bg-white w-6" : "bg-white/40 hover:bg-white/70",
-            )}
-          />
+      <div className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 gap-1">
+        {EVENTS.map((item, i) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setActive(i)}
+            className="flex h-10 w-10 items-center justify-center focus-visible:ring-2 focus-visible:ring-white"
+            aria-label={`Show ${item.label}`}
+            aria-current={i === active ? "true" : undefined}
+          >
+            <span
+              className={cn(
+                "h-2 rounded-full transition-[width,background-color] duration-150",
+                i === active ? "w-6 bg-white" : "w-2 bg-white/40 hover:bg-white/70",
+              )}
+            />
+          </button>
         ))}
       </div>
-    </Link>
+    </section>
   );
 }
 
@@ -599,6 +655,11 @@ function MatchCard({
         <div className="relative z-10 flex flex-1 flex-col gap-2">
           <div className="flex items-center gap-2">
             <StatusPill match={match} minute={minute} />
+            {match.pda === DEMO_PDA && (
+              <span className="inline-flex border border-cyan/40 bg-cyan/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground sm:text-xs">
+                Demo Match
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-2 font-display text-lg sm:text-xl">

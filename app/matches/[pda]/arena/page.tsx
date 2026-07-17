@@ -420,56 +420,57 @@ export default function ArenaPage() {
     });
   }
 
-  if (showLoadingTransition) {
-    return (
-      <EventsTransition
-        mode="enter"
-        logoEnter="/assets/soccit-logo-black.webp"
-        titleEnter="Loading Match"
-        onComplete={() => {
-          setShowLoadingTransition(false);
-          setLoading(false);
-        }}
-      />
-    );
-  }
+  const loadingTransition = showLoadingTransition ? (
+    <EventsTransition
+      mode="enter"
+      experience="match"
+      logoEnter="/assets/soccit-logo-black.webp"
+      onComplete={() => setShowLoadingTransition(false)}
+    />
+  ) : null;
 
   if (loading) {
     return (
-      <PageShell>
-        <div className="flex h-full flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/assets/soccit-logo-black.webp"
-            alt="Soccit"
-            className="h-24 w-auto object-contain sm:h-32"
-          />
-          <div className="relative h-3 w-full max-w-xs overflow-hidden border border-surface bg-surface/30">
-            <div className="loading-bar-fill absolute inset-y-0 left-0 bg-purple" />
+      <>
+        {loadingTransition}
+        <PageShell>
+          <div className="flex h-full flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/soccit-logo-black.webp"
+              alt="Soccit"
+              className="h-24 w-auto object-contain sm:h-32"
+            />
+            <div className="relative h-3 w-full max-w-xs overflow-hidden border border-surface bg-surface/30">
+              <div className="loading-bar-fill absolute inset-y-0 left-0 bg-purple" />
+            </div>
+            <div className="font-tech text-[10px] uppercase tracking-widest text-muted/60">
+              Loading match
+            </div>
           </div>
-          <div className="font-tech text-[10px] uppercase tracking-widest text-muted/60">
-            Loading match
-          </div>
-        </div>
-      </PageShell>
+        </PageShell>
+      </>
     );
   }
 
   if (error || !match || !lineup) {
     return (
-      <PageShell>
-        <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
-          <AlertCircle className="mb-4 text-rose" size={48} />
-          <h2 className="font-display text-2xl text-foreground">Arena Unavailable</h2>
-          <p className="mt-2 text-muted">{error ?? "Unknown error"}</p>
-          <button
-            onClick={loadMatch}
-            className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
-          >
-            <RefreshCw size={16} /> Retry
-          </button>
-        </div>
-      </PageShell>
+      <>
+        {loadingTransition}
+        <PageShell>
+          <div className="mx-auto flex max-w-xl flex-1 flex-col items-center justify-center px-4 text-center">
+            <AlertCircle className="mb-4 text-rose" size={48} />
+            <h2 className="font-display text-2xl text-foreground">Arena Unavailable</h2>
+            <p className="mt-2 text-muted">{error ?? "Unknown error"}</p>
+            <button
+              onClick={loadMatch}
+              className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+            >
+              <RefreshCw size={16} /> Retry
+            </button>
+          </div>
+        </PageShell>
+      </>
     );
   }
 
@@ -477,56 +478,65 @@ export default function ArenaPage() {
   // The backend status endpoint is authoritative; URL state never grants access.
   if (entryState === "checking") {
     return (
-      <PageShell>
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <RefreshCw size={28} className="animate-spin text-cyan" />
-          <h2 className="font-display text-2xl text-foreground">Checking Entry</h2>
-          <p className="text-sm text-muted">Verifying this wallet&apos;s match access…</p>
-        </div>
-      </PageShell>
+      <>
+        {loadingTransition}
+        <PageShell>
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+            <RefreshCw size={28} className="animate-spin text-cyan" />
+            <h2 className="font-display text-2xl text-foreground">Checking Entry</h2>
+            <p className="text-sm text-muted">Verifying this wallet&apos;s match access…</p>
+          </div>
+        </PageShell>
+      </>
     );
   }
 
   if (entryState === "error") {
     return (
-      <PageShell>
-        <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
-          <AlertCircle className="mb-4 text-rose" size={48} />
-          <h2 className="font-display text-2xl text-foreground">Entry Check Failed</h2>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            We couldn&apos;t verify your entry. Arena access remains locked until the backend confirms it.
-          </p>
-          <button
-            onClick={loadEntryStatus}
-            className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
-          >
-            <RefreshCw size={16} /> Retry Check
-          </button>
-        </div>
-      </PageShell>
+      <>
+        {loadingTransition}
+        <PageShell>
+          <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
+            <AlertCircle className="mb-4 text-rose" size={48} />
+            <h2 className="font-display text-2xl text-foreground">Entry Check Failed</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              We couldn&apos;t verify your entry. Arena access remains locked until the backend confirms it.
+            </p>
+            <button
+              onClick={loadEntryStatus}
+              className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+            >
+              <RefreshCw size={16} /> Retry Check
+            </button>
+          </div>
+        </PageShell>
+      </>
     );
   }
 
   if (entryState !== "entered") {
     return (
-      <PageShell>
-        <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
-          <div className="flex h-16 w-16 items-center justify-center border-2 border-rose/30 bg-rose/10">
-            <Lock size={28} className="text-rose" />
+      <>
+        {loadingTransition}
+        <PageShell>
+          <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center border-2 border-rose/30 bg-rose/10">
+              <Lock size={28} className="text-rose" />
+            </div>
+            <h2 className="font-display text-2xl text-foreground">Entry Required</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              You haven&apos;t entered this match yet. Return to the match page to
+              pay the entry fee and join the arena.
+            </p>
+            <button
+              onClick={() => router.push(`/matches/${pda}`)}
+              className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+            >
+              <ArrowLeft size={16} /> Back to Match
+            </button>
           </div>
-          <h2 className="font-display text-2xl text-foreground">Entry Required</h2>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            You haven&apos;t entered this match yet. Return to the match page to
-            pay the entry fee and join the arena.
-          </p>
-          <button
-            onClick={() => router.push(`/matches/${pda}`)}
-            className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
-          >
-            <ArrowLeft size={16} /> Back to Match
-          </button>
-        </div>
-      </PageShell>
+        </PageShell>
+      </>
     );
   }
 
@@ -579,8 +589,9 @@ export default function ArenaPage() {
 
   return (
     <>
+      {loadingTransition}
       <PageShell edgeToEdge hideTicker arenaTabs={arenaTabs}>
-      <div className="flex flex-1 flex-col overflow-hidden px-8 pb-8 lg:px-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 pb-8 lg:overflow-hidden lg:px-8">
         {model === "sub" && selectedTeam && sideSelected && (
           <PitchArena
             matchPda={pda}

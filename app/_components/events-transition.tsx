@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useReducedMotion } from "framer-motion";
 
 const FWC_LOGO_BLACK = "/assets/events/fwc-logo-black.svg";
 const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
@@ -14,29 +15,40 @@ const FADE_DURATION = 400;     // logo/loading fade out
 const FLIP_DURATION = 1400;    // tile flip center-out
 
 export type TransitionMode = "enter" | "exit";
+export type TransitionExperience = "event" | "match";
 
 interface EventsTransitionProps {
   mode: TransitionMode;
+  experience?: TransitionExperience;
   logoEnter?: string;
   logoExit?: string;
   titleEnter?: string;
   titleExit?: string;
   subtitleExit?: string;
+  loadingLabel?: string;
   onComplete?: () => void;
 }
 
 export function EventsTransition({
   mode,
+  experience = "event",
   logoEnter,
   logoExit,
   titleEnter,
   titleExit,
   subtitleExit,
+  loadingLabel,
   onComplete,
 }: EventsTransitionProps) {
   const [phase, setPhase] = useState<"loading" | "fading" | "flipping" | "done">("loading");
   const [progress, setProgress] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     setMounted(true);
@@ -45,6 +57,11 @@ export function EventsTransition({
   // Phase orchestration. Each phase schedules the next one, so a remount
   // cleanly restarts from the current phase rather than losing timers.
   useEffect(() => {
+    if (prefersReducedMotion) {
+      setPhase("done");
+      onCompleteRef.current?.();
+      return;
+    }
     if (phase === "loading") {
       const timer = setTimeout(() => setPhase("fading"), LOADING_DURATION);
       return () => clearTimeout(timer);
@@ -56,11 +73,11 @@ export function EventsTransition({
     if (phase === "flipping") {
       const timer = setTimeout(() => {
         setPhase("done");
-        onComplete?.();
+        onCompleteRef.current?.();
       }, FLIP_DURATION);
       return () => clearTimeout(timer);
     }
-  }, [phase, onComplete]);
+  }, [phase, prefersReducedMotion]);
 
   // Progress bar locked to actual percentage.
   useEffect(() => {
@@ -82,6 +99,7 @@ export function EventsTransition({
   if (!mounted || phase === "done") return null;
 
   const isEnter = mode === "enter";
+  const isMatchExperience = experience === "match";
 
   // Transparent container so flipped tiles reveal the destination page.
   // Front face is the loading screen color. No back face — when rotated away
@@ -95,9 +113,11 @@ export function EventsTransition({
     ? (logoEnter ?? FWC_LOGO_BLACK)
     : (logoExit ?? FWC_LOGO_WHITE);
   const titleText = isEnter
-    ? (titleEnter ?? "World Cup 2026")
+    ? (titleEnter ?? (isMatchExperience ? "Loading Match" : "World Cup 2026"))
     : (titleExit ?? "See You");
   const subtitleText = isEnter ? undefined : (subtitleExit ?? "World Cup 2026");
+  const loadingText =
+    loadingLabel ?? (isMatchExperience ? "Loading match" : "Loading bracket");
 
   const content = (
     <div className="fixed inset-0 z-[9999] overflow-hidden">
@@ -171,7 +191,7 @@ export function EventsTransition({
 
         <div className="mt-10 flex w-64 flex-col items-center gap-4 sm:w-80">
           <div className={`flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-[0.2em] ${mutedClass}`}>
-            <span className="font-tech">Loading bracket</span>
+            <span className="font-tech">{loadingText}</span>
             <span className="font-tech">{progress}%</span>
           </div>
           <div className={`relative h-2 w-full overflow-hidden ${surfaceClass}`}>

@@ -458,7 +458,7 @@ export default function MatchIntelligencePage() {
 
   return (
     <PageShell arenaTabs={subNavTabs}>
-      <div className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-8 lg:px-8">
+      <div className="w-full flex-1">
         {/* Match summary */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <SummaryCard
