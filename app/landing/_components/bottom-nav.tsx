@@ -18,12 +18,17 @@ export function BottomNav() {
       if (!ticking.current) {
         window.requestAnimationFrame(() => {
           const currentY = window.scrollY;
-          if (currentY > lastScrollY.current && currentY > 120) {
-            setHidden(true);
-          } else {
+          const delta = currentY - lastScrollY.current;
+          if (currentY < 80) {
             setHidden(false);
+            lastScrollY.current = currentY;
+          } else if (delta > 12 && currentY > 120) {
+            setHidden(true);
+            lastScrollY.current = currentY;
+          } else if (delta < -12) {
+            setHidden(false);
+            lastScrollY.current = currentY;
           }
-          lastScrollY.current = currentY;
           ticking.current = false;
         });
         ticking.current = true;
@@ -56,14 +61,14 @@ export function BottomNav() {
       <div className="flex h-9 items-center border border-foreground/15 bg-white/80 p-1 shadow-[0_10px_35px_rgba(10,22,40,0.08)] backdrop-blur-xl sm:h-10">
         <Link
           href="/matches"
-          className="relative inline-flex h-full items-center justify-center overflow-hidden bg-purple px-4 font-display text-[10px] uppercase tracking-[0.14em] text-white transition-colors duration-100 hover:bg-cyan hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 sm:px-5"
+          className="group/reveal relative inline-flex h-full items-center justify-center overflow-hidden bg-purple px-4 font-display text-[10px] uppercase tracking-[0.14em] text-white transition-colors duration-100 hover:bg-cyan hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 sm:px-5"
         >
           <HoverRevealButton>Enter Arena</HoverRevealButton>
         </Link>
 
         <button
           onClick={handleWalletClick}
-          className="group relative inline-flex h-full items-center justify-center overflow-hidden px-3 font-tech text-[9px] uppercase tracking-[0.16em] text-foreground transition-colors duration-100 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple sm:px-4"
+          className="group/reveal relative inline-flex h-full items-center justify-center overflow-hidden px-3 font-tech text-[9px] uppercase tracking-[0.16em] text-foreground transition-colors duration-100 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple sm:px-4"
         >
           <HoverRevealButton>{walletLabel}</HoverRevealButton>
         </button>

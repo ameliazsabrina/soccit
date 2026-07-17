@@ -19,6 +19,7 @@ import {
 } from "@solana/wallet-adapter-wallets";
 import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
+import "../wallet-adapter-overrides.css";
 import { useSoundEffects } from "../_lib/use-sound-effects";
 import { OnboardingGate } from "./onboarding-gate";
 

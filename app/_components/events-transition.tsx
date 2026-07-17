@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useReducedMotion } from "framer-motion";
 
 const FWC_LOGO_BLACK = "/assets/events/fwc-logo-black.svg";
 const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
@@ -22,6 +23,9 @@ interface EventsTransitionProps {
   titleEnter?: string;
   titleExit?: string;
   subtitleExit?: string;
+  loadingLabel?: string;
+  tone?: "event" | "soccit";
+  minimal?: boolean;
   onComplete?: () => void;
 }
 
@@ -32,11 +36,15 @@ export function EventsTransition({
   titleEnter,
   titleExit,
   subtitleExit,
+  loadingLabel = "Loading bracket",
+  tone = "event",
+  minimal = false,
   onComplete,
 }: EventsTransitionProps) {
   const [phase, setPhase] = useState<"loading" | "fading" | "flipping" | "done">("loading");
   const [progress, setProgress] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
@@ -46,21 +54,21 @@ export function EventsTransition({
   // cleanly restarts from the current phase rather than losing timers.
   useEffect(() => {
     if (phase === "loading") {
-      const timer = setTimeout(() => setPhase("fading"), LOADING_DURATION);
+      const timer = setTimeout(() => setPhase("fading"), shouldReduceMotion ? 50 : LOADING_DURATION);
       return () => clearTimeout(timer);
     }
     if (phase === "fading") {
-      const timer = setTimeout(() => setPhase("flipping"), FADE_DURATION);
+      const timer = setTimeout(() => setPhase("flipping"), shouldReduceMotion ? 0 : FADE_DURATION);
       return () => clearTimeout(timer);
     }
     if (phase === "flipping") {
       const timer = setTimeout(() => {
         setPhase("done");
         onComplete?.();
-      }, FLIP_DURATION);
+      }, shouldReduceMotion ? 0 : FLIP_DURATION);
       return () => clearTimeout(timer);
     }
-  }, [phase, onComplete]);
+  }, [phase, onComplete, shouldReduceMotion]);
 
   // Progress bar locked to actual percentage.
   useEffect(() => {
@@ -86,11 +94,12 @@ export function EventsTransition({
   // Transparent container so flipped tiles reveal the destination page.
   // Front face is the loading screen color. No back face — when rotated away
   // the tile becomes see-through and the actual page underneath shows through.
-  const faceClass = isEnter ? "bg-background" : "bg-slate-950";
-  const textClass = isEnter ? "text-foreground" : "text-white";
-  const mutedClass = isEnter ? "text-muted" : "text-white/60";
-  const surfaceClass = isEnter ? "bg-surface" : "bg-white/20";
-  const barClass = isEnter ? "bg-foreground" : "bg-white";
+  const isSoccitTone = isEnter && tone === "soccit";
+  const faceClass = isSoccitTone ? "bg-purple" : isEnter ? "bg-background" : "bg-slate-950";
+  const textClass = isSoccitTone ? "text-white" : isEnter ? "text-foreground" : "text-white";
+  const mutedClass = isSoccitTone ? "text-white/75" : isEnter ? "text-muted" : "text-white/60";
+  const surfaceClass = isSoccitTone ? "bg-white/25" : isEnter ? "bg-surface" : "bg-white/20";
+  const barClass = isSoccitTone ? "bg-foreground" : isEnter ? "bg-foreground" : "bg-white";
   const logoSrc = isEnter
     ? (logoEnter ?? FWC_LOGO_BLACK)
     : (logoExit ?? FWC_LOGO_WHITE);
@@ -130,11 +139,11 @@ export function EventsTransition({
           return (
             <div key={i} className="relative" style={{ perspective: "800px" }}>
               <div
-                className="relative h-full w-full transition-transform duration-[700ms]"
+                className="relative h-full w-full transition-transform duration-[700ms] motion-reduce:transition-none"
                 style={{
                   transformStyle: "preserve-3d",
                   transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                  transitionDelay: flipped ? `${stagger}ms` : "0ms",
+                  transitionDelay: flipped && !shouldReduceMotion ? `${stagger}ms` : "0ms",
                 }}
               >
                 {/* Single face. Rotated 180deg it disappears, revealing page underneath. */}
@@ -150,49 +159,53 @@ export function EventsTransition({
 
       {/* Loading content */}
       <div
-        className={`absolute inset-0 z-10 flex flex-col items-center justify-center ${faceClass} transition-opacity duration-500`}
+        className={`absolute inset-0 z-10 flex flex-col items-center justify-center ${faceClass} transition-opacity duration-500 motion-reduce:transition-none`}
         style={{
           opacity: phase === "loading" ? 1 : 0,
           pointerEvents: "none",
         }}
       >
-        <div className="mb-6 h-24 w-24 sm:h-32 sm:w-32">
+        <div className={minimal ? "h-28 w-44 sm:h-36 sm:w-56" : "mb-6 h-24 w-24 sm:h-32 sm:w-32"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={logoSrc} alt={titleText} className="h-full w-full object-contain" />
         </div>
-        <h2 className={`font-wc text-center text-4xl ${textClass} sm:text-5xl md:text-6xl`}>
-          {titleText}
-        </h2>
-        {subtitleText && (
-          <h3 className={`font-wc mt-1 text-center text-2xl ${textClass} sm:text-3xl`}>
-            {subtitleText}
-          </h3>
-        )}
+        {!minimal && (
+          <>
+            <h2 className={`font-wc text-center text-4xl ${textClass} sm:text-5xl md:text-6xl`}>
+              {titleText}
+            </h2>
+            {subtitleText && (
+              <h3 className={`font-wc mt-1 text-center text-2xl ${textClass} sm:text-3xl`}>
+                {subtitleText}
+              </h3>
+            )}
 
-        <div className="mt-10 flex w-64 flex-col items-center gap-4 sm:w-80">
-          <div className={`flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-[0.2em] ${mutedClass}`}>
-            <span className="font-tech">Loading bracket</span>
-            <span className="font-tech">{progress}%</span>
-          </div>
-          <div className={`relative h-2 w-full overflow-hidden ${surfaceClass}`}>
-            <div
-              className={`absolute inset-y-0 left-0 ${barClass}`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex gap-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span
-                key={i}
-                className={`h-2 w-2 rounded-full ${barClass}`}
-                style={{
-                  animation: "wc-pulse 1s ease-in-out infinite",
-                  animationDelay: `${i * 120}ms`,
-                }}
-              />
-            ))}
-          </div>
-        </div>
+            <div className="mt-10 flex w-64 flex-col items-center gap-4 sm:w-80">
+              <div className={`flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-[0.2em] ${mutedClass}`}>
+                <span className="font-tech">{loadingLabel}</span>
+                <span className="font-tech">{progress}%</span>
+              </div>
+              <div className={`relative h-2 w-full overflow-hidden ${surfaceClass}`}>
+                <div
+                  className={`absolute inset-y-0 left-0 ${barClass}`}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="flex gap-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-2 w-2 rounded-full ${barClass}`}
+                    style={{
+                      animation: "wc-pulse 1s ease-in-out infinite",
+                      animationDelay: `${i * 120}ms`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

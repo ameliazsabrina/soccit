@@ -3,9 +3,20 @@
 import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { gsap, SplitText, useGSAP } from "./gsap-setup";
 import { HoverRevealButton, HoverRevealLink } from "./hover-reveal";
+
+const FOOTER_LINKS = [
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Docs", href: "/docs" },
+] as const;
+
+const COMMUNITY_LINKS = [
+  { label: "X", href: "https://x.com/playsoccit" },
+  { label: "Discord", href: "https://discord.gg/soccit" },
+] as const;
 
 export function CTASection() {
   const container = useRef<HTMLElement>(null);
@@ -20,48 +31,78 @@ export function CTASection() {
     const split = SplitText.create(heading.current, { type: "words,lines", mask: "lines" });
     const tl = gsap.timeline({ scrollTrigger: { trigger: container.current, start: "top 70%", once: true } });
     tl.from(split.words, { yPercent: 120, autoAlpha: 0, stagger: 0.06, duration: 0.8, ease: "power4.out" })
-      .from("[data-finale-player]", { xPercent: 25, clipPath: "inset(0 0 0 100%)", duration: 0.9, ease: "power4.out" }, 0.05)
       .from("[data-finale]", { y: 28, autoAlpha: 0, stagger: 0.08, duration: 0.55, ease: "power3.out" }, 0.3)
       .from("[data-tunnel-line]", { scaleX: 0, stagger: 0.04, duration: 0.55, transformOrigin: "center", ease: "power3.out" }, 0.15);
     return () => split.revert();
   }, { scope: container });
 
   return (
-    <section ref={container} className="relative flex min-h-[100svh] items-center overflow-hidden bg-white px-5 pb-24 pt-20 sm:px-8 lg:px-14">
+    <section ref={container} id="landing-footer" className="relative flex min-h-[100svh] flex-col overflow-hidden bg-transparent px-5 pt-16 sm:px-8 lg:h-[100svh] lg:px-14 lg:pt-12">
       <div className="landing-tunnel pointer-events-none absolute inset-0">
         {[0, 1, 2, 3, 4].map((line) => <span key={line} data-tunnel-line className="absolute left-1/2 top-1/2 block border border-foreground/10" style={{ width: `${34 + line * 15}%`, height: `${25 + line * 16}%`, transform: "translate(-50%, -50%)" }} />)}
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[28%] bg-purple" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[48%] bg-purple sm:h-[40%] lg:h-[34%]" />
 
-      <div className="relative z-10 mx-auto grid w-full max-w-[1500px] items-end lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="relative z-20 pb-10 lg:pb-24">
-          <span data-finale className="font-tech text-[10px] uppercase tracking-[0.25em] text-purple opacity-0">Your match is waiting</span>
-          <h2 ref={heading} className="mt-4 font-display text-[clamp(3.8rem,10vw,10rem)] uppercase leading-[0.77] tracking-[-0.075em] text-foreground">READY<br /><span className="text-outline-blue">TO PLAY?</span></h2>
-          <p data-finale className="mt-7 max-w-md font-body text-sm leading-relaxed text-foreground/65 opacity-0 sm:text-base">Connect your wallet. Pick the live match. Make the call that everyone else missed.</p>
-          <div data-finale className="mt-8 flex items-center gap-5 opacity-0">
-            <Link href="/matches" className="landing-cut-button group inline-flex min-h-12 items-center gap-4 bg-cyan px-7 py-3 font-display text-xs uppercase tracking-[0.15em] text-foreground transition-colors duration-100 hover:bg-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">
-              <HoverRevealButton>Enter the arena</HoverRevealButton><span className="material-symbols-outlined text-lg transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true">arrow_forward</span>
+      <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 items-center justify-center">
+        <div className="relative z-20 flex max-w-5xl flex-col items-center pb-8 text-center lg:pb-12">
+          <span data-finale className="font-tech text-[10px] uppercase tracking-[0.25em] text-purple">Your match is waiting</span>
+          <h2 ref={heading} className="mt-4 font-display text-[clamp(2.45rem,6.3vw,6.75rem)] uppercase leading-[0.77] tracking-[-0.075em] text-foreground">COMPETE<br /><span className="whitespace-nowrap text-outline-blue">AND PROVE IT.</span></h2>
+          <p data-finale className="mt-7 max-w-md font-body text-sm leading-relaxed text-foreground/65 sm:text-base">Connect your wallet. Pick the live match. Make the call that everyone else missed.</p>
+          <div data-finale className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/matches" className="landing-cut-button group group/reveal inline-flex min-h-12 items-center gap-4 bg-cyan px-7 py-3 font-display text-xs uppercase tracking-[0.15em] text-foreground transition-colors duration-100 hover:bg-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">
+              <HoverRevealButton>Enter the arena</HoverRevealButton>
+              <ArrowRight size={17} strokeWidth={2} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" />
             </Link>
-            <span className="hidden font-tech text-[9px] uppercase tracking-[0.18em] text-muted sm:block">Built on Solana / Real prizes</span>
+            <Link href="/" className="landing-cut-button group group/reveal inline-flex min-h-12 items-center gap-4 border border-purple bg-white px-7 py-3 font-display text-xs uppercase tracking-[0.15em] text-purple transition-colors duration-100 hover:bg-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">
+              <HoverRevealButton>Main menu</HoverRevealButton>
+              <ArrowRight size={17} strokeWidth={2} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" />
+            </Link>
           </div>
-        </div>
-
-        <div data-finale-player className="relative h-[52vh] min-h-[420px] lg:h-[76vh] lg:min-h-[620px]">
-          <Image src="/assets/cards/player-arena.webp" alt="Soccit manager ready at the players tunnel" fill sizes="(max-width: 1024px) 92vw, 50vw" className="object-contain object-bottom drop-shadow-[0_35px_30px_rgba(10,22,40,0.25)]" />
-          <div className="absolute bottom-[6%] right-[4%] border border-white/20 bg-foreground px-4 py-3 text-white sm:right-[10%]">
-            <span className="block font-tech text-[8px] uppercase tracking-[0.2em] text-white/55">Entry status</span><span className="mt-1 block font-display text-sm text-cyan">ARENA OPEN</span>
-          </div>
+          <span data-finale className="mt-4 hidden font-tech text-[9px] uppercase tracking-[0.18em] text-muted sm:block">Built on Solana / Real prizes</span>
         </div>
       </div>
 
-      <footer className="absolute bottom-0 left-0 z-20 w-full px-5 py-5 text-white sm:px-8 lg:px-14">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between">
-          <span className="font-tech text-[9px] uppercase tracking-[0.18em] text-white/60">© 2026 Soccit / Season 01</span>
-          <div className="flex items-center gap-5">
-            <a href="https://x.com/soccit" target="_blank" rel="noreferrer" className="min-h-10 py-3 font-tech text-[9px] uppercase tracking-[0.18em] text-white/60 transition-colors duration-100 hover:text-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan">X</a>
-            <a href="https://discord.gg/soccit" target="_blank" rel="noreferrer" className="hidden min-h-10 py-3 font-tech text-[9px] uppercase tracking-[0.18em] text-white/60 transition-colors duration-100 hover:text-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan sm:block">Discord</a>
-            <HoverRevealLink href="#top" className="min-h-10 py-3 font-tech text-[9px] uppercase tracking-[0.18em] text-white/60 transition-colors duration-100 hover:text-cyan" underline>Top</HoverRevealLink>
+      <footer className="relative z-20 w-full shrink-0 border-t border-white/25 pb-16 pt-4 text-white sm:pb-20 sm:pt-5 lg:pb-16">
+        <div className="mx-auto grid max-w-[1500px] items-center gap-4 lg:grid-cols-[0.55fr_1.45fr] lg:gap-8">
+          <div className="flex items-center gap-3">
+            <Image src="/assets/soccit-logo.svg" alt="" width={54} height={34} className="h-7 w-11 object-contain" />
+            <div>
+              <span className="block font-display text-sm tracking-[0.12em]">SOCCIT</span>
+              <span className="block font-tech text-xs uppercase tracking-[0.12em] text-white/80">© 2026 / Season 01</span>
+            </div>
           </div>
+
+          <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 lg:justify-end" aria-label="Footer navigation">
+            {FOOTER_LINKS.map((link) => (
+              <HoverRevealLink
+                key={link.href}
+                href={link.href}
+                underline
+                className="min-h-10 items-center py-2 font-tech text-xs uppercase tracking-[0.12em] text-white/85 transition-colors duration-100 hover:text-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-purple"
+              >
+                {link.label}
+              </HoverRevealLink>
+            ))}
+            {COMMUNITY_LINKS.map((link) => (
+              <HoverRevealLink
+                key={link.href}
+                href={link.href}
+                external
+                underline
+                className="min-h-10 items-center py-2 font-tech text-xs uppercase tracking-[0.12em] text-white/85 transition-colors duration-100 hover:text-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-purple"
+              >
+                {link.label}
+              </HoverRevealLink>
+            ))}
+            <HoverRevealLink
+              href="#top"
+              underline
+              className="min-h-10 items-center py-2 font-tech text-xs uppercase tracking-[0.12em] text-white/85 transition-colors duration-100 hover:text-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-purple"
+            >
+              Top
+            </HoverRevealLink>
+          </nav>
+
         </div>
       </footer>
     </section>

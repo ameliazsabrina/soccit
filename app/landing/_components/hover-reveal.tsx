@@ -19,22 +19,22 @@ export function HoverRevealLink({
   external = false,
 }: HoverRevealProps) {
   const shared = cn(
-    "group relative inline-flex overflow-hidden",
+    "group/reveal relative inline-flex",
     className
   );
 
   const inner = (
-    <>
-      <span className="hover-reveal-line inline-block transition-transform duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-full">
+    <span className="relative inline-flex overflow-hidden leading-none">
+      <span className="hover-reveal-line inline-block transition-transform duration-200 ease-out group-hover/reveal:-translate-y-full group-focus-visible/reveal:-translate-y-full">
         {children}
       </span>
       <span
-        className="hover-reveal-line absolute left-0 top-full inline-block transition-transform duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-full"
+        className="hover-reveal-line absolute left-0 top-full inline-block transition-transform duration-200 ease-out group-hover/reveal:-translate-y-full group-focus-visible/reveal:-translate-y-full"
         aria-hidden="true"
       >
         {children}
       </span>
-    </>
+    </span>
   );
 
   if (external) {
@@ -65,12 +65,12 @@ export function HoverRevealButton({
   className?: string;
 }) {
   return (
-    <span className={cn("group relative inline-flex overflow-hidden", className)}>
-      <span className="hover-reveal-line inline-block transition-transform duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-full">
+    <span className={cn("relative inline-flex overflow-hidden leading-none", className)}>
+      <span className="hover-reveal-line inline-block transition-transform duration-200 ease-out group-hover/reveal:-translate-y-full group-focus-visible/reveal:-translate-y-full">
         {children}
       </span>
       <span
-        className="hover-reveal-line absolute left-0 top-full inline-block transition-transform duration-500 ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-full"
+        className="hover-reveal-line absolute left-0 top-full inline-block transition-transform duration-200 ease-out group-hover/reveal:-translate-y-full group-focus-visible/reveal:-translate-y-full"
         aria-hidden="true"
       >
         {children}

@@ -60,11 +60,12 @@ export function HowItWorks() {
 
     const tl = gsap.timeline({
       scrollTrigger: {
+        id: "landing-how-it-works",
         trigger: container.current,
         start: "top top",
         end: "+=520%",
         pin: stage.current,
-        scrub: 1,
+        scrub: true,
         anticipatePin: 1,
       },
     });
@@ -73,79 +74,73 @@ export function HowItWorks() {
       tl.to(panels[index - 1], {
         clipPath: "inset(100% 0 0 0)",
         autoAlpha: 0,
-        duration: 0.07,
+        duration: 0.11,
         ease: "power2.inOut",
       }, at)
-        .to(`[data-how-copy='${index - 1}']`, { y: -30, autoAlpha: 0, duration: 0.05 }, at)
+        .to(`[data-how-copy='${index - 1}']`, { y: -30, autoAlpha: 0, duration: 0.08, ease: "power2.inOut" }, at)
         .fromTo(panels[index], {
           clipPath: "inset(0 0 100% 0)",
           autoAlpha: 1,
         }, {
           clipPath: "inset(0 0 0% 0)",
-          duration: 0.08,
+          duration: 0.12,
           ease: "power3.inOut",
-        }, at + 0.03)
-        .to(`[data-how-copy='${index}']`, { y: 0, autoAlpha: 1, duration: 0.06 }, at + 0.05);
+        }, at + 0.025)
+        .to(`[data-how-copy='${index}']`, { y: 0, autoAlpha: 1, duration: 0.09, ease: "power2.out" }, at + 0.075);
     };
 
-    tl.from("[data-enter-detail]", {
-      y: 28,
-      autoAlpha: 0,
-      stagger: 0.025,
-      duration: 0.1,
-      ease: "power2.out",
-    }, 0.03);
-
-    transitionTo(1, 0.18);
+    transitionTo(1, 0.02);
     const scoreValue = { home: 0, away: 0 };
     tl.to(scoreValue, {
       home: 2,
       away: 1,
-      duration: 0.1,
+      duration: 0.07,
       onUpdate: () => {
         if (score.current) {
           score.current.textContent = `${Math.round(scoreValue.home)} — ${Math.round(scoreValue.away)}`;
         }
       },
-    }, 0.25);
+    }, 0.13);
 
-    transitionTo(2, 0.38);
+    transitionTo(2, 0.22);
     tl.from("[data-sub-card]", {
-      y: 34,
-      scale: 0.9,
+      y: 24,
+      scale: 0.94,
       autoAlpha: 0,
-      stagger: 0.035,
-      duration: 0.1,
-      ease: "back.out(1.35)",
-    }, 0.45);
+      stagger: 0.012,
+      duration: 0.05,
+      ease: "power2.out",
+    }, 0.32);
 
-    transitionTo(3, 0.58);
+    transitionTo(3, 0.42);
     tl.fromTo("[data-lock-fill]", { scaleX: 0 }, {
       scaleX: 1,
       duration: 0.1,
       transformOrigin: "left",
       ease: "power2.inOut",
-    }, 0.65)
+    }, 0.49)
       .fromTo("[data-lock-thumb]", { xPercent: 0 }, {
         xPercent: 410,
         duration: 0.1,
         ease: "power2.inOut",
-      }, 0.65)
-      .from("[data-lock-confirmed]", { y: 18, autoAlpha: 0, duration: 0.06 }, 0.73);
+      }, 0.49)
+      .from("[data-lock-confirmed]", { y: 12, autoAlpha: 0, duration: 0.04, ease: "power2.out" }, 0.56);
 
-    transitionTo(4, 0.78);
+    transitionTo(4, 0.62);
     tl.from("[data-leader-row]", {
-      x: 36,
+      x: 24,
       autoAlpha: 0,
-      stagger: 0.025,
-      duration: 0.09,
+      stagger: 0.012,
+      duration: 0.05,
       ease: "power2.out",
-    }, 0.85)
-      .from("[data-prize-paid]", { scale: 0.75, autoAlpha: 0, duration: 0.08, ease: "back.out(1.5)" }, 0.92);
+    }, 0.72)
+      .from("[data-prize-paid]", { scale: 0.88, autoAlpha: 0, duration: 0.05, ease: "power2.out" }, 0.81)
+      // Keep the final result settled through the rest of the pinned range.
+      .to(panels[4], { autoAlpha: 1, duration: 0.14, ease: "none" }, 0.86);
   }, { scope: container, dependencies: [shouldReduceMotion] });
 
   return (
-    <section ref={container} id="how-it-works" className="relative min-h-[620vh] bg-background motion-reduce:min-h-0">
+    <section ref={container} id="how-it-works" className="relative min-h-[620vh] bg-transparent motion-reduce:min-h-0">
       <div ref={stage} className="relative flex min-h-[100svh] w-full items-center overflow-hidden px-5 py-20 motion-reduce:min-h-0 motion-reduce:overflow-visible sm:px-8 lg:px-14">
         <div className="pointer-events-none absolute inset-y-0 left-[34%] hidden w-px bg-foreground/10 lg:block" />
         <div className="relative z-20 mx-auto grid w-full max-w-[1500px] items-center gap-10 motion-reduce:block lg:grid-cols-[0.52fr_1fr] lg:gap-16">
