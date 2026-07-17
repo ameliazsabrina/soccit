@@ -1,4 +1,6 @@
-export const SOCCIT_API_BASE_URL = "https://13.213.196.237.sslip.io";
+import { publicEnv } from "./env";
+
+export const SOCCIT_API_BASE_URL = publicEnv.apiBaseUrl;
 
 // Fallback/demo fixture for local testing. In production the frontend should
 // discover matches via `GET /api/matches` and use each row's `pda` and
@@ -7,8 +9,8 @@ export const SOCCIT_API_BASE_URL = "https://13.213.196.237.sslip.io";
 export const SOCCIT_SEED_FIXTURE_ID = 900001;
 export const SOCCIT_SEED_MATCH_PDA =
   "CJJfxXRnagAc35PCVcnqYeU34VysGx4u93Hd75dGHFyq";
-export const SOCCIT_PROGRAM_ID = "TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v";
-export const SOCCIT_USDC_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+export const SOCCIT_PROGRAM_ID = publicEnv.programId;
+export const SOCCIT_USDC_MINT = publicEnv.usdcMint;
 
 export type AvatarId =
   | "avatar-0"

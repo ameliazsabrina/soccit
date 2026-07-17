@@ -35,11 +35,10 @@ import {
 } from "../../../_lib/api";
 import { submitPrediction } from "../../../_lib/prediction";
 import { demoLineup } from "../../../_lib/characters";
+import { publicEnv } from "../../../_lib/env";
 
 
 const DEMO_PDA = "demo";
-const DEVNET_EXPLORER = "https://explorer.solana.com/tx";
-
 const SEED_MATCH: MatchState = {
   fixtureId: SOCCIT_SEED_FIXTURE_ID,
   onchain: {
@@ -69,7 +68,7 @@ const DEMO_MATCH: MatchState = {
     participantCount: 12,
     team1Id: 101,
     team2Id: 202,
-    usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    usdcMint: SOCCIT_USDC_MINT,
     winners: [null, null, null],
   },
   live: {
@@ -375,7 +374,7 @@ export default function ArenaPage() {
         message: `Locked on Devnet. Signature: ${result.signature.slice(0, 8)}…${result.signature.slice(-4)}`,
         duration: 6000,
         link: {
-          href: `${DEVNET_EXPLORER}/${result.signature}?cluster=devnet`,
+          href: `${publicEnv.solanaExplorerUrl}/${result.signature}?cluster=${publicEnv.solanaNetwork}`,
           label: "View on Solana Explorer",
         },
       });

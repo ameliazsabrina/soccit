@@ -7,7 +7,6 @@ import {
   useEffect,
   useState,
 } from "react";
-import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -17,8 +16,8 @@ import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
-import { clusterApiUrl } from "@solana/web3.js";
 import "@solana/wallet-adapter-react-ui/styles.css";
+import { publicEnv } from "../_lib/env";
 import { useSoundEffects } from "../_lib/use-sound-effects";
 import { OnboardingGate } from "./onboarding-gate";
 
@@ -60,8 +59,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   useSoundEffects();
 
-  const network = WalletAdapterNetwork.Devnet;
-  const endpoint = clusterApiUrl(network);
+  const endpoint = publicEnv.solanaRpcUrl;
   const wallets = [new PhantomWalletAdapter(), new SolflareWalletAdapter()];
 
   return (
