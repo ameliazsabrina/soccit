@@ -31,6 +31,45 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This repository deploys through [GitHub Actions](./.github/workflows/vercel-deploy.yml):
+
+- pushes to `main` create a production deployment;
+- pushes to any other branch create a preview deployment;
+- the workflow can also be run manually from the GitHub Actions tab.
+
+### One-time setup
+
+1. Install the Vercel CLI, sign in, and link this directory to a Vercel project:
+
+   ```bash
+   npm install --global vercel@latest
+   vercel login
+   vercel link
+   ```
+
+2. Add every variable in [`.env.example`](./.env.example) to both the **Preview**
+   and **Production** environments in the Vercel project's Settings >
+   Environment Variables. `NEXT_PUBLIC_` values are public and are embedded in
+   the browser bundle at build time.
+
+3. Create a Vercel access token under Account Settings > Tokens.
+
+4. In the GitHub repository, open Settings > Secrets and variables > Actions and
+   add these repository secrets:
+
+   | Secret | Value |
+   | --- | --- |
+   | `VERCEL_TOKEN` | The Vercel access token from step 3 |
+   | `VERCEL_ORG_ID` | `orgId` from `.vercel/project.json` |
+   | `VERCEL_PROJECT_ID` | `projectId` from `.vercel/project.json` |
+
+5. Push a branch to test a preview. Merge or push to `main` when it is ready for
+   production. The deployment URL appears in the workflow summary.
+
+If the Vercel project is also connected directly to GitHub, disable automatic
+Git deployments in Vercel to avoid creating two deployments for every push.
+
+Vercel Hobby is intended for personal, non-commercial projects and its usage
+limits still apply when deployments are triggered by GitHub Actions.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
