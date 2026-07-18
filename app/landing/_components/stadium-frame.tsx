@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScro
 import { ArrowRight, Menu, Volume2, VolumeX, X } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useConnectedProfile } from "../../_lib/use-connected-profile";
 import { HoverRevealButton } from "./hover-reveal";
 import { SOCCIT_APP_URL } from "../_lib/app-urls";
 
@@ -61,8 +62,9 @@ export function StadiumFrame({ audioTracks, visible }: { audioTracks: string[]; 
   const { scrollYProgress } = useScroll();
   const shouldReduceMotion = useReducedMotion();
   const progress = useSpring(scrollYProgress, { stiffness: 110, damping: 28, restDelta: 0.001 });
-  const { publicKey, connected, disconnect } = useWallet();
+  const { connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
+  const profile = useConnectedProfile();
   const [act, setAct] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuIndex, setActiveMenuIndex] = useState(0);
@@ -196,7 +198,9 @@ export function StadiumFrame({ audioTracks, visible }: { audioTracks: string[]; 
   };
 
   const walletLabel = connected
-    ? `Disconnect ${publicKey?.toString().slice(0, 4)}…${publicKey?.toString().slice(-4)}`
+    ? profile
+      ? `Disconnect ${profile.username}`
+      : "Connected"
     : "Connect";
   const activeItem = MENU_ITEMS[activeMenuIndex];
   const overlayEase = [0.65, 0.05, 0, 1] as [number, number, number, number];

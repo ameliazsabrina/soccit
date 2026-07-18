@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useConnectedProfile } from "../../_lib/use-connected-profile";
 import { HoverRevealButton } from "./hover-reveal";
 import { SOCCIT_MATCHES_URL } from "../_lib/app-urls";
 
 export function BottomNav() {
-  const { publicKey, connected, disconnect } = useWallet();
+  const { connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
+  const profile = useConnectedProfile();
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
@@ -49,7 +51,7 @@ export function BottomNav() {
   };
 
   const walletLabel = connected
-    ? `${publicKey?.toString().slice(0, 4)}...${publicKey?.toString().slice(-4)}`
+    ? profile?.username ?? "Connected"
     : "Connect Wallet";
 
   return (

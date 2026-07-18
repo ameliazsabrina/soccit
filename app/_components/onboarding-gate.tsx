@@ -6,7 +6,7 @@ import { getUser } from "../_lib/api";
 import { OnboardingModal } from "./onboarding-modal";
 
 export function OnboardingGate() {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, disconnect } = useWallet();
   const [open, setOpen] = useState(false);
   const promptedWallets = useRef<Set<string>>(new Set());
 
@@ -29,10 +29,17 @@ export function OnboardingGate() {
     };
   }, [connected, publicKey]);
 
+  const handleClose = () => {
+    const wallet = publicKey?.toBase58();
+    if (wallet) promptedWallets.current.delete(wallet);
+    setOpen(false);
+    void disconnect();
+  };
+
   return (
     <OnboardingModal
       open={open}
-      onClose={() => setOpen(false)}
+      onClose={handleClose}
       onSuccess={() => setOpen(false)}
     />
   );

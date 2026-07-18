@@ -9,6 +9,7 @@ import { createUserProfile, type AvatarId } from "../_lib/api";
 import { storeSession } from "../_lib/session";
 import { AvatarPicker } from "./avatar-picker";
 import { cn } from "../_lib/utils";
+import { PROFILE_UPDATED_EVENT } from "../_lib/use-connected-profile";
 
 interface OnboardingModalProps {
   open: boolean;
@@ -50,6 +51,10 @@ export function OnboardingModal({ open, onClose, onSuccess }: OnboardingModalPro
       // Onboarding already proved wallet ownership — persist the session so the
       // user can edit their profile later without signing again.
       if (result.session) storeSession(wallet, result.session);
+
+      window.dispatchEvent(
+        new CustomEvent(PROFILE_UPDATED_EVENT, { detail: result }),
+      );
 
       onSuccess();
     } catch (err) {

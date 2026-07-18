@@ -4,6 +4,7 @@ import type { ReactNode, RefObject } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, ChevronRight, Menu, X } from "lucide-react";
 
 const APP_URL = "https://play.soccit.fun";
@@ -28,20 +29,20 @@ function useSidebar() {
 
 export function KnowledgeHeader({ section }: { section: "Docs" | "Whitepaper" }) {
   const { sidebarOpen, toggleSidebar, triggerRef } = useSidebar();
+  const router = useRouter();
 
   return (
     <header className="sticky top-0 z-40 border-b border-foreground/15 bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex min-h-16 max-w-[1500px] items-center justify-between gap-3 px-5 py-2 sm:min-h-20 sm:px-8 lg:px-14">
-        <Link
-          href="/"
-          aria-label="Soccit home"
-          className="inline-flex min-h-11 items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2"
-        >
-          <Image src="/assets/soccit-logo-black.svg" alt="" width={48} height={30} className="h-7 w-11 object-contain" priority />
-          <span className="hidden border-l border-foreground/20 pl-3 font-tech text-[10px] uppercase tracking-[0.2em] text-foreground/70 min-[420px]:inline">{section}</span>
-        </Link>
-
-        <nav className="flex items-center gap-2" aria-label="Knowledge navigation">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            aria-label="Soccit home"
+            className="inline-flex min-h-11 items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2"
+          >
+            <Image src="/assets/soccit-logo-black.svg" alt="" width={48} height={30} className="h-7 w-11 object-contain" priority />
+            <span className="hidden border-l border-foreground/20 pl-3 font-tech text-[10px] uppercase tracking-[0.2em] text-foreground/70 min-[420px]:inline">{section}</span>
+          </Link>
           <button
             ref={triggerRef}
             type="button"
@@ -53,13 +54,17 @@ export function KnowledgeHeader({ section }: { section: "Docs" | "Whitepaper" })
           >
             {sidebarOpen ? <X size={18} aria-hidden="true" /> : <Menu size={19} aria-hidden="true" />}
           </button>
-          <Link
-            href="/"
+        </div>
+
+        <nav className="flex items-center gap-2" aria-label="Knowledge navigation">
+          <button
+            type="button"
+            onClick={() => router.back()}
             className="inline-flex min-h-11 items-center gap-2 border border-foreground/25 px-3 font-tech text-[10px] uppercase tracking-[0.14em] transition-colors duration-100 hover:bg-purple hover:text-white active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 sm:px-4"
           >
             <ArrowLeft size={15} aria-hidden="true" />
             Back
-          </Link>
+          </button>
           <Link
             href={section === "Docs" ? "/whitepaper" : "/docs"}
             className="hidden min-h-11 items-center px-3 font-tech text-[10px] uppercase tracking-[0.14em] text-foreground/75 transition-colors duration-100 hover:text-purple active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple sm:inline-flex sm:px-4"
