@@ -14,7 +14,7 @@ import {
   Trophy,
   WalletCards,
 } from "lucide-react";
-import { KnowledgePage } from "../_components/knowledge-shell";
+import { KnowledgeContent, KnowledgePage } from "../_components/knowledge-shell";
 
 const APP_MATCHES_URL = "https://play.soccit.fun/matches";
 
@@ -87,22 +87,7 @@ export default function DocsPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-[1500px] gap-12 px-5 pb-24 sm:px-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-14">
-        <aside className="hidden lg:block">
-          <div className="sticky top-28 border-t border-foreground/20 pt-5">
-            <span className="mb-5 block font-tech text-[10px] uppercase tracking-[0.2em] text-foreground/55">On this page</span>
-            <nav className="space-y-1" aria-label="Documentation sections">
-              {NAV_ITEMS.map(([label, id], index) => (
-                <a key={id} href={`#${id}`} className="group flex min-h-10 items-center justify-between border-b border-foreground/10 py-2 font-tech text-[10px] uppercase tracking-[0.1em] text-foreground/70 transition-colors duration-100 hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple">
-                  <span><span className="mr-3 text-foreground/40">0{index + 1}</span>{label}</span>
-                  <ChevronRight size={13} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" />
-                </a>
-              ))}
-            </nav>
-          </div>
-        </aside>
-
-        <article className="min-w-0">
+      <KnowledgeContent navigation={NAV_ITEMS}>
           <Section id="start" index="01 / Start here" title="The whole game in sixty seconds." intro="Every Soccit competition belongs to a real football fixture. Your prediction is judged against the final result or official match event, then converted into leaderboard points.">
             <div className="grid gap-px bg-foreground/15 sm:grid-cols-2 lg:grid-cols-4">
               {[
@@ -236,8 +221,7 @@ export default function DocsPage() {
               <a href={APP_MATCHES_URL} className="group mt-8 inline-flex min-h-12 shrink-0 items-center gap-4 bg-background px-6 font-display text-xs uppercase tracking-[0.14em] text-purple transition-colors duration-100 hover:bg-cyan hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-background sm:mt-0">Enter the arena <ArrowRight size={17} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" /></a>
             </div>
           </section>
-        </article>
-      </div>
+      </KnowledgeContent>
     </KnowledgePage>
   );
 }

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, FileText } from "lucide-react";
-import { KnowledgePage } from "../_components/knowledge-shell";
+import { ArrowRight, FileText } from "lucide-react";
+import { KnowledgeContent, KnowledgePage } from "../_components/knowledge-shell";
 
 export const metadata: Metadata = {
   title: "Soccit Whitepaper — Verifiable Football Knowledge Markets",
@@ -81,22 +81,7 @@ export default function WhitepaperPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-[1500px] gap-12 px-5 pb-24 sm:px-8 lg:grid-cols-[16rem_minmax(0,1fr)] lg:px-14">
-        <aside className="hidden lg:block">
-          <div className="sticky top-28 border-t border-foreground/20 pt-5">
-            <span className="mb-5 block font-tech text-[10px] uppercase tracking-[0.2em] text-foreground/55">Contents</span>
-            <nav aria-label="Whitepaper sections">
-              {SECTIONS.map(([label, id], index) => (
-                <a key={id} href={`#${id}`} className="group flex min-h-10 items-center justify-between border-b border-foreground/10 py-2 font-tech text-[10px] uppercase tracking-[0.09em] text-foreground/70 transition-colors duration-100 hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple">
-                  <span><span className="mr-3 text-foreground/40">{String(index + 1).padStart(2, "0")}</span>{label}</span>
-                  <ChevronRight size={13} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" />
-                </a>
-              ))}
-            </nav>
-          </div>
-        </aside>
-
-        <article className="min-w-0">
+      <KnowledgeContent navigation={SECTIONS}>
           <PaperSection id="abstract" number="01 / Abstract" title="A market for football judgment, settled as competition.">
             <p>Soccit is a competitive football prediction application in which participants commit fixture-specific forecasts, receive points when those forecasts match official results or events, and compete for rewards held in match-specific vaults.</p>
             <p>The system is designed around three properties: predictions must be attributable to a wallet, their lock conditions must be auditable, and competition outcomes must follow an explicit scoring and settlement policy. Solana provides account state, transaction authorization, and settlement rails; a live-football data provider supplies fixtures, lineups, scores, and events; Soccit services reconcile these sources into the application experience.</p>
@@ -236,8 +221,7 @@ export default function WhitepaperPage() {
               <a href="https://play.soccit.fun/matches" className="group inline-flex min-h-12 items-center gap-4 bg-purple px-6 font-display text-xs uppercase tracking-[0.14em] text-white transition-colors duration-100 hover:bg-cyan hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">Enter the arena <ArrowRight size={17} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" /></a>
             </div>
           </PaperSection>
-        </article>
-      </div>
+      </KnowledgeContent>
     </KnowledgePage>
   );
 }
