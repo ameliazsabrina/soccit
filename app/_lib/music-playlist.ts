@@ -2,4 +2,7 @@
 // Playback starts at a random track and avoids immediate repeats.
 export const MUSIC_TRACKS: readonly [string, ...string[]] = [
   "/sounds/music.mp3",
+  "/sounds/music1.mp3",
+  "/sounds/music2.mp3",
+  "/sounds/music3.mp3",
 ] as const;
