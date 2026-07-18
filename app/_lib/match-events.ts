@@ -17,6 +17,9 @@ export type MatchEventPayload = {
   terminal?: boolean;
   ts?: number;
   type?: string;
+  user?: string;
+  username?: string;
+  points?: number;
 };
 
 export type MatchEventContext = {

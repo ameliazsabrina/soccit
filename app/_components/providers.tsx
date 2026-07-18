@@ -18,6 +18,7 @@ import {
 } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { publicEnv } from "../_lib/env";
+import { sound } from "../_lib/sound";
 import { useSoundEffects } from "../_lib/use-sound-effects";
 import { OnboardingGate } from "./onboarding-gate";
 
@@ -58,6 +59,10 @@ export function Providers({ children }: { children: ReactNode }) {
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
 
   useSoundEffects();
+
+  useEffect(() => {
+    void sound.attemptAutoplay();
+  }, []);
 
   const endpoint = publicEnv.solanaRpcUrl;
   const wallets = [new PhantomWalletAdapter(), new SolflareWalletAdapter()];

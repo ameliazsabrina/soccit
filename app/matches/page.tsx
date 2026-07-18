@@ -9,7 +9,12 @@ import {
   useState,
   Suspense,
 } from "react";
-import { motion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  type PanInfo,
+} from "framer-motion";
 import { AlertCircle, Loader2, Trophy } from "lucide-react";
 import { PageShell } from "../_components/page-shell";
 import { EventExitTransition } from "../_components/event-exit-transition";
@@ -29,6 +34,7 @@ import {
 import { cn } from "../_lib/utils";
 
 const FWC_BANNER_BG = "/assets/events/fwc-banner-bg.webp";
+const FWC_FINAL_BANNER_BG = "/assets/events/final-wc26-banner.webp";
 const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
 const UCL_BANNER_BG = "/assets/events/ucl-banner-bg.webp";
 const UCL_LOGO_WHITE = "/assets/events/ucl-logo-white.svg";
@@ -321,16 +327,27 @@ export default function MatchEvents() {
   );
 }
 
-const EVENTS = [
+type FeaturedEvent = {
+  id: string;
+  eyebrow: string;
+  label: string;
+  cta: string;
+  href: string;
+  bg: string;
+  logo: string;
+  preserveAspect?: boolean;
+};
+
+const EVENTS: FeaturedEvent[] = [
   {
     id: "fwc2026-final",
     eyebrow: "World Cup 2026 · Final Match",
     label: "Spain vs Argentina",
     cta: "Enter Match",
     href: `/matches/${SPAIN_ARGENTINA_PDA}`,
-    // Temporary artwork; replace this path when the final-match banner arrives.
-    bg: FWC_BANNER_BG,
+    bg: FWC_FINAL_BANNER_BG,
     logo: FWC_LOGO_WHITE,
+    preserveAspect: true,
   },
   {
     id: "fwc2026",
@@ -355,65 +372,163 @@ const EVENTS = [
 function FeaturedBanner() {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [direction, setDirection] = useState(1);
+  const reduceMotion = useReducedMotion();
+  const draggedRef = useRef(false);
+  const hoveredRef = useRef(false);
+  const focusWithinRef = useRef(false);
+
+  const step = useCallback((nextDirection: 1 | -1) => {
+    setDirection(nextDirection);
+    setActive((current) =>
+      (current + nextDirection + EVENTS.length) % EVENTS.length,
+    );
+  }, []);
+
+  const goTo = useCallback(
+    (index: number) => {
+      if (index === active) return;
+      setDirection(index > active ? 1 : -1);
+      setActive(index);
+    },
+    [active],
+  );
 
   useEffect(() => {
     if (paused) return;
-    const timer = setInterval(() => {
-      setActive((prev) => (prev + 1) % EVENTS.length);
-    }, 6000);
+    const timer = setInterval(() => step(1), 6000);
     return () => clearInterval(timer);
-  }, [paused]);
+  }, [paused, step]);
 
   const event = EVENTS[active];
+
+  function handleDragEnd(
+    _: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo,
+  ) {
+    const swipeIntent = info.offset.x + info.velocity.x * 0.12;
+    if (Math.abs(swipeIntent) >= 60) step(swipeIntent < 0 ? 1 : -1);
+    setTimeout(() => {
+      draggedRef.current = false;
+      setPaused(hoveredRef.current || focusWithinRef.current);
+    }, 0);
+  }
 
   return (
     <section
       className="relative min-h-[260px] overflow-hidden border-b border-surface sm:min-h-[300px]"
       aria-label="Featured matches and events"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      onMouseEnter={() => {
+        hoveredRef.current = true;
+        setPaused(true);
+      }}
+      onMouseLeave={() => {
+        hoveredRef.current = false;
+        setPaused(focusWithinRef.current);
+      }}
+      onFocus={() => {
+        focusWithinRef.current = true;
+        setPaused(true);
+      }}
+      onBlur={(blurEvent) => {
+        if (!blurEvent.currentTarget.contains(blurEvent.relatedTarget)) {
+          focusWithinRef.current = false;
+          setPaused(hoveredRef.current);
+        }
+      }}
     >
-      <Link
-        href={event.href}
-        className="group absolute inset-0 flex flex-col items-center justify-center p-8 text-center focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
-      >
-        {/* Background */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat motion-safe:transition-[transform,filter] motion-safe:duration-500 motion-safe:ease-out group-hover:scale-105 group-hover:brightness-110"
-          style={{ backgroundImage: `url('${event.bg}')` }}
-        />
-        <div className="absolute inset-0 bg-slate-950/50 transition-colors duration-150 group-hover:bg-slate-950/40" />
+      <AnimatePresence initial={false} custom={direction} mode="popLayout">
+        <motion.div
+          key={event.id}
+          custom={direction}
+          variants={{
+            enter: (slideDirection: number) => ({
+              opacity: 0,
+              x: reduceMotion ? 0 : slideDirection * 48,
+              scale: reduceMotion ? 1 : 0.99,
+            }),
+            center: { opacity: 1, x: 0, scale: 1 },
+            exit: (slideDirection: number) => ({
+              opacity: 0,
+              x: reduceMotion ? 0 : slideDirection * -48,
+              scale: reduceMotion ? 1 : 0.99,
+            }),
+          }}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{
+            duration: reduceMotion ? 0 : 0.3,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.08}
+          onDragStart={() => {
+            draggedRef.current = true;
+            setPaused(true);
+          }}
+          onDragEnd={handleDragEnd}
+          className="absolute inset-0 touch-pan-y"
+        >
+          <Link
+            href={event.href}
+            draggable={false}
+            onClick={(clickEvent) => {
+              if (draggedRef.current) clickEvent.preventDefault();
+            }}
+            className="group absolute inset-0 flex select-none flex-col items-center justify-center p-8 text-center focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+          >
+            {/* Background */}
+            <div
+              className={cn(
+                "absolute inset-0 bg-cover bg-center bg-no-repeat motion-safe:transition-[transform,filter] motion-safe:duration-150 motion-safe:ease-out group-hover:scale-[1.02] group-hover:brightness-105",
+                event.preserveAspect && "md:scale-105 md:blur-sm",
+              )}
+              style={{ backgroundImage: `url('${event.bg}')` }}
+            />
+            {event.preserveAspect && (
+              <div
+                className="absolute inset-0 hidden bg-contain bg-center bg-no-repeat md:block motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out group-hover:scale-[1.01]"
+                style={{ backgroundImage: `url('${event.bg}')` }}
+              />
+            )}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(2,6,23,0.32),rgba(2,6,23,0.68))] motion-safe:transition-opacity motion-safe:duration-100 group-hover:opacity-90" />
 
-        <div className="absolute left-8 top-8 z-20">
-          <span className="border border-white/30 bg-white/10 px-4 py-2 font-tech text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur-sm">
-            {event.eyebrow}
-          </span>
-        </div>
+            <div className="absolute left-5 top-5 z-20 sm:left-8 sm:top-8">
+              <span className="border border-white/30 bg-slate-950/30 px-3 py-2 font-tech text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur-sm sm:px-4">
+                {event.eyebrow}
+              </span>
+            </div>
 
-        <div className="relative z-10 mb-5 h-20 w-20 sm:h-24 sm:w-24">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={event.logo}
-            alt=""
-            className="h-full w-full object-contain motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out group-hover:scale-105"
-          />
-        </div>
+            <div className="relative z-10 mb-5 h-20 w-20 sm:h-24 sm:w-24">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={event.logo}
+                alt=""
+                draggable={false}
+                className="h-full w-full object-contain motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out group-hover:-translate-y-0.5"
+              />
+            </div>
 
-        <h2 className="font-wc relative z-10 max-w-2xl text-2xl text-white motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out group-hover:scale-105 sm:text-3xl md:text-4xl">
-          {event.label}
-        </h2>
+            <h2 className="font-wc relative z-10 max-w-2xl text-2xl text-white sm:text-3xl md:text-4xl">
+              {event.label}
+            </h2>
 
-        <div className="relative z-10 mt-5">
-          <span className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 font-display text-sm uppercase tracking-[0.1em] text-white">
-            {event.cta}
-            <span className="material-symbols-outlined text-base" aria-hidden="true">
-              arrow_forward
-            </span>
-          </span>
-        </div>
-      </Link>
+            <div className="relative z-10 mt-5">
+              <span className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 font-display text-sm uppercase tracking-[0.1em] text-white motion-safe:transition-transform motion-safe:duration-100 motion-safe:ease-out group-hover:-translate-y-0.5">
+                {event.cta}
+                <span
+                  className="material-symbols-outlined text-base motion-safe:transition-transform motion-safe:duration-100 motion-safe:ease-out group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                >
+                  arrow_forward
+                </span>
+              </span>
+            </div>
+          </Link>
+        </motion.div>
+      </AnimatePresence>
 
       {/* Carousel dots */}
       <div className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 gap-1">
@@ -421,14 +536,14 @@ function FeaturedBanner() {
           <button
             key={item.id}
             type="button"
-            onClick={() => setActive(i)}
+            onClick={() => goTo(i)}
             className="flex h-10 w-10 items-center justify-center focus-visible:ring-2 focus-visible:ring-white"
             aria-label={`Show ${item.label}`}
             aria-current={i === active ? "true" : undefined}
           >
             <span
               className={cn(
-                "h-2 rounded-full transition-[width,background-color] duration-150",
+                "h-2 rounded-full transition-[width,background-color] duration-150 ease-out motion-reduce:transition-none",
                 i === active ? "w-6 bg-white" : "w-2 bg-white/40 hover:bg-white/70",
               )}
             />

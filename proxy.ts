@@ -39,7 +39,11 @@ const contentSecurityPolicy = [
 export function proxy() {
   const response = NextResponse.next();
 
-  response.headers.set("Content-Security-Policy", contentSecurityPolicy);
+  // Dev tooling relies on dynamically generated scripts and HMR connections.
+  // Enforce the browser policy on production responses, where it protects users.
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set("Content-Security-Policy", contentSecurityPolicy);
+  }
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

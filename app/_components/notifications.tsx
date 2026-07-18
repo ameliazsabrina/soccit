@@ -118,7 +118,7 @@ function NotificationCard({
 
 export function Notifications({ items, onDismiss }: NotificationsProps) {
   return (
-    <div className="pointer-events-none fixed right-6 top-6 z-[70] flex flex-col gap-3">
+    <div className="pointer-events-none fixed right-6 top-6 z-[90] flex flex-col gap-3">
       <AnimatePresence mode="popLayout">
         {items.map((item) => (
           <NotificationCard key={item.id} item={item} onDismiss={onDismiss} />

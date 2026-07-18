@@ -39,8 +39,6 @@ export interface ArenaMatchOverview {
 
 export interface PitchArenaProps {
   matchPda: string;
-  teamName: string;
-  formation?: string | null;
   side: 1 | 2;
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
@@ -274,8 +272,6 @@ export function buildFormationLayout(players: PlayerCardData[]): {
 
 export function PitchArena({
   matchPda,
-  teamName,
-  formation,
   side,
   starters,
   substitutes,
@@ -406,22 +402,6 @@ export function PitchArena({
     [starters, substitutes, side],
   );
   const formationLayout = useMemo(() => buildFormationLayout(starters), [starters]);
-  const providedFormation = formation?.trim() || null;
-  const formationSummary = providedFormation
-    ? `Starting formation · ${providedFormation}`
-    : formationLayout.label
-      ? `Inferred lineup shape · ${formationLayout.label}`
-      : "Default lineup layout";
-  const formationSource = providedFormation
-    ? "Lineup formation"
-    : formationLayout.mode === "fallback"
-      ? "TXLINE positions unavailable"
-      : "TXLINE starting XI";
-  const formationExplanation = providedFormation
-    ? "Starting formation supplied with the lineup data."
-    : formationLayout.label
-      ? "Shape inferred from TXLINE starter counts by broad position group. It is not an official tactical formation."
-      : "TXLINE did not provide enough recognised starter positions, so players use a neutral display layout.";
 
   return (
     <div className={cn("grid min-h-0 flex-none grid-cols-1 gap-6 lg:h-full lg:flex-1 lg:grid-rows-1 lg:grid-cols-[1fr_40%]", className)}>
@@ -484,27 +464,6 @@ export function PitchArena({
             </div>
           </div>
 
-          {/* Team name + instruction (top-left) */}
-          <div className="absolute left-6 top-6 z-10 flex flex-col gap-1 rounded bg-background/40 px-2 py-1.5 backdrop-blur-sm">
-            <p className="font-display text-lg leading-tight text-foreground">
-              {teamName}
-            </p>
-            <p className="text-xs font-bold uppercase tracking-wider text-foreground/80">
-              {side === 1 ? "Home" : "Away"} · {formationSummary}
-            </p>
-            <span
-              className="w-fit border border-purple/30 bg-purple/10 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-purple"
-              title={formationExplanation}
-            >
-              {formationSource}
-            </span>
-            <div className="mt-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted">
-              <Crosshair size={12} className="text-purple" />
-              {selectedSub
-                ? `Tap a player to swap in ${selectedSub.name.split(" ").pop()}`
-                : "Drag a sub onto a player"}
-            </div>
-          </div>
         </div>
 
         {/* Bench — label + scrollable TCG cards, no card box */}

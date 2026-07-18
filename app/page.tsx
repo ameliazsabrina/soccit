@@ -11,6 +11,7 @@ import { ConnectWalletModal } from "./_components/connect-wallet-modal";
 import { getCountryCode } from "./_components/team-badge";
 import {
   getMatches,
+  getGlobalRank,
   getPortfolio,
   formatUsdcAmount,
   type MatchSummary,
@@ -19,7 +20,7 @@ import {
 import { cn } from "./_lib/utils";
 
 export default function StartMenu() {
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
   const [modalOpen, setModalOpen] = useState(false);
 
   function requireWallet() {
@@ -47,6 +48,7 @@ export default function StartMenu() {
         <TileWrapper delay={0.15} className="lg:col-span-3">
           <LeaderboardTile
             connected={connected}
+            wallet={publicKey?.toBase58() ?? null}
             onRequireWallet={requireWallet}
           />
         </TileWrapper>
@@ -167,12 +169,15 @@ function FeaturedMatchTile({
       {/* Top-left: team logos + names */}
       <div className="relative z-10 flex items-start gap-5">
         <FeaturedTeam name={team1} flag={team1Flag} />
+        <span className="font-menu-title flex h-24 items-center text-lg text-muted transition-colors group-hover:text-white">
+          VS
+        </span>
         <FeaturedTeam name={team2} flag={team2Flag} />
       </div>
 
       <div className="relative z-10 mt-12 flex flex-col justify-between gap-6 border-t border-muted/20 pt-6 sm:flex-row sm:items-end">
         <div>
-          <h2 className="unica-one text-3xl text-foreground transition-colors group-hover:text-white">
+          <h2 className="font-menu-title text-3xl text-foreground transition-colors group-hover:text-white">
             FEATURED MATCH
           </h2>
           <p className="mt-1 font-body text-sm text-muted transition-colors group-hover:text-white/70">
@@ -317,7 +322,7 @@ function PortfolioTile({
             account_balance_wallet
           </span>
         </div>
-        <p className="mb-1 font-body text-sm font-medium uppercase tracking-wider text-muted transition-colors group-hover:text-white/70">
+        <p className="font-menu-title mb-1 text-sm uppercase tracking-wider text-muted transition-colors group-hover:text-white/70">
           Total Portfolio Value
         </p>
 
@@ -437,18 +442,44 @@ function ExplorerTile({
 
 function LeaderboardTile({
   connected,
+  wallet,
   onRequireWallet,
 }: {
   connected: boolean;
+  wallet: string | null;
   onRequireWallet: () => void;
 }) {
+  const [rank, setRank] = useState<string>("—");
+
+  useEffect(() => {
+    if (!wallet) {
+      setRank("—");
+      return;
+    }
+
+    let active = true;
+    setRank("…");
+    getGlobalRank(wallet)
+      .then((summary) => {
+        if (!active) return;
+        setRank(summary.rank ? `#${summary.rank.toLocaleString()}` : "Unranked");
+      })
+      .catch(() => {
+        if (active) setRank("Unavailable");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [wallet]);
+
   return (
     <NavTile
       href="/leaderboard"
       icon="trophy"
       title="GLOBAL LEADERBOARD"
       description="Tier progression & rankings."
-      rank="#4,092"
+      rank={rank}
       image="/assets/cards/player-leaderboard.webp?v=2"
       imageClassName="h-64 w-64 group-hover:scale-180"
       className="min-h-[220px] lg:col-span-3"
@@ -538,7 +569,7 @@ function NavTile({
       </div>
       <div className="relative z-10 mt-8">
         <div>
-          <h4 className="unica-one text-2xl text-foreground transition-colors group-hover:text-white">
+          <h4 className="font-menu-title text-2xl text-foreground transition-colors group-hover:text-white">
             {title}
           </h4>
           <p className="mt-1 font-body text-sm text-muted transition-colors group-hover:text-white/70">

@@ -338,6 +338,47 @@ export function getLeaderboard(pda: string) {
   return apiJson<Leaderboard>(`/api/leaderboard/${pda}`);
 }
 
+export type GlobalRankSummary = {
+  rank: number | null;
+  points: number;
+  competitors: number;
+};
+
+/**
+ * Aggregate the real per-match leaderboards into a global rank. The backend
+ * does not expose a global leaderboard endpoint yet, so this is the canonical
+ * client-side fallback until that endpoint exists.
+ */
+export async function getGlobalRank(wallet: string): Promise<GlobalRankSummary> {
+  const matches = await getMatches();
+  const matchPdas = [
+    ...new Set(
+      matches
+        .map((match) => match.pda)
+        .filter((pda) => pda !== "demo" && isValidPda(pda)),
+    ),
+  ];
+  const results = await Promise.allSettled(matchPdas.map(getLeaderboard));
+  const pointsByWallet = new Map<string, number>();
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const row of result.value.ranking) {
+      pointsByWallet.set(
+        row.owner,
+        (pointsByWallet.get(row.owner) ?? 0) + row.points,
+      );
+    }
+  }
+
+  const points = pointsByWallet.get(wallet) ?? 0;
+  const rank = pointsByWallet.has(wallet)
+    ? 1 + [...pointsByWallet.values()].filter((score) => score > points).length
+    : null;
+
+  return { rank, points, competitors: pointsByWallet.size };
+}
+
 export function getUser(wallet: string) {
   return apiJson<UserProfile>(`/api/user/${wallet}`);
 }
@@ -354,14 +395,26 @@ export function getAvatars() {
 
 export type WorldCupMatch = {
   id: string;
-  round: "group" | "round_of_16" | "quarter" | "semi" | "third_place" | "final";
+  matchNumber?: number;
+  round:
+    | "group"
+    | "round_of_32"
+    | "round_of_16"
+    | "quarter"
+    | "semi"
+    | "third_place"
+    | "final";
   homeTeam: string | null;
   awayTeam: string | null;
+  homeCode?: string | null;
+  awayCode?: string | null;
   homeScore: number | null;
   awayScore: number | null;
   date: string | null;
   venue: string | null;
   winner: "home" | "away" | "draw" | null;
+  pda?: string | null;
+  status?: string | null;
 };
 
 export type WorldCupGroup = {
@@ -544,6 +597,10 @@ export const MATCH_EVENT_TYPES = [
   "substitution",
   "red_card",
   "yellow_card",
+  // Reserved for backend scoring broadcasts. The ticker already understands
+  // both names, so awarded points become public activity without a UI change.
+  "prediction",
+  "points_awarded",
 ] as const;
 
 export function useMatchEventsStream(

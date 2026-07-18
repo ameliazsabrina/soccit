@@ -65,6 +65,7 @@
   --font-body: var(--font-inter);
   --font-wc: var(--font-fwc2026);
   --font-wc-support: var(--font-noto-sans);
+  --font-mona: "Mona Sans Variable", var(--font-space-grotesk), system-ui, sans-serif;
 }
 
 @font-face {
@@ -87,6 +88,24 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+.wc-bracket-scroll {
+  scrollbar-color: color-mix(in srgb, var(--wc-cyan) 65%, transparent) rgba(255, 255, 255, 0.06);
+  scrollbar-width: thin;
+}
+
+.wc-bracket-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.wc-bracket-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wc-bracket-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--wc-cyan) 60%, transparent);
 }
 
 /* Hyper-Motion utilities */
@@ -115,6 +134,11 @@ body {
 
 .font-wc-support {
   font-family: var(--font-noto-sans), system-ui, sans-serif;
+}
+
+.font-menu-title {
+  font-family: "Mona Sans Variable", var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 700;
 }
 
 @keyframes wc-pulse {
@@ -276,6 +300,20 @@ body {
     animation: none;
     transform: none;
   }
+}
+
+/* Keep every surface scrollable while removing visual scrollbar chrome. */
+html,
+body,
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 @keyframes gradient-shift {

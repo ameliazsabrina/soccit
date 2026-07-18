@@ -45,15 +45,17 @@ export function PageShell({
           <div className="relative z-40 mx-auto w-full max-w-[1200px] px-8 pt-8 lg:px-8">
             <TopNav variant={variant} arenaTabs={arenaTabs} />
           </div>
-          <main className="relative z-20 flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <main className="relative z-20 flex min-h-0 w-full flex-1 flex-col overflow-hidden pb-28 md:pb-0">
             {children}
           </main>
         </>
       ) : (
         <main
           className={cn(
-            "relative z-20 mx-auto flex w-full flex-1 flex-col pb-16",
-            fullWidth ? "px-4 py-4" : "max-w-[1200px] px-8 py-8 lg:px-8"
+            "relative z-20 mx-auto flex min-h-0 w-full flex-1 flex-col pb-28 md:pb-16",
+            fullWidth
+              ? "px-4 pt-4"
+              : "max-w-[1200px] px-8 pt-8 lg:px-8"
           )}
         >
           <TopNav variant={variant} arenaTabs={arenaTabs} />

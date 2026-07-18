@@ -39,6 +39,7 @@ Used for the events banner on `/matches` and the bracket page at `/matches/event
 ## Typography
 
 - **Display:** `Unica One`, uppercase, tight/negative tracking for headlines.
+- **Menu card titles:** `Mona Sans`, weight 700, for clear high-impact navigation labels.
 - **Body/tech:** `Space Grotesk`, geometric, high legibility.
 - **Small labels:** `Space Grotesk` 500, 12px, uppercase, wide tracking.
 

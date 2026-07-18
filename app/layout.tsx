@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Unica_One, Inter, Noto_Sans } from "next/font/google";
+import "@fontsource-variable/mona-sans";
 import "./globals.css";
 import { Providers } from "./_components/providers";
 

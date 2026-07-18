@@ -594,8 +594,6 @@ export default function ArenaPage() {
         {model === "sub" && selectedTeam && sideSelected && (
           <PitchArena
             matchPda={pda}
-            teamName={selectedTeam.teamName ?? `Team ${side}`}
-            formation={selectedTeam.formation}
             side={side}
             starters={selectedPlayers.filter((player) =>
               selectedTeam.players.find((source) => source.id === player.id)?.starter,

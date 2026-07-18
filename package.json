@@ -15,6 +15,7 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@fontsource-variable/mona-sans": "^5.2.8",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
