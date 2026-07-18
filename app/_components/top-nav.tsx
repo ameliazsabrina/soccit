@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ProfileDropdown } from "./profile-dropdown";
+import { SettingsDropdown } from "./settings-dropdown";
 import { ConnectWalletModal } from "./connect-wallet-modal";
 import { cn } from "../_lib/utils";
 import { useState, useEffect } from "react";
@@ -178,7 +179,8 @@ export function TopNav({ variant = "default", arenaTabs }: TopNavProps) {
         </nav>
         </div>
 
-        <div className="hidden md:block">
+        <div className="hidden items-center gap-2 md:flex">
+          <SettingsDropdown variant={variant} />
           {connected ? (
             <ProfileDropdown variant={variant} />
           ) : (
@@ -231,6 +233,8 @@ export function TopNav({ variant = "default", arenaTabs }: TopNavProps) {
               />
             ))}
           </nav>
+
+          <SettingsDropdown variant={variant} mobile />
 
           {connected ? (
             <Link
@@ -301,7 +305,7 @@ function MobileNavItem({
       aria-label={label}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-12 min-w-11 flex-none items-center justify-center gap-1.5 rounded-xl px-2 font-tech text-xs font-bold transition-[background-color,color,transform] duration-100 ease-out active:scale-95 motion-reduce:transition-none motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-inset",
+        "flex h-12 min-w-10 flex-none items-center justify-center gap-1.5 rounded-xl px-2 font-tech text-xs font-bold transition-[background-color,color,transform] duration-100 ease-out active:scale-95 motion-reduce:transition-none motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-inset",
         active
           ? variant === "worldcup"
             ? "bg-wc-cyan text-slate-950"
@@ -312,7 +316,13 @@ function MobileNavItem({
       )}
     >
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
-      <span className={showLabel ? "max-w-16 truncate" : "sr-only"}>
+      <span
+        className={
+          showLabel
+            ? "hidden max-w-16 truncate min-[420px]:inline"
+            : "sr-only"
+        }
+      >
         {label}
       </span>
     </Link>
