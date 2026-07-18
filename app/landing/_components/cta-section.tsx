@@ -7,6 +7,7 @@ import { ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { gsap, SplitText, useGSAP } from "./gsap-setup";
 import { HoverRevealButton, HoverRevealLink } from "./hover-reveal";
+import { SOCCIT_APP_URL, SOCCIT_MATCHES_URL } from "../_lib/app-urls";
 
 const FOOTER_LINKS = [
   { label: "How it works", href: "#how-it-works" },
@@ -49,11 +50,11 @@ export function CTASection() {
           <h2 ref={heading} className="mt-4 font-display text-[clamp(2.45rem,6.3vw,6.75rem)] uppercase leading-[0.77] tracking-[-0.075em] text-foreground">COMPETE<br /><span className="whitespace-nowrap text-outline-blue">AND PROVE IT.</span></h2>
           <p data-finale className="mt-7 max-w-md font-body text-sm leading-relaxed text-foreground/65 sm:text-base">Connect your wallet. Pick the live match. Make the call that everyone else missed.</p>
           <div data-finale className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/matches" className="landing-cut-button group group/reveal inline-flex min-h-12 items-center gap-4 bg-cyan px-7 py-3 font-display text-xs uppercase tracking-[0.15em] text-foreground transition-colors duration-100 hover:bg-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">
+            <Link href={SOCCIT_MATCHES_URL} className="landing-cut-button group group/reveal inline-flex min-h-12 items-center gap-4 bg-cyan px-7 py-3 font-display text-xs uppercase tracking-[0.15em] text-foreground transition-colors duration-100 hover:bg-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">
               <HoverRevealButton>Enter the arena</HoverRevealButton>
               <ArrowRight size={17} strokeWidth={2} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" />
             </Link>
-            <Link href="/" className="landing-cut-button group group/reveal inline-flex min-h-12 items-center gap-4 border border-purple bg-white px-7 py-3 font-display text-xs uppercase tracking-[0.15em] text-purple transition-colors duration-100 hover:bg-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">
+            <Link href={SOCCIT_APP_URL} className="landing-cut-button group group/reveal inline-flex min-h-12 items-center gap-4 border border-purple bg-white px-7 py-3 font-display text-xs uppercase tracking-[0.15em] text-purple transition-colors duration-100 hover:bg-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2">
               <HoverRevealButton>Main menu</HoverRevealButton>
               <ArrowRight size={17} strokeWidth={2} className="transition-transform duration-100 group-hover:translate-x-1" aria-hidden="true" />
             </Link>

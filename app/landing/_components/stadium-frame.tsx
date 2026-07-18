@@ -8,6 +8,7 @@ import { ArrowRight, Menu, Volume2, VolumeX, X } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { HoverRevealButton } from "./hover-reveal";
+import { SOCCIT_APP_URL } from "../_lib/app-urls";
 
 const ACTS = ["ARRIVAL", "THE CALL", "THE XI", "THE TABLE", "KICK-OFF"];
 const X_URL = "https://x.com/playsoccit";
@@ -22,7 +23,7 @@ const MENU_ITEMS = [
   {
     label: "Enter",
     type: "link",
-    href: "/matches",
+    href: SOCCIT_APP_URL,
     image: "/assets/cards/player-arena.webp",
     imageAlt: "Soccit arena match",
   },
@@ -265,7 +266,7 @@ export function StadiumFrame({ audioTracks, visible }: { audioTracks: string[]; 
             className="pointer-events-auto fixed inset-0 z-20 overflow-y-auto bg-purple text-white"
           >
             <Link
-              href="/landing"
+              href="/"
               onClick={closeMenu}
               aria-label="Soccit landing page"
               className="absolute left-5 top-5 z-30 inline-flex h-12 w-14 items-center justify-center transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-8 sm:top-7"

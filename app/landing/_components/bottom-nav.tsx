@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { HoverRevealButton } from "./hover-reveal";
+import { SOCCIT_MATCHES_URL } from "../_lib/app-urls";
 
 export function BottomNav() {
   const { publicKey, connected, disconnect } = useWallet();
@@ -60,7 +61,7 @@ export function BottomNav() {
     >
       <div className="flex h-9 items-center border border-foreground/15 bg-white/80 p-1 shadow-[0_10px_35px_rgba(10,22,40,0.08)] backdrop-blur-xl sm:h-10">
         <Link
-          href="/matches"
+          href={SOCCIT_MATCHES_URL}
           className="group/reveal relative inline-flex h-full items-center justify-center overflow-hidden bg-purple px-4 font-display text-[10px] uppercase tracking-[0.14em] text-white transition-colors duration-100 hover:bg-cyan hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 sm:px-5"
         >
           <HoverRevealButton>Enter Arena</HoverRevealButton>

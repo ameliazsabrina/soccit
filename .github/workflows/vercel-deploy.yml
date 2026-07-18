@@ -66,8 +66,18 @@ jobs:
           vercel deploy --prebuilt ${{ steps.target.outputs.production_flag }} --token=${{ secrets.VERCEL_TOKEN }} | tee deployment-url.txt
           echo "url=$(tail -n 1 deployment-url.txt)" >> "${GITHUB_OUTPUT}"
 
+      - name: Assign landing domain
+        id: landing_domain
+        continue-on-error: true
+        run: >-
+          vercel alias set
+          ${{ steps.deploy.outputs.url }}
+          soccit.fun
+          --token=${{ secrets.VERCEL_TOKEN }}
+
       - name: Add deployment URL to summary
         shell: bash
         run: |
           echo "### Vercel ${{ steps.target.outputs.environment }} deployment" >> "${GITHUB_STEP_SUMMARY}"
           echo "${{ steps.deploy.outputs.url }}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Landing domain: ${{ steps.landing_domain.outcome }} — https://soccit.fun" >> "${GITHUB_STEP_SUMMARY}"
