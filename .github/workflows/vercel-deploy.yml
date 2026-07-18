@@ -45,7 +45,7 @@ jobs:
         id: target
         shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+          if [[ "${GITHUB_REF}" == "refs/heads/main" || "${GITHUB_REF}" == "refs/heads/feat/frontend-latest" ]]; then
             echo "environment=production" >> "${GITHUB_OUTPUT}"
             echo "production_flag=--prod" >> "${GITHUB_OUTPUT}"
           else
