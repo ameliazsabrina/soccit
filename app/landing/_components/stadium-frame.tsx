@@ -48,6 +48,13 @@ const MENU_ITEMS = [
     image: "/assets/cards/player-logs.webp",
     imageAlt: "Soccit product documentation",
   },
+  {
+    label: "Whitepaper",
+    type: "link",
+    href: "/whitepaper",
+    image: "/assets/cards/player-hero.webp",
+    imageAlt: "Soccit product and protocol whitepaper",
+  },
 ] as const;
 
 export function StadiumFrame({ audioTracks, visible }: { audioTracks: string[]; visible: boolean }) {
@@ -333,7 +340,7 @@ export function StadiumFrame({ audioTracks, visible }: { audioTracks: string[]; 
                 <div className="landing-title-grid pointer-events-none absolute inset-0 opacity-30" />
                 <div className="absolute bottom-5 left-5 flex items-center gap-3 font-tech text-[8px] uppercase tracking-[0.2em] text-white/70 sm:bottom-8 sm:left-8">
                   <span className="h-2 w-2 rotate-45 bg-cyan" />
-                  0{activeMenuIndex + 1} / 05
+                  0{activeMenuIndex + 1} / 06
                 </div>
               </div>
 

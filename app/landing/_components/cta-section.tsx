@@ -12,6 +12,7 @@ import { SOCCIT_APP_URL, SOCCIT_MATCHES_URL } from "../_lib/app-urls";
 const FOOTER_LINKS = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Docs", href: "/docs" },
+  { label: "Whitepaper", href: "/whitepaper" },
 ] as const;
 
 const COMMUNITY_LINKS = [
