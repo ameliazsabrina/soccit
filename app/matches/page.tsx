@@ -13,9 +13,14 @@ import {
   AnimatePresence,
   motion,
   useReducedMotion,
-  type PanInfo,
 } from "framer-motion";
-import { AlertCircle, Loader2, Trophy } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Trophy,
+} from "lucide-react";
 import { PageShell } from "../_components/page-shell";
 import { EventExitTransition } from "../_components/event-exit-transition";
 import { EnterButton } from "../_components/enter-button";
@@ -375,6 +380,7 @@ function FeaturedBanner() {
   const [direction, setDirection] = useState(1);
   const reduceMotion = useReducedMotion();
   const draggedRef = useRef(false);
+  const pointerStartXRef = useRef<number | null>(null);
   const hoveredRef = useRef(false);
   const focusWithinRef = useRef(false);
 
@@ -402,22 +408,28 @@ function FeaturedBanner() {
 
   const event = EVENTS[active];
 
-  function handleDragEnd(
-    _: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo,
-  ) {
-    const swipeIntent = info.offset.x + info.velocity.x * 0.12;
-    if (Math.abs(swipeIntent) >= 60) step(swipeIntent < 0 ? 1 : -1);
+  function finishPointerGesture() {
     setTimeout(() => {
       draggedRef.current = false;
       setPaused(hoveredRef.current || focusWithinRef.current);
     }, 0);
   }
 
+  function handlePointerUp(pointerEvent: React.PointerEvent) {
+    const startX = pointerStartXRef.current;
+    pointerStartXRef.current = null;
+    if (startX !== null) {
+      const distance = pointerEvent.clientX - startX;
+      if (Math.abs(distance) >= 50) step(distance < 0 ? 1 : -1);
+    }
+    finishPointerGesture();
+  }
+
   return (
     <section
       className="relative min-h-[260px] overflow-hidden border-b border-surface sm:min-h-[300px]"
       aria-label="Featured matches and events"
+      aria-roledescription="carousel"
       onMouseEnter={() => {
         hoveredRef.current = true;
         setPaused(true);
@@ -434,6 +446,15 @@ function FeaturedBanner() {
         if (!blurEvent.currentTarget.contains(blurEvent.relatedTarget)) {
           focusWithinRef.current = false;
           setPaused(hoveredRef.current);
+        }
+      }}
+      onKeyDown={(keyEvent) => {
+        if (keyEvent.key === "ArrowLeft") {
+          keyEvent.preventDefault();
+          step(-1);
+        } else if (keyEvent.key === "ArrowRight") {
+          keyEvent.preventDefault();
+          step(1);
         }
       }}
     >
@@ -463,13 +484,21 @@ function FeaturedBanner() {
           }}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.08}
+          dragElastic={0.16}
+          dragMomentum={false}
+          onPointerDown={(pointerEvent) => {
+            pointerStartXRef.current = pointerEvent.clientX;
+          }}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={() => {
+            pointerStartXRef.current = null;
+            finishPointerGesture();
+          }}
           onDragStart={() => {
             draggedRef.current = true;
             setPaused(true);
           }}
-          onDragEnd={handleDragEnd}
-          className="absolute inset-0 touch-pan-y"
+          className="absolute inset-0 cursor-grab touch-pan-y active:cursor-grabbing"
         >
           <Link
             href={event.href}
@@ -529,6 +558,23 @@ function FeaturedBanner() {
           </Link>
         </motion.div>
       </AnimatePresence>
+
+      <button
+        type="button"
+        onClick={() => step(-1)}
+        aria-label="Previous featured event"
+        className="absolute left-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center border border-white/40 bg-slate-950/30 text-white backdrop-blur-sm transition-colors duration-100 hover:border-white hover:bg-white hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 md:flex"
+      >
+        <ChevronLeft size={22} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        onClick={() => step(1)}
+        aria-label="Next featured event"
+        className="absolute right-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center border border-white/40 bg-slate-950/30 text-white backdrop-blur-sm transition-colors duration-100 hover:border-white hover:bg-white hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 md:flex"
+      >
+        <ChevronRight size={22} aria-hidden="true" />
+      </button>
 
       {/* Carousel dots */}
       <div className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 gap-1">

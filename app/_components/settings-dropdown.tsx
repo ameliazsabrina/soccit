@@ -139,11 +139,11 @@ export function SettingsDropdown({
             variant={variant}
           />
           <AudioSlider
-            id="vfx-volume"
-            label="VFX"
+            id="sfx-volume"
+            label="SFX"
             icon={MousePointerClick}
-            value={audio.vfxVolume}
-            onChange={(value) => sound.setVfxVolume(value)}
+            value={audio.sfxVolume}
+            onChange={(value) => sound.setSfxVolume(value)}
             variant={variant}
           />
         </div>

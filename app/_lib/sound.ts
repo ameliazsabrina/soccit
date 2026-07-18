@@ -1,19 +1,19 @@
-// App audio manager: low-latency Web Audio for VFX plus looping background
+// App audio manager: low-latency Web Audio for SFX plus background music
 // music. Browsers may block autoplay until the first gesture; initOnGesture()
 // starts both systems at the earliest permitted moment.
+
+import { MUSIC_TRACKS } from "./music-playlist";
 
 type SoundName = "hover" | "click";
 
 export type SoundSettings = {
   muted: boolean;
   musicVolume: number;
-  vfxVolume: number;
+  sfxVolume: number;
 };
 
 const HOVER_COOLDOWN_MS = 70;
 const HOVER_ELEMENT_MS = 500;
-const MUSIC_SRC = "/sounds/music.mp3";
-
 function storedNumber(key: string, fallback: number) {
   if (typeof window === "undefined") return fallback;
   const value = Number(window.localStorage.getItem(key));
@@ -26,10 +26,11 @@ class SoundManager {
   private loaded = false;
   private loading: Promise<void> | null = null;
   private music: HTMLAudioElement | null = null;
+  private musicIndex = 0;
   private settings: SoundSettings = {
     muted: false,
     musicVolume: 0.4,
-    vfxVolume: 0.75,
+    sfxVolume: 0.75,
   };
   private listeners = new Set<(settings: SoundSettings) => void>();
   private lastHoverEl: WeakRef<Element> | null = null;
@@ -37,11 +38,13 @@ class SoundManager {
 
   constructor() {
     if (typeof window === "undefined") return;
+    const legacySfxVolume = storedNumber("soccit-vfx-volume", 0.75);
     this.settings = {
       muted: window.localStorage.getItem("soccit-sound-muted") === "1",
       musicVolume: storedNumber("soccit-music-volume", 0.4),
-      vfxVolume: storedNumber("soccit-vfx-volume", 0.75),
+      sfxVolume: storedNumber("soccit-sfx-volume", legacySfxVolume),
     };
+    this.musicIndex = Math.floor(Math.random() * MUSIC_TRACKS.length);
   }
 
   private ensureContext(): AudioContext | null {
@@ -59,9 +62,10 @@ class SoundManager {
   private ensureMusic(): HTMLAudioElement | null {
     if (this.music) return this.music;
     if (typeof window === "undefined") return null;
-    const music = new Audio(MUSIC_SRC);
-    music.loop = true;
+    const music = new Audio(MUSIC_TRACKS[this.musicIndex]);
+    music.loop = MUSIC_TRACKS.length === 1;
     music.preload = "auto";
+    music.addEventListener("ended", () => this.playNextMusicTrack());
     this.music = music;
     this.syncMusic();
     return music;
@@ -85,6 +89,23 @@ class SoundManager {
     } catch {
       // Missing future asset or browser autoplay policy; the next gesture retries.
     }
+  }
+
+  private playNextMusicTrack() {
+    const music = this.music;
+    if (!music || MUSIC_TRACKS.length === 0) return;
+
+    if (MUSIC_TRACKS.length === 1) {
+      music.currentTime = 0;
+      void this.startMusic();
+      return;
+    }
+
+    const offset = 1 + Math.floor(Math.random() * (MUSIC_TRACKS.length - 1));
+    this.musicIndex = (this.musicIndex + offset) % MUSIC_TRACKS.length;
+    music.src = MUSIC_TRACKS[this.musicIndex];
+    music.load();
+    void this.startMusic();
   }
 
   /** Initialise both audio systems on the first browser-permitted gesture. */
@@ -122,7 +143,7 @@ class SoundManager {
       const buffer = await ctx.decodeAudioData(bytes);
       this.buffers[name] = buffer ?? undefined;
     } catch {
-      // Missing or undecodable VFX stay silent.
+      // Missing or undecodable SFX stay silent.
     }
   }
 
@@ -171,19 +192,19 @@ class SoundManager {
     this.publish();
   }
 
-  setVfxVolume(volume: number) {
-    this.settings.vfxVolume = Math.min(1, Math.max(0, volume));
+  setSfxVolume(volume: number) {
+    this.settings.sfxVolume = Math.min(1, Math.max(0, volume));
     if (typeof window !== "undefined") {
       window.localStorage.setItem(
-        "soccit-vfx-volume",
-        String(this.settings.vfxVolume),
+        "soccit-sfx-volume",
+        String(this.settings.sfxVolume),
       );
     }
     this.publish();
   }
 
   playHover(element?: Element | null) {
-    if (this.settings.muted || this.settings.vfxVolume === 0) return;
+    if (this.settings.muted || this.settings.sfxVolume === 0) return;
     const now =
       typeof performance !== "undefined" ? performance.now() : Date.now();
     if (now - this.lastHoverAt < HOVER_COOLDOWN_MS) return;
@@ -195,7 +216,7 @@ class SoundManager {
   }
 
   playClick() {
-    if (this.settings.muted || this.settings.vfxVolume === 0) return;
+    if (this.settings.muted || this.settings.sfxVolume === 0) return;
     this.play("click", 0.45);
   }
 
@@ -205,7 +226,7 @@ class SoundManager {
     if (!ctx || !buffer) return;
     if (ctx.state === "suspended") void ctx.resume();
     const gain = ctx.createGain();
-    gain.gain.value = baseVolume * this.settings.vfxVolume;
+    gain.gain.value = baseVolume * this.settings.sfxVolume;
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(gain).connect(ctx.destination);
