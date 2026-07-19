@@ -21,7 +21,7 @@ import {
   isValidPda,
   formatUsdc,
   formatWallet,
-  calculatePrizes,
+  calculateSettlementPrizes,
   displayScore,
   SOCCIT_SEED_FIXTURE_ID,
   SOCCIT_SEED_MATCH_PDA,
@@ -246,7 +246,7 @@ export default function SettlementPage() {
   const score = displayScore(match);
   const poolTotal = match.onchain?.poolTotal ?? "0";
   const participantCount = match.onchain?.participantCount ?? 0;
-  const prizes = calculatePrizes(poolTotal);
+  const prizes = calculateSettlementPrizes(poolTotal, participantCount);
 
   // Only call it a Draw when we actually have a scoreline — absent one we stay
   // "Pending" rather than falsely reporting a 0-0 Draw.
@@ -378,6 +378,11 @@ export default function SettlementPage() {
               <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">
                 Prize Pool · {participantCount} Players
               </p>
+              {prizes.winnerTakesAll && (
+                <p className="mt-1 text-xs font-bold uppercase tracking-wider text-gold">
+                  Winner Takes All
+                </p>
+              )}
             </div>
           </motion.div>
 
@@ -396,6 +401,14 @@ export default function SettlementPage() {
                 Top Finishers
               </h2>
             </div>
+            {prizes.winnerTakesAll && (
+              <div className="mb-4 border border-gold/30 bg-gold/5 px-3 py-2 text-xs text-muted">
+                <span className="font-bold uppercase tracking-wider text-gold">
+                  Winner Takes All
+                </span>{" "}
+                · Fewer than 3 players, so only rank #1 receives the net pool.
+              </div>
+            )}
             {topRanks.length > 0 ? (
               <div className="space-y-3">
                 {topRanks.map((r, i) => {
@@ -468,12 +481,18 @@ export default function SettlementPage() {
                 <Trophy size={20} />
               </div>
               <h2 className="mt-4 font-display text-xl text-foreground">
-                Prize Breakdown
+                {prizes.winnerTakesAll ? "Winner Takes All" : "Prize Breakdown"}
               </h2>
               <div className="mt-4 w-full space-y-3">
-                <PrizeRow rank={1} pct={50} amount={prizes.first} />
-                <PrizeRow rank={2} pct={30} amount={prizes.second} />
-                <PrizeRow rank={3} pct={20} amount={prizes.third} />
+                {prizes.winnerTakesAll ? (
+                  <PrizeRow rank={1} pct={100} amount={prizes.first} />
+                ) : (
+                  <>
+                    <PrizeRow rank={1} pct={50} amount={prizes.first} />
+                    <PrizeRow rank={2} pct={30} amount={prizes.second} />
+                    <PrizeRow rank={3} pct={20} amount={prizes.third} />
+                  </>
+                )}
               </div>
               <p className="mt-4 text-xs text-muted">
                 Net pool after 20% platform fee: $

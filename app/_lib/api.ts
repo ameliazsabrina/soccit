@@ -823,6 +823,30 @@ export function calculatePrizes(poolTotal: string): {
 }
 
 /**
+ * Apply the payout rule used by settlement. Matches with one or two entrants
+ * are winner-takes-all; otherwise the net pool is split 50/30/20.
+ */
+export function calculateSettlementPrizes(
+  poolTotal: string,
+  participantCount: number,
+): ReturnType<typeof calculatePrizes> & { winnerTakesAll: boolean } {
+  const standardPrizes = calculatePrizes(poolTotal);
+  const winnerTakesAll = participantCount > 0 && participantCount < 3;
+
+  if (!winnerTakesAll) {
+    return { ...standardPrizes, winnerTakesAll: false };
+  }
+
+  return {
+    first: standardPrizes.total,
+    second: 0,
+    third: 0,
+    total: standardPrizes.total,
+    winnerTakesAll: true,
+  };
+}
+
+/**
  * The scoreline to display for a match, or `null` when there is none yet.
  *
  * LIVE     → running score from `live.goals`.

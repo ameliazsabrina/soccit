@@ -20,7 +20,7 @@ import { cn } from "../_lib/utils";
 import {
   openLeaderboardStream,
   openMatchEventsStream,
-  calculatePrizes,
+  calculateSettlementPrizes,
   formatUsdc,
   formatWallet,
   type EventEntry,
@@ -454,12 +454,11 @@ function LeaderboardList({
     );
   }
 
-  const prizes = calculatePrizes(poolTotal);
   const participantCount = leaderboard.ranking.length;
-  const winnerTakesAll = participantCount < 3;
+  const prizes = calculateSettlementPrizes(poolTotal, participantCount);
+  const winnerTakesAll = prizes.winnerTakesAll;
 
   const prizeForRank = (rank: number): number => {
-    if (winnerTakesAll) return prizes.total;
     if (rank === 1) return prizes.first;
     if (rank === 2) return prizes.second;
     if (rank === 3) return prizes.third;
