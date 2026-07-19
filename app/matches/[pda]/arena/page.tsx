@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   AlertCircle,
@@ -23,8 +23,6 @@ import {
   getMatch,
   getLineup,
   getEntryStatus,
-  getLeaderboard,
-  getUserMatches,
   openMatchEventsStream,
   displayScore,
   isValidPda,
@@ -36,9 +34,12 @@ import {
   type MatchState,
   type Lineup,
   type EventEntry,
-  type UserMatchPrediction,
 } from "../../../_lib/api";
 import { submitPrediction } from "../../../_lib/prediction";
+import {
+  getWalletMatchPredictionsOnChain,
+  type OnChainPrediction,
+} from "../../../_lib/onchain-predictions";
 import { eventPayload } from "../../../_lib/match-events";
 import { demoLineup } from "../../../_lib/characters";
 import { publicEnv } from "../../../_lib/env";
@@ -91,6 +92,11 @@ const DEMO_LINEUP: Lineup = demoLineup();
 type ArenaModel = "sub" | "score" | "goalscorer";
 type EntryState = "checking" | "entered" | "not-entered" | "error";
 type PredictionHydrationState = "idle" | "checking" | "ready" | "error";
+type ConfirmedPredictionState = {
+  score: { team1: number; team2: number } | null;
+  substitutions: SubstitutionPrediction[];
+  lockedPlayerIds: number[];
+};
 
 type OfficialSubstitution = {
   id: string;
@@ -183,6 +189,41 @@ function currentRoster(
   return { starters, substitutes };
 }
 
+function confirmedPredictionState(
+  predictions: OnChainPrediction[],
+): ConfirmedPredictionState {
+  // getWalletMatchPredictionsOnChain returns oldest lock-minute first. Legacy
+  // data can contain duplicate scores; display the earliest known prediction
+  // while treating the existence of any score account as locked.
+  const score = predictions.find((prediction) => prediction.kind === 3);
+  const substitutions = new Map<string, SubstitutionPrediction>();
+  const lockedPlayerIds = new Set<number>();
+
+  for (const prediction of predictions) {
+    if (prediction.kind === 0) lockedPlayerIds.add(prediction.outPlayerId);
+    if (prediction.kind === 1) lockedPlayerIds.add(prediction.inPlayerId);
+    if (prediction.kind !== 2 || (prediction.side !== 1 && prediction.side !== 2)) continue;
+    lockedPlayerIds.add(prediction.outPlayerId);
+    lockedPlayerIds.add(prediction.inPlayerId);
+    const key = `${prediction.side}:${prediction.outPlayerId}:${prediction.inPlayerId}`;
+    substitutions.set(key, {
+      slotId: String(prediction.outPlayerId),
+      position: "Player",
+      outPlayerId: prediction.outPlayerId,
+      inPlayerId: prediction.inPlayerId,
+      side: prediction.side,
+    });
+  }
+
+  return {
+    score: score
+      ? { team1: score.outPlayerId, team2: score.inPlayerId }
+      : null,
+    substitutions: [...substitutions.values()],
+    lockedPlayerIds: [...lockedPlayerIds],
+  };
+}
+
 export default function ArenaPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -224,9 +265,7 @@ export default function ArenaPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // A score prediction this wallet already locked for the fixture, restored from
-  // the backend on mount so a reload shows the LOCKED scoreline instead of a
-  // blank editable panel. null = none found (or not yet fetched).
+  // Confirmed on-chain state restored before prediction controls are rendered.
   const [restoredScore, setRestoredScore] = useState<{ team1: number; team2: number } | null>(null);
   const [predictionHydrationState, setPredictionHydrationState] = useState<PredictionHydrationState>(
     isDemo ? "ready" : "idle",
@@ -351,9 +390,21 @@ export default function ArenaPage() {
     };
   }, [connected, publicKey, pda, isDemo]);
 
-  // Restore every confirmed prediction before rendering editable controls. The
-  // user history and per-match leaderboard are independent projections, so use
-  // both and fail closed only when neither can be read.
+  const readConfirmedPredictionState = useCallback(async () => {
+    if (!publicKey || !isValidPda(pda)) {
+      throw new Error("A valid wallet and match are required to check predictions.");
+    }
+    const predictions = await getWalletMatchPredictionsOnChain(
+      connection,
+      publicKey.toBase58(),
+      pda,
+    );
+    return confirmedPredictionState(predictions);
+  }, [connection, publicKey, pda]);
+
+  // Restore confirmed program accounts before rendering editable controls.
+  // Projection endpoints can lag behind a confirmed transaction, so they are
+  // deliberately not used as a prediction lock source.
   useEffect(() => {
     let cancelled = false;
     if (isDemo) {
@@ -371,59 +422,33 @@ export default function ArenaPage() {
       return;
     }
 
-    const walletAddress = publicKey.toBase58();
     setPredictionHydrationState("checking");
     setRestoredScore(null);
     setLockedPredictions([]);
 
-    Promise.allSettled([getUserMatches(walletAddress), getLeaderboard(pda)])
-      .then(([historyResult, leaderboardResult]) => {
+    readConfirmedPredictionState()
+      .then((confirmedState) => {
         if (cancelled) return;
-        if (historyResult.status === "rejected" && leaderboardResult.status === "rejected") {
-          setPredictionHydrationState("error");
-          return;
-        }
-
-        const recovered: UserMatchPrediction[] = [];
-        if (historyResult.status === "fulfilled") {
-          const userMatch = historyResult.value.find((item) => item.fixtureId === fixtureId);
-          recovered.push(...(userMatch?.predictions ?? []));
-        }
-        if (leaderboardResult.status === "fulfilled") {
-          const row = leaderboardResult.value.ranking.find((item) => item.owner === walletAddress);
-          recovered.push(...(row?.predictions ?? []).map((prediction) => ({
-            kind: prediction.kind,
-            points: prediction.points,
-            side: prediction.side,
-            outPlayerId: prediction.outPlayerId,
-            inPlayerId: prediction.inPlayerId,
-          })));
-        }
-
-        const score = recovered.find((prediction) => prediction.kind === 3);
-        setRestoredScore(score
-          ? { team1: score.outPlayerId, team2: score.inPlayerId }
-          : null);
-
-        const substitutions = new Map<string, SubstitutionPrediction>();
-        for (const prediction of recovered) {
-          if (prediction.kind !== 2 || (prediction.side !== 1 && prediction.side !== 2)) continue;
-          const key = `${prediction.side}:${prediction.outPlayerId}:${prediction.inPlayerId}`;
-          substitutions.set(key, {
-            slotId: String(prediction.outPlayerId),
-            position: "Player",
-            outPlayerId: prediction.outPlayerId,
-            inPlayerId: prediction.inPlayerId,
-            side: prediction.side,
-          });
-        }
-        setLockedPredictions([...substitutions.values()]);
+        setRestoredScore(confirmedState.score);
+        setLockedPredictions(confirmedState.substitutions);
         setPredictionHydrationState("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setPredictionHydrationState("error");
       });
     return () => {
       cancelled = true;
     };
-  }, [connected, publicKey, pda, fixtureId, isDemo, entryState, predictionReloadKey]);
+  }, [
+    connected,
+    publicKey,
+    pda,
+    fixtureId,
+    isDemo,
+    entryState,
+    predictionReloadKey,
+    readConfirmedPredictionState,
+  ]);
 
   // The lineup endpoint is a pre-match snapshot. Replay official substitution
   // events so the field and bench reflect who is actually on the pitch now.
@@ -457,6 +482,24 @@ export default function ArenaPage() {
       setError(err instanceof Error ? err.message : "Failed to load match.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function refreshConfirmedPredictionState(): Promise<ConfirmedPredictionState | null> {
+    try {
+      const confirmedState = await readConfirmedPredictionState();
+      setRestoredScore(confirmedState.score);
+      setLockedPredictions(confirmedState.substitutions);
+      return confirmedState;
+    } catch {
+      notifs.push({
+        id: "prediction-preflight-error",
+        type: "error",
+        title: "Prediction check failed",
+        message: "Confirmed on-chain predictions could not be verified. Submission remains locked.",
+        duration: 8000,
+      });
+      return null;
     }
   }
 
@@ -568,9 +611,19 @@ export default function ArenaPage() {
   }
 
   async function handleLockSubstitutions(predictions: SubstitutionPrediction[]) {
-    const usedPlayerIds = new Set(
-      lockedPredictions.flatMap((prediction) => [prediction.outPlayerId, prediction.inPlayerId]),
-    );
+    const confirmedState = isDemo
+      ? {
+          score: restoredScore,
+          substitutions: lockedPredictions,
+          lockedPlayerIds: lockedPredictions.flatMap((prediction) => [
+            prediction.outPlayerId,
+            prediction.inPlayerId,
+          ]),
+        }
+      : await refreshConfirmedPredictionState();
+    if (!confirmedState) return false;
+
+    const usedPlayerIds = new Set(confirmedState.lockedPlayerIds);
     const batchPlayerIds = new Set<number>();
     const hasConflict = predictions.some((prediction) => {
       const conflict =
@@ -616,7 +669,23 @@ export default function ArenaPage() {
   }
 
   async function handleLockScore(score1: number, score2: number) {
-    if (restoredScore) return false;
+    if (!isDemo) {
+      const confirmedState = await refreshConfirmedPredictionState();
+      if (!confirmedState) return false;
+      if (confirmedState.score) {
+        notifs.push({
+          id: "score-already-locked",
+          type: "warning",
+          title: "Score already locked",
+          message: "Your confirmed score prediction for this match cannot be changed.",
+          duration: 7000,
+        });
+        return false;
+      }
+    } else if (restoredScore) {
+      return false;
+    }
+
     const confirmed = await handleSubmit({
       kind: 3,
       side: 0,
@@ -756,7 +825,7 @@ export default function ArenaPage() {
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
             <RefreshCw size={28} className="animate-spin text-cyan" />
             <h2 className="font-display text-2xl text-foreground">Checking Predictions</h2>
-            <p className="text-sm text-muted">Restoring this wallet&apos;s confirmed locks…</p>
+            <p className="text-sm text-muted">Reading this wallet&apos;s confirmed Devnet locks…</p>
           </div>
         </PageShell>
       </>
@@ -772,7 +841,7 @@ export default function ArenaPage() {
             <AlertCircle className="mb-4 text-rose" size={48} />
             <h2 className="font-display text-2xl text-foreground">Prediction Check Failed</h2>
             <p className="mt-3 text-sm leading-relaxed text-muted">
-              We couldn&apos;t restore your confirmed predictions, so submission stays locked to prevent duplicates.
+              We couldn&apos;t read your confirmed on-chain predictions, so submission stays locked to prevent duplicates.
             </p>
             <button
               onClick={() => setPredictionReloadKey((key) => key + 1)}
