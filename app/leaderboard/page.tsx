@@ -18,6 +18,7 @@ import {
   type GlobalLeaderboard,
   type GlobalLeaderboardRow,
 } from "../_lib/api";
+import { assetUrl } from "../_lib/assets";
 import { cn } from "../_lib/utils";
 
 export default function LeaderboardPage() {
@@ -272,7 +273,7 @@ function PlayerAvatar({ row }: { row: GlobalLeaderboardRow }) {
     return (
       <div className="relative h-10 w-10 shrink-0 overflow-hidden bg-background">
         <Image
-          src={`/avatars/${row.user.avatar}.webp`}
+          src={assetUrl(`avatars/${row.user.avatar}.webp`)}
           alt={`${row.user.username} avatar`}
           fill
           sizes="40px"
