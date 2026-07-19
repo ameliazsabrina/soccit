@@ -25,6 +25,10 @@ all 90 minutes. Every minute of the match is inventory.
   Revenue scales directly with participation and requires no manual reconciliation.
 * Scales per fixture: World Cup and International Friendlies today (TxLINE SL12 is **free**,
   so data cost is ~$0), with a clear path to paid competitions and higher service levels.
+* **Multi‑league expansion.** The World Cup is the launch fixture, not the ceiling — the same
+  create → enter → predict → resolve → settle pipeline runs on any competition on the feed.
+  The roadmap opens matches for other leagues (domestic top flights, continental cups, and
+  club competitions), turning a seasonal event into a year‑round calendar of inventory.
 
 ## Cost structure that favours a bootstrapped launch
 
