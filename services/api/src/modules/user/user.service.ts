@@ -26,7 +26,7 @@ export function onboardingMessage(wallet: string): string {
 }
 
 export function avatarSrc(id: string): string {
-  return `/avatars/${id}.webp`;
+  return `/api/assets/avatars/${id}.webp`;
 }
 
 export function listAvatars(): AvatarDescriptor[] {

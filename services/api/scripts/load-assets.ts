@@ -9,14 +9,7 @@ function arg(name: string): string | undefined {
   return i !== -1 ? process.argv[i + 1] : undefined;
 }
 
-const DEFAULT_PUBLIC_DIR = join(
-  process.cwd(),
-  "..",
-  "..",
-  "..",
-  "soccit-frontend",
-  "public",
-);
+const DEFAULT_ASSET_DIR = join(process.cwd(), "assets");
 
 const CONTENT_TYPES: Record<string, string> = {
   ".webp": "image/webp",
@@ -36,20 +29,6 @@ const CONTENT_TYPES: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
-const SKIP = new Set<string>([
-  "assets/cards/team-home.webp",
-  "assets/cards/team-away.webp",
-  "assets/Vector.png",
-  "app-bg1.webp",
-  "assets/events/ucl-logo-white.webp",
-  "field-template.svg",
-  "file.svg",
-  "globe.svg",
-  "next.svg",
-  "vercel.svg",
-  "window.svg",
-]);
-
 function walk(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {
@@ -61,18 +40,18 @@ function walk(dir: string): string[] {
 }
 
 async function main(): Promise<void> {
-  const publicDir = arg("public") ?? DEFAULT_PUBLIC_DIR;
-  const files = walk(publicDir);
+  const assetDir = arg("assets") ?? arg("public") ?? DEFAULT_ASSET_DIR;
+  const files = walk(assetDir);
   const assets = await getAssetsCollection();
 
   let loaded = 0;
   let skipped = 0;
   for (const file of files) {
-    // Public-relative path, normalised to POSIX so keys are stable across OSes.
-    const rel = relative(publicDir, file).split(sep).join(posix.sep);
+    // Asset-relative path, normalised to POSIX so keys are stable across OSes.
+    const rel = relative(assetDir, file).split(sep).join(posix.sep);
     const ext = extname(file).toLowerCase();
     const contentType = CONTENT_TYPES[ext];
-    if (SKIP.has(rel) || !contentType) {
+    if (!contentType) {
       skipped++;
       if (!contentType) console.warn(`skip (unknown type): ${rel}`);
       continue;
@@ -96,9 +75,7 @@ async function main(): Promise<void> {
     console.log(`loaded ${rel} (${data.length} bytes, ${contentType})`);
   }
 
-  console.log(
-    `\nDone: ${loaded} loaded, ${skipped} skipped, from ${publicDir}`,
-  );
+  console.log(`\nDone: ${loaded} loaded, ${skipped} skipped, from ${assetDir}`);
   await closeMongo();
 }
 
