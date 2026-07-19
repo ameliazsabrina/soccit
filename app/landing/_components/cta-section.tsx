@@ -16,6 +16,7 @@ const FOOTER_LINKS = [
 ] as const;
 
 const COMMUNITY_LINKS = [
+  { label: "GitBook", href: "https://amelias-organization-20.gitbook.io/soccit" },
   { label: "X", href: "https://x.com/playsoccit" },
   { label: "Discord", href: "https://discord.gg/soccit" },
 ] as const;

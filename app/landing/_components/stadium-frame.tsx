@@ -13,6 +13,7 @@ import { SOCCIT_APP_URL } from "../_lib/app-urls";
 
 const ACTS = ["ARRIVAL", "THE CALL", "THE XI", "THE TABLE", "KICK-OFF"];
 const X_URL = "https://x.com/playsoccit";
+const GITBOOK_URL = "https://amelias-organization-20.gitbook.io/soccit";
 
 const MENU_ITEMS = [
   {
@@ -383,9 +384,14 @@ export function StadiumFrame({ audioTracks, visible }: { audioTracks: string[]; 
                   <p className="max-w-xs font-body text-xs leading-relaxed text-white/70 sm:text-sm">
                     Football instinct, turned into verifiable competition.
                   </p>
-                  <a href={X_URL} target="_blank" rel="noreferrer" className="group/reveal inline-flex h-11 items-center border border-white/50 px-4 font-tech text-[9px] uppercase tracking-[0.2em] text-white transition-colors duration-150 hover:bg-white hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
-                    <HoverRevealButton>X</HoverRevealButton>
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <a href={GITBOOK_URL} target="_blank" rel="noreferrer" className="group/reveal inline-flex h-11 items-center border border-white/50 px-4 font-tech text-[9px] uppercase tracking-[0.2em] text-white transition-colors duration-150 hover:bg-white hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                      <HoverRevealButton>GitBook</HoverRevealButton>
+                    </a>
+                    <a href={X_URL} target="_blank" rel="noreferrer" className="group/reveal inline-flex h-11 items-center border border-white/50 px-4 font-tech text-[9px] uppercase tracking-[0.2em] text-white transition-colors duration-150 hover:bg-white hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                      <HoverRevealButton>X</HoverRevealButton>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
