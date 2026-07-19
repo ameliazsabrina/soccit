@@ -1,0 +1,184 @@
+import { readFileSync } from "node:fs";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  type TransactionInstruction,
+} from "@solana/web3.js";
+import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
+import { logger } from "./logger.js";
+import {
+  STATUS_OPEN,
+  STATUS_RESOLVED,
+  STATUS_SETTLED,
+  buildResolveInstruction,
+  buildSettleInstruction,
+  decodeMatch,
+  matchPda,
+  vaultAuthorityPda,
+  type DecodedMatch,
+} from "@soccit/onchain/program";
+import type { LeaderboardPayload } from "./leaderboard.js";
+
+export const DEFAULT_TERMINAL_PHASE = 1;
+
+export function loadKeypair(path: string): Keypair {
+  const bytes = JSON.parse(readFileSync(path, "utf8")) as number[];
+  return Keypair.fromSecretKey(Uint8Array.from(bytes));
+}
+
+export interface KeeperDeps {
+  connection: Connection;
+  programId: PublicKey;
+  resolver: Keypair;
+  platformWallet: PublicKey;
+  terminalPhase?: number;
+  sendRetries?: number;
+  sendRetryBaseMs?: number;
+}
+
+export type SettlementResult =
+  | { settled: true; sig: string }
+  | { settled: false; retry: boolean };
+
+const DEFAULT_SEND_RETRIES = 3;
+const DEFAULT_SEND_RETRY_BASE_MS = 500;
+
+function parseWinner(s: string | null): PublicKey | null {
+  return s ? new PublicKey(s) : null;
+}
+
+async function fetchMatch(deps: KeeperDeps, fixtureId: number): Promise<{ pda: PublicKey; match: DecodedMatch } | null> {
+  const pda = matchPda(deps.programId, BigInt(fixtureId));
+  const info = await deps.connection.getAccountInfo(pda);
+  if (!info) return null;
+  return { pda, match: decodeMatch(info.data as Buffer) };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function sendAndConfirmWithRetry(
+  deps: KeeperDeps,
+  tx: Transaction,
+): Promise<string> {
+  const maxAttempts = Math.max(1, deps.sendRetries ?? DEFAULT_SEND_RETRIES);
+  const baseMs = Math.max(0, deps.sendRetryBaseMs ?? DEFAULT_SEND_RETRY_BASE_MS);
+  let lastErr: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const sig = await deps.connection.sendTransaction(tx, [deps.resolver], {
+        skipPreflight: false,
+      });
+      await deps.connection.confirmTransaction(sig, "confirmed");
+      if (attempt > 1) logger.info({ attempt, sig }, "transaction confirmed after retry");
+      return sig;
+    } catch (err) {
+      lastErr = err;
+      if (attempt === maxAttempts) break;
+      const delayMs = baseMs * 2 ** (attempt - 1);
+      logger.warn({ attempt, maxAttempts, delayMs, err: String(err) }, "transaction send failed — retrying");
+      if (delayMs > 0) await sleep(delayMs);
+    }
+  }
+
+  throw lastErr;
+}
+
+export async function settleFixture(
+  deps: KeeperDeps,
+  payload: LeaderboardPayload,
+): Promise<SettlementResult> {
+  const fixtureId = payload.fixtureId;
+  const found = await fetchMatch(deps, fixtureId);
+  if (!found) {
+    logger.warn({ fixtureId }, "no Match account on-chain — skipping");
+    return { settled: false, retry: true };
+  }
+  const { pda: matchAccount, match } = found;
+
+  if (match.status === STATUS_SETTLED || match.settled) {
+    logger.info({ fixtureId }, "match already settled — nothing to do");
+    return { settled: false, retry: false };
+  }
+
+  const mint = match.usdcMint;
+  const vaultAuthority = vaultAuthorityPda(deps.programId, matchAccount);
+
+  const winners =
+    match.status === STATUS_OPEN
+      ? (payload.winners.map(parseWinner) as [PublicKey | null, PublicKey | null, PublicKey | null])
+      : ([match.winner1, match.winner2, match.winner3].map((w) =>
+          w.equals(PublicKey.default) ? null : w,
+        ) as [PublicKey | null, PublicKey | null, PublicKey | null]);
+
+  const winnerAtas = winners.map((w) => (w ? getAssociatedTokenAddressSync(mint, w) : null)) as [
+    PublicKey | null,
+    PublicKey | null,
+    PublicKey | null,
+  ];
+  const platformAta = getAssociatedTokenAddressSync(mint, deps.platformWallet);
+
+  const ixs: TransactionInstruction[] = [];
+
+  for (const [i, w] of winners.entries()) {
+    if (w && winnerAtas[i]) {
+      ixs.push(
+        createAssociatedTokenAccountIdempotentInstruction(deps.resolver.publicKey, winnerAtas[i]!, w, mint),
+      );
+    }
+  }
+  ixs.push(
+    createAssociatedTokenAccountIdempotentInstruction(
+      deps.resolver.publicKey,
+      platformAta,
+      deps.platformWallet,
+      mint,
+    ),
+  );
+
+  if (match.status === STATUS_OPEN) {
+    ixs.push(
+      buildResolveInstruction({
+        programId: deps.programId,
+        resolver: deps.resolver.publicKey,
+        matchAccount,
+        terminalPhase: deps.terminalPhase ?? DEFAULT_TERMINAL_PHASE,
+        winner1: winners[0] ?? PublicKey.default,
+        winner2: winners[1] ?? PublicKey.default,
+        winner3: winners[2] ?? PublicKey.default,
+      }),
+    );
+  } else if (match.status !== STATUS_RESOLVED) {
+    logger.warn({ fixtureId, status: match.status }, "unexpected match status — skipping");
+    return { settled: false, retry: true };
+  }
+
+  ixs.push(
+    buildSettleInstruction({
+      programId: deps.programId,
+      resolver: deps.resolver.publicKey,
+      matchAccount,
+      vaultAuthority,
+      vault: match.vault,
+      winner1Ata: winnerAtas[0],
+      winner2Ata: winnerAtas[1],
+      winner3Ata: winnerAtas[2],
+      platformAta,
+    }),
+  );
+
+  const tx = new Transaction().add(...ixs);
+  const sig = await sendAndConfirmWithRetry(deps, tx);
+  logger.info(
+    { fixtureId, sig, winners: winners.map((w) => w?.toBase58() ?? null) },
+    "settled match on-chain",
+  );
+  return { settled: true, sig };
+}

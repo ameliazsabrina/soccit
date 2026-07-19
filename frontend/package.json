@@ -1,0 +1,48 @@
+{
+  "name": "soccit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "e2e:build-fixtures": "esbuild e2e/fixtures/phantom-provider.src.ts --bundle --format=iife --platform=browser --outfile=e2e/fixtures/phantom-provider.bundle.js",
+    "pretest:e2e": "pnpm run e2e:build-fixtures",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "pnpm run e2e:build-fixtures && playwright test --ui",
+    "test:e2e:debug": "pnpm run e2e:build-fixtures && playwright test --debug",
+    "test:e2e:report": "playwright show-report"
+  },
+  "dependencies": {
+    "@fontsource-variable/mona-sans": "^5.2.8",
+    "@solana/wallet-adapter-base": "^0.9.27",
+    "@solana/wallet-adapter-react": "^0.15.39",
+    "@solana/wallet-adapter-react-ui": "^0.9.39",
+    "@solana/wallet-adapter-wallets": "^0.19.38",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.42.2",
+    "html-to-image": "^1.11.13",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.9",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/bs58": "^4.0.4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "esbuild": "^0.28.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "tweetnacl": "^1.0.3",
+    "typescript": "^5"
+  }
+}

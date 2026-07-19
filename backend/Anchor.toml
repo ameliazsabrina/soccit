@@ -1,0 +1,21 @@
+[toolchain]
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+soccit = "TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v"
+
+[programs.devnet]
+soccit = "TbxGzvqiuNfeV8GAoP2unFwjTu1Ry7hjnaesCorJm9v"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test --manifest-path programs/soccit/Cargo.toml"
+
+[hooks]

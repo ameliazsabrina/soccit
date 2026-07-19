@@ -1,0 +1,384 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0a1628;
+  --surface: #f4f4f4;
+  --surface-elevated: #ffffff;
+  --muted: #8a8d90;
+  --purple: #034694;
+  --cyan: #dba111;
+  --rose: #ed1c24;
+  --bronze: #dba111;
+  --gold: #dba111;
+  --pitch-turf: #122b1e;
+  --pitch-deep: #081a12;
+  --pitch-line: rgba(248, 250, 252, 0.45);
+  --radius: 0px;
+
+  /* Event campaign palette */
+  --wc-blue: #034694;
+  --wc-cyan: #dba111;
+  --wc-yellow: #dba111;
+  --wc-lime: #dba111;
+  --wc-red: #ed1c24;
+  --wc-orange: #ed1c24;
+  --wc-purple: #034694;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #f8fafc;
+  --surface: #15121b;
+  --surface-elevated: #211e27;
+  --muted: #958ea0;
+  --pitch-turf: #0f1f17;
+  --pitch-deep: #05120c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-muted: var(--muted);
+  --color-purple: var(--purple);
+  --color-cyan: var(--cyan);
+  --color-rose: var(--rose);
+  --color-bronze: var(--bronze);
+  --color-gold: var(--gold);
+  --color-pitch-turf: var(--pitch-turf);
+  --color-pitch-deep: var(--pitch-deep);
+  --color-pitch-line: var(--pitch-line);
+
+  /* World Cup 2026 theme tokens */
+  --color-wc-blue: var(--wc-blue);
+  --color-wc-cyan: var(--wc-cyan);
+  --color-wc-yellow: var(--wc-yellow);
+  --color-wc-lime: var(--wc-lime);
+  --color-wc-red: var(--wc-red);
+  --color-wc-orange: var(--wc-orange);
+  --color-wc-purple: var(--wc-purple);
+
+  --font-sans: var(--font-space-grotesk);
+  --font-display: var(--font-unica-one);
+  --font-body: var(--font-inter);
+  --font-wc: var(--font-fwc2026);
+  --font-wc-support: var(--font-noto-sans);
+  --font-mona: "Mona Sans Variable", var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+@font-face {
+  font-family: "FWC2026";
+  src: url("/api/assets/fonts/fwc2026/FWC2026-Normal-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-fwc2026: "FWC2026", var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+.wc-bracket-scroll {
+  scrollbar-color: color-mix(in srgb, var(--wc-cyan) 65%, transparent) rgba(255, 255, 255, 0.06);
+  scrollbar-width: thin;
+}
+
+.wc-bracket-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.wc-bracket-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wc-bracket-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--wc-cyan) 60%, transparent);
+}
+
+/* Hyper-Motion utilities */
+.font-display,
+.unica-one {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.font-tech {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.font-wc {
+  font-family: var(--font-fwc2026);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-weight: 900;
+}
+
+.font-wc-support {
+  font-family: var(--font-noto-sans), system-ui, sans-serif;
+}
+
+.font-menu-title {
+  font-family: "Mona Sans Variable", var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 700;
+}
+
+@keyframes wc-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes tile-flip {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+
+@keyframes loading-bar {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  70% { width: 85%; }
+  100% { width: 100%; }
+}
+
+.loading-bar-fill {
+  animation: loading-bar 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.card-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.card-shine::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(
+    315deg,
+    transparent 30%,
+    #bfdbfe 45%,
+    #034694 50%,
+    #bfdbfe 55%,
+    transparent 70%
+  );
+  transform: translateX(120%) skewX(-20deg);
+  filter: blur(16px);
+  opacity: 0.9;
+  transition: none;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.group:hover .card-shine::before {
+  transform: translateX(-120%) skewX(-20deg);
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-image-gray {
+  filter: grayscale(100%) brightness(0.85) contrast(1.1);
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.group:hover .card-image-gray {
+  filter: grayscale(0%) brightness(1) contrast(1);
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+.gradient-text {
+  background: linear-gradient(to right, var(--purple), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, var(--purple), var(--cyan));
+}
+
+.btn-gradient {
+  background-size: 200% auto;
+  background-image: linear-gradient(to right, var(--purple) 0%, var(--cyan) 50%, var(--purple) 100%);
+  transition: background-position 0.5s ease, box-shadow 0.3s ease;
+}
+
+.btn-gradient:hover {
+  background-position: right center;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+}
+
+.glow-purple {
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.6);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+}
+
+/* Glass panels */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+.dark .glass {
+  background: rgba(33, 30, 39, 0.7);
+}
+
+/* Pitch */
+.pitch-surface {
+  background: linear-gradient(to bottom, var(--pitch-turf), var(--pitch-deep));
+}
+
+.pitch-line {
+  border: 2px solid var(--pitch-line);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 9999px;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 25s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* Keep every surface scrollable while removing visual scrollbar chrome. */
+html,
+body,
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-shift {
+  animation: gradient-shift 4s ease infinite;
+}
+
+/* Slot placement flash */
+@keyframes slot-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(219, 161, 17, 0.8);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(219, 161, 17, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(219, 161, 17, 0);
+  }
+}
+
+.animate-slot-flash {
+  animation: slot-flash 0.55s ease-out;
+}
+
+/* Lock celebration radial burst */
+@keyframes celebration-burst {
+  0% {
+    background: radial-gradient(circle, rgba(3, 70, 148, 0.4) 0%, transparent 0%);
+  }
+  25% {
+    background: radial-gradient(circle, rgba(3, 70, 148, 0.35) 15%, rgba(219, 161, 17, 0.25) 35%, transparent 55%);
+  }
+  50% {
+    background: radial-gradient(circle, rgba(219, 161, 17, 0.3) 25%, rgba(3, 70, 148, 0.2) 50%, transparent 75%);
+  }
+  75% {
+    background: radial-gradient(circle, rgba(219, 161, 17, 0.15) 40%, rgba(3, 70, 148, 0.1) 65%, transparent 90%);
+  }
+  100% {
+    background: radial-gradient(circle, transparent 0%, transparent 100%);
+  }
+}
+
+.celebration-burst {
+  animation: celebration-burst 2.2s ease-out forwards;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

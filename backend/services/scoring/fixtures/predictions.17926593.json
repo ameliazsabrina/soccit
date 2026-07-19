@@ -1,0 +1,6 @@
+[
+  { "owner": "Alice", "side": 1, "kind": 0, "outPlayerId": 10101970, "inPlayerId": 0, "lockMinute": 10 },
+  { "owner": "Bob", "side": 1, "kind": 2, "outPlayerId": 10101970, "inPlayerId": 908961, "lockMinute": 20 },
+  { "owner": "Carol", "side": 1, "kind": 0, "outPlayerId": 10101970, "inPlayerId": 0, "lockMinute": 90 },
+  { "owner": "Dave", "side": 2, "kind": 1, "outPlayerId": 0, "inPlayerId": 908961, "lockMinute": 5 }
+]

@@ -1,0 +1,93 @@
+{
+  "FixtureId": 17588325,
+  "Action": "lineups",
+  "Participant1Id": 1149,
+  "Participant2Id": 1489,
+  "Ts": 1782610977399,
+  "Lineups": [
+    {
+      "normativeId": 1149,
+      "preferredName": "Jordan",
+      "lineups": [
+        {
+          "rosterNumber": "4",
+          "starter": true,
+          "positionId": 35,
+          "player": {
+            "normativeId": 10282425,
+            "preferredName": "Abu Dahab, Husam"
+          }
+        },
+        {
+          "rosterNumber": "20",
+          "starter": true,
+          "positionId": 35,
+          "player": {
+            "normativeId": 10101760,
+            "preferredName": "Abu Taha, Mohannad Mahmoud Saleh"
+          }
+        },
+        {
+          "rosterNumber": "1",
+          "starter": true,
+          "positionId": 34,
+          "player": {
+            "normativeId": 279394,
+            "preferredName": "Abulaila, Yazeed Moien Hasan"
+          }
+        },
+        {
+          "rosterNumber": "2",
+          "starter": false,
+          "positionId": 35,
+          "player": {
+            "normativeId": 10101553,
+            "preferredName": "Abu Hasheesh, Mohammad Ali Hasan"
+          }
+        }
+      ]
+    },
+    {
+      "normativeId": 1489,
+      "preferredName": "Argentina",
+      "lineups": [
+        {
+          "rosterNumber": "9",
+          "starter": true,
+          "positionId": 37,
+          "player": {
+            "normativeId": 1072568,
+            "preferredName": "Alvarez, Julian"
+          }
+        },
+        {
+          "rosterNumber": "11",
+          "starter": true,
+          "positionId": 36,
+          "player": {
+            "normativeId": 667745,
+            "preferredName": "Lo Celso, Giovani"
+          }
+        },
+        {
+          "rosterNumber": "23",
+          "starter": true,
+          "positionId": 34,
+          "player": {
+            "normativeId": 524438,
+            "preferredName": "Martinez, Damian Emiliano"
+          }
+        },
+        {
+          "rosterNumber": "16",
+          "starter": false,
+          "positionId": 37,
+          "player": {
+            "normativeId": 10096940,
+            "preferredName": "Almada, Thiago"
+          }
+        }
+      ]
+    }
+  ]
+}

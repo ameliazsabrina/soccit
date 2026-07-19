@@ -1,0 +1,58 @@
+export type Side = 1 | 2;
+
+interface Base {
+  fixtureId: number;
+  eventId?: string;
+  ts?: number;
+  seq?: number;
+}
+
+export interface SubstitutionEvent extends Base {
+  type: "substitution";
+  side: Side;
+  playerOutId: number;
+  playerInId: number;
+  minute: number;
+}
+
+export interface GoalEvent extends Base {
+  type: "goal";
+  side: Side;
+  playerId?: number;
+  goalType?: string;
+  minute?: number;
+}
+
+export interface StatusChangeEvent extends Base {
+  type: "status";
+  action: string;
+  statusId?: number;
+  terminal: boolean;
+  goals1?: number;
+  goals2?: number;
+}
+
+export interface RedCardEvent extends Base {
+  type: "red_card";
+  side: Side;
+  playerId?: number;
+  minute?: number;
+}
+
+export interface YellowCardEvent extends Base {
+  type: "yellow_card";
+  side: Side;
+  playerId?: number;
+  minute?: number;
+}
+
+export type DomainEvent =
+  | SubstitutionEvent
+  | GoalEvent
+  | StatusChangeEvent
+  | RedCardEvent
+  | YellowCardEvent;
+
+export function isSubstitution(e: DomainEvent): e is SubstitutionEvent {
+  return e.type === "substitution";
+}

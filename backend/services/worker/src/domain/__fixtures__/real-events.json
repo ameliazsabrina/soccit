@@ -1,0 +1,134 @@
+{
+  "sub_preliminary": {
+    "FixtureId": 17926593,
+    "Action": "substitution",
+    "GameState": "scheduled",
+    "StatusId": 4,
+    "Clock": {
+      "Running": true,
+      "Seconds": 3424
+    },
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782444002330,
+    "Id": 588,
+    "Seq": 690,
+    "Data": {
+      "Participant": 2
+    }
+  },
+  "sub_complete": {
+    "FixtureId": 17926593,
+    "Action": "substitution",
+    "GameState": "scheduled",
+    "StatusId": 4,
+    "Clock": {
+      "Running": true,
+      "Seconds": 3430
+    },
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782444008707,
+    "Id": 588,
+    "Seq": 691,
+    "Data": {
+      "Participant": 2,
+      "PlayerInId": 614467,
+      "PlayerOutId": 941505
+    }
+  },
+  "goal": {
+    "FixtureId": 17926593,
+    "Action": "goal",
+    "GameState": "scheduled",
+    "StatusId": 2,
+    "Clock": {
+      "Running": true,
+      "Seconds": 135
+    },
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782439348323,
+    "Id": 47,
+    "Seq": 45,
+    "Data": {}
+  },
+  "yellow_card": {
+    "FixtureId": 17926593,
+    "Action": "yellow_card",
+    "GameState": "scheduled",
+    "StatusId": 2,
+    "Clock": {
+      "Running": true,
+      "Seconds": 1092
+    },
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782440305248,
+    "Id": 207,
+    "Seq": 236,
+    "Data": {}
+  },
+  "status": {
+    "FixtureId": 17926593,
+    "Action": "status",
+    "GameState": "scheduled",
+    "StatusId": 2,
+    "Clock": {
+      "Running": false,
+      "Seconds": 0
+    },
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782439212299,
+    "Id": 25,
+    "Seq": 17,
+    "Data": {
+      "StatusId": 2
+    }
+  },
+  "kickoff": {
+    "FixtureId": 17926593,
+    "Action": "kickoff",
+    "GameState": "scheduled",
+    "StatusId": 2,
+    "Clock": {
+      "Running": true,
+      "Seconds": 0
+    },
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782439212319,
+    "Id": 26,
+    "Seq": 18
+  },
+  "halftime_finalised": {
+    "FixtureId": 17926593,
+    "Action": "halftime_finalised",
+    "GameState": "scheduled",
+    "StatusId": 3,
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782442607351,
+    "Id": 466,
+    "Seq": 545
+  },
+  "game_finalised": {
+    "FixtureId": 17926593,
+    "Action": "game_finalised",
+    "GameState": "scheduled",
+    "Participant1Id": 3183,
+    "Participant2Id": 3220,
+    "Participant1IsHome": true,
+    "Ts": 1782446910128,
+    "Id": 940,
+    "Seq": 1096
+  }
+}

@@ -1,0 +1,21 @@
+FROM node:22-slim
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+ENV NODE_ENV=production
+
+RUN npm install --global pnpm@10.28.2 && groupadd -r app && useradd -r -m -g app app
+
+WORKDIR /app
+
+COPY services/onchain/package.json services/onchain/pnpm-lock.yaml ./services/onchain/
+COPY services/settlement/package.json services/settlement/pnpm-lock.yaml ./services/settlement/
+COPY services/onchain ./services/onchain
+
+WORKDIR /app/services/settlement
+RUN pnpm install --frozen-lockfile
+
+COPY services/settlement ./
+
+USER app
+CMD ["pnpm", "start"]
