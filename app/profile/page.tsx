@@ -14,6 +14,7 @@ import {
   X,
   Loader2,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { AlertCircle, Loader2 as Spinner } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -25,6 +26,7 @@ import {
   getUserMatches,
   getMatches,
   getPortfolio,
+  getGlobalRank,
   updateAvatar,
   updateUsername,
   formatWallet,
@@ -34,6 +36,7 @@ import {
   type MatchSummary,
   type Portfolio,
   type AvatarId,
+  type GlobalRankSummary,
 } from "../_lib/api";
 import { ensureSession } from "../_lib/session";
 import { cn } from "../_lib/utils";
@@ -58,6 +61,9 @@ export default function ProfilePage() {
     Map<number, MatchSummary>
   >(new Map());
   const [reloadKey, setReloadKey] = useState(0);
+  const [rankSummary, setRankSummary] = useState<GlobalRankSummary | null>(null);
+  const [rankStatus, setRankStatus] = useState<"idle" | "loading" | "error" | "ready">("idle");
+  const [rankReloadKey, setRankReloadKey] = useState(0);
 
   useEffect(() => {
     if (!connected || !publicKey) {
@@ -107,6 +113,32 @@ export default function ProfilePage() {
       active = false;
     };
   }, [connected, publicKey, reloadKey]);
+
+  useEffect(() => {
+    if (!connected || !publicKey) {
+      setRankSummary(null);
+      setRankStatus("idle");
+      return;
+    }
+
+    let active = true;
+    setRankStatus("loading");
+    getGlobalRank(publicKey.toBase58())
+      .then((summary) => {
+        if (!active) return;
+        setRankSummary(summary);
+        setRankStatus("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        setRankSummary(null);
+        setRankStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [connected, publicKey, rankReloadKey]);
 
   const totalPoints = matches.reduce((sum, m) => sum + m.points, 0);
   const decimals = portfolio?.usdcDecimals ?? 6;
@@ -287,7 +319,34 @@ export default function ProfilePage() {
             <span className="font-display text-lg">?</span>
           </div>
           <div>
-            <p className="font-display text-5xl text-foreground">—</p>
+            {rankStatus === "loading" ? (
+              <div className="h-12 w-24 animate-pulse bg-background" aria-label="Loading current rank" />
+            ) : rankStatus === "error" ? (
+              <button
+                type="button"
+                onClick={() => setRankReloadKey((key) => key + 1)}
+                className="inline-flex min-h-10 items-center gap-2 font-display text-2xl text-rose transition-colors hover:text-rose/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2"
+              >
+                <RefreshCw size={18} aria-hidden="true" />
+                Retry
+              </button>
+            ) : rankStatus === "ready" && rankSummary?.rank ? (
+              <>
+                <p className="font-display text-5xl tabular-nums text-foreground">
+                  #{rankSummary.rank}
+                </p>
+                <p className="mt-1 text-xs tabular-nums text-muted">
+                  of {rankSummary.competitors} ranked player{rankSummary.competitors === 1 ? "" : "s"}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-display text-5xl text-muted">—</p>
+                {connected && rankStatus === "ready" && (
+                  <p className="mt-1 text-xs text-muted">Earn points to enter the table.</p>
+                )}
+              </>
+            )}
             <p className="mt-2 text-sm font-medium uppercase tracking-wider text-muted">
               Current Rank
             </p>
