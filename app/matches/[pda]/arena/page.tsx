@@ -23,7 +23,9 @@ import {
   getMatch,
   getLineup,
   getEntryStatus,
+  getLeaderboard,
   getUserMatches,
+  openMatchEventsStream,
   displayScore,
   isValidPda,
   isTerminalPhase,
@@ -33,8 +35,11 @@ import {
   SOCCIT_USDC_MINT,
   type MatchState,
   type Lineup,
+  type EventEntry,
+  type UserMatchPrediction,
 } from "../../../_lib/api";
 import { submitPrediction } from "../../../_lib/prediction";
+import { eventPayload } from "../../../_lib/match-events";
 import { demoLineup } from "../../../_lib/characters";
 import { publicEnv } from "../../../_lib/env";
 
@@ -85,6 +90,15 @@ const DEMO_LINEUP: Lineup = demoLineup();
 
 type ArenaModel = "sub" | "score" | "goalscorer";
 type EntryState = "checking" | "entered" | "not-entered" | "error";
+type PredictionHydrationState = "idle" | "checking" | "ready" | "error";
+
+type OfficialSubstitution = {
+  id: string;
+  side: 1 | 2;
+  outPlayerId: number;
+  inPlayerId: number;
+  order: number;
+};
 
 function playerRating(positionId: number | null, starter: boolean): number {
   const broadPosition = positionId != null && positionId >= 34
@@ -110,6 +124,63 @@ function toPlayerCardData(
     rating: playerRating(player.positionId, player.starter),
     side,
   };
+}
+
+function substitutionFromEvent(entry: EventEntry): OfficialSubstitution | null {
+  if (entry.type !== "substitution") return null;
+  const payload = eventPayload(entry);
+  const outPlayerId = payload.playerOutId ?? entry.players?.out?.id;
+  const inPlayerId = payload.playerInId ?? entry.players?.in?.id;
+  const side = entry.players?.out?.side ?? entry.players?.in?.side ?? payload.side;
+  if (outPlayerId == null || inPlayerId == null || (side !== 1 && side !== 2)) return null;
+
+  return {
+    id: payload.eventId == null ? entry.id : String(payload.eventId),
+    side,
+    outPlayerId,
+    inPlayerId,
+    order: payload.seq ?? payload.ts ?? (Number.parseInt(entry.id, 10) || 0),
+  };
+}
+
+function currentRoster(
+  team: Lineup["teams"][number] | undefined,
+  substitutions: OfficialSubstitution[],
+) {
+  if (!team) return { starters: [] as PlayerCardData[], substitutes: [] as PlayerCardData[] };
+
+  const cards = new Map(
+    team.players.map((player) => [player.id, toPlayerCardData(player, team.side)]),
+  );
+  const activeSlots = team.players
+    .filter((player) => player.starter)
+    .map((player) => ({ initialId: player.id, currentId: player.id }));
+
+  for (const substitution of substitutions
+    .filter((event) => event.side === team.side)
+    .sort((a, b) => a.order - b.order)) {
+    const slot = activeSlots.find((candidate) => candidate.currentId === substitution.outPlayerId);
+    if (!slot || !cards.has(substitution.inPlayerId)) continue;
+    slot.currentId = substitution.inPlayerId;
+  }
+
+  const activeIds = new Set(activeSlots.map((slot) => slot.currentId));
+  const starters = activeSlots.flatMap((slot) => {
+    const current = cards.get(slot.currentId);
+    const initial = cards.get(slot.initialId);
+    if (!current) return [];
+    return [{
+      ...current,
+      gridX: initial?.gridX ?? current.gridX,
+      gridY: initial?.gridY ?? current.gridY,
+    }];
+  });
+  const substitutes = team.players
+    .filter((player) => !activeIds.has(player.id))
+    .map((player) => cards.get(player.id))
+    .filter((player): player is PlayerCardData => Boolean(player));
+
+  return { starters, substitutes };
 }
 
 export default function ArenaPage() {
@@ -153,13 +224,17 @@ export default function ArenaPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [locked, setLocked] = useState(false);
   // A score prediction this wallet already locked for the fixture, restored from
   // the backend on mount so a reload shows the LOCKED scoreline instead of a
   // blank editable panel. null = none found (or not yet fetched).
   const [restoredScore, setRestoredScore] = useState<{ team1: number; team2: number } | null>(null);
+  const [predictionHydrationState, setPredictionHydrationState] = useState<PredictionHydrationState>(
+    isDemo ? "ready" : "idle",
+  );
+  const [predictionReloadKey, setPredictionReloadKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [lockedPredictions, setLockedPredictions] = useState<SubstitutionPrediction[]>([]);
+  const [officialSubstitutions, setOfficialSubstitutions] = useState<OfficialSubstitution[]>([]);
   const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
   const [showLoadingTransition, setShowLoadingTransition] = useState(true);
   const [entryState, setEntryState] = useState<EntryState>(
@@ -276,36 +351,100 @@ export default function ArenaPage() {
     };
   }, [connected, publicKey, pda, isDemo]);
 
-  // Rehydrate a previously locked score prediction. GET /api/user/:wallet/matches
-  // returns this wallet's participation in every match it has predicted —
-  // including OPEN ones (the scoring projector writes a `final:false` doc per
-  // fixture on each poll), so a lock placed before scoring still comes back.
-  // Runs once fixtureId resolves (it depends on the loaded match). NOTE: kind-3
-  // score is encoded as outPlayerId=score1 / inPlayerId=score2 — the endpoint
-  // has no `score` field (mirrors `handleLockScore`'s submit encoding).
+  // Restore every confirmed prediction before rendering editable controls. The
+  // user history and per-match leaderboard are independent projections, so use
+  // both and fail closed only when neither can be read.
   useEffect(() => {
     let cancelled = false;
-    if (isDemo || !connected || !publicKey || !isValidPda(pda) || !Number.isFinite(fixtureId)) {
+    if (isDemo) {
+      setPredictionHydrationState("ready");
+      return;
+    }
+    if (
+      entryState !== "entered" ||
+      !connected ||
+      !publicKey ||
+      !isValidPda(pda) ||
+      !Number.isFinite(fixtureId)
+    ) {
+      setPredictionHydrationState("idle");
       return;
     }
 
-    getUserMatches(publicKey.toBase58())
-      .then((matches) => {
+    const walletAddress = publicKey.toBase58();
+    setPredictionHydrationState("checking");
+    setRestoredScore(null);
+    setLockedPredictions([]);
+
+    Promise.allSettled([getUserMatches(walletAddress), getLeaderboard(pda)])
+      .then(([historyResult, leaderboardResult]) => {
         if (cancelled) return;
-        const match = matches.find((m) => m.fixtureId === fixtureId);
-        // Last kind-3 wins if a wallet locked more than one scoreline.
-        const pred = match?.predictions.filter((p) => p.kind === 3).at(-1);
-        if (!pred) return;
-        setRestoredScore({ team1: pred.outPlayerId, team2: pred.inPlayerId });
-        setLocked(true);
-      })
-      .catch(() => {
-        // A failed restore just leaves the panel editable — never blocks entry.
+        if (historyResult.status === "rejected" && leaderboardResult.status === "rejected") {
+          setPredictionHydrationState("error");
+          return;
+        }
+
+        const recovered: UserMatchPrediction[] = [];
+        if (historyResult.status === "fulfilled") {
+          const userMatch = historyResult.value.find((item) => item.fixtureId === fixtureId);
+          recovered.push(...(userMatch?.predictions ?? []));
+        }
+        if (leaderboardResult.status === "fulfilled") {
+          const row = leaderboardResult.value.ranking.find((item) => item.owner === walletAddress);
+          recovered.push(...(row?.predictions ?? []).map((prediction) => ({
+            kind: prediction.kind,
+            points: prediction.points,
+            side: prediction.side,
+            outPlayerId: prediction.outPlayerId,
+            inPlayerId: prediction.inPlayerId,
+          })));
+        }
+
+        const score = recovered.find((prediction) => prediction.kind === 3);
+        setRestoredScore(score
+          ? { team1: score.outPlayerId, team2: score.inPlayerId }
+          : null);
+
+        const substitutions = new Map<string, SubstitutionPrediction>();
+        for (const prediction of recovered) {
+          if (prediction.kind !== 2 || (prediction.side !== 1 && prediction.side !== 2)) continue;
+          const key = `${prediction.side}:${prediction.outPlayerId}:${prediction.inPlayerId}`;
+          substitutions.set(key, {
+            slotId: String(prediction.outPlayerId),
+            position: "Player",
+            outPlayerId: prediction.outPlayerId,
+            inPlayerId: prediction.inPlayerId,
+            side: prediction.side,
+          });
+        }
+        setLockedPredictions([...substitutions.values()]);
+        setPredictionHydrationState("ready");
       });
     return () => {
       cancelled = true;
     };
-  }, [connected, publicKey, pda, fixtureId, isDemo]);
+  }, [connected, publicKey, pda, fixtureId, isDemo, entryState, predictionReloadKey]);
+
+  // The lineup endpoint is a pre-match snapshot. Replay official substitution
+  // events so the field and bench reflect who is actually on the pitch now.
+  useEffect(() => {
+    if (isDemo || isSeed || !isValidPda(pda)) return;
+    setOfficialSubstitutions([]);
+    const source = openMatchEventsStream(pda, {
+      onEvent: (entry) => {
+        const substitution = substitutionFromEvent(entry);
+        if (!substitution) return;
+        setOfficialSubstitutions((previous) => {
+          const index = previous.findIndex((item) => item.id === substitution.id);
+          if (index < 0) return [...previous, substitution];
+          const next = [...previous];
+          next[index] = substitution;
+          return next;
+        });
+      },
+    });
+    return () => source.close();
+  }, [pda, isDemo, isSeed]);
 
   async function loadMatch() {
     setLoading(true);
@@ -327,9 +466,7 @@ export default function ArenaPage() {
     outPlayerId: number;
     inPlayerId: number;
     label: string;
-  }) {
-    setLocked(true);
-
+  }): Promise<boolean> {
     if (isDemo) {
       notifs.push({
         id: "demo-lock",
@@ -338,11 +475,10 @@ export default function ArenaPage() {
         message: "Demo prediction locked locally. No on-chain transaction.",
         duration: 5000,
       });
-      return;
+      return true;
     }
 
     if (!canSubmitOnChain) {
-      setLocked(false);
       const notOpen =
         !!match?.onchain && match.onchain.statusLabel !== "OPEN";
       notifs.push({
@@ -354,11 +490,10 @@ export default function ArenaPage() {
           : "No fixture loaded that supports on-chain submission.",
         duration: 6000,
       });
-      return;
+      return false;
     }
 
     if (!connected || !publicKey || !wallet) {
-      setLocked(false);
       notifs.push({
         id: "submit-error",
         type: "error",
@@ -366,7 +501,7 @@ export default function ArenaPage() {
         message: "Connect your wallet to submit a real prediction.",
         duration: 6000,
       });
-      return;
+      return false;
     }
 
     setSubmitting(true);
@@ -414,9 +549,9 @@ export default function ArenaPage() {
           label: "View on Solana Explorer",
         },
       });
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Submission failed.";
-      setLocked(false);
       if (submitNotifId.current) notifs.dismiss(submitNotifId.current);
       notifs.push({
         id: "submit-error",
@@ -425,6 +560,7 @@ export default function ArenaPage() {
         message: msg,
         duration: 8000,
       });
+      return false;
     } finally {
       setSubmitting(false);
       submitNotifId.current = null;
@@ -432,27 +568,64 @@ export default function ArenaPage() {
   }
 
   async function handleLockSubstitutions(predictions: SubstitutionPrediction[]) {
-    setLockedPredictions((prev) => [...prev, ...predictions]);
+    const usedPlayerIds = new Set(
+      lockedPredictions.flatMap((prediction) => [prediction.outPlayerId, prediction.inPlayerId]),
+    );
+    const batchPlayerIds = new Set<number>();
+    const hasConflict = predictions.some((prediction) => {
+      const conflict =
+        prediction.outPlayerId === prediction.inPlayerId ||
+        usedPlayerIds.has(prediction.outPlayerId) ||
+        usedPlayerIds.has(prediction.inPlayerId) ||
+        batchPlayerIds.has(prediction.outPlayerId) ||
+        batchPlayerIds.has(prediction.inPlayerId);
+      batchPlayerIds.add(prediction.outPlayerId);
+      batchPlayerIds.add(prediction.inPlayerId);
+      return conflict;
+    });
+    if (hasConflict) {
+      notifs.push({
+        id: "duplicate-substitution",
+        type: "error",
+        title: "Player already locked",
+        message: "A player can only be used in one substitution prediction for this match.",
+        duration: 7000,
+      });
+      return false;
+    }
+
     for (let i = 0; i < predictions.length; i++) {
       const p = predictions[i];
-      await handleSubmit({
+      const confirmed = await handleSubmit({
         kind: 2,
         side: p.side,
         outPlayerId: p.outPlayerId,
         inPlayerId: p.inPlayerId,
         label: `${p.position} swap (${i + 1}/${predictions.length})`,
       });
+      if (!confirmed) return false;
+      usedPlayerIds.add(p.outPlayerId);
+      usedPlayerIds.add(p.inPlayerId);
+      setLockedPredictions((previous) => previous.some((lockedPrediction) =>
+        lockedPrediction.outPlayerId === p.outPlayerId &&
+        lockedPrediction.inPlayerId === p.inPlayerId &&
+        lockedPrediction.side === p.side
+      ) ? previous : [...previous, p]);
     }
+    return true;
   }
 
-  function handleLockScore(score1: number, score2: number) {
-    return handleSubmit({
+  async function handleLockScore(score1: number, score2: number) {
+    if (restoredScore) return false;
+    const confirmed = await handleSubmit({
       kind: 3,
       side: 0,
       outPlayerId: score1,
       inPlayerId: score2,
       label: `score ${score1}-${score2}`,
     });
+    if (confirmed) setRestoredScore({ team1: score1, team2: score2 });
+    return confirmed;
   }
 
   const loadingTransition = showLoadingTransition ? (
@@ -575,12 +748,50 @@ export default function ArenaPage() {
     );
   }
 
+  if (predictionHydrationState === "idle" || predictionHydrationState === "checking") {
+    return (
+      <>
+        {loadingTransition}
+        <PageShell>
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+            <RefreshCw size={28} className="animate-spin text-cyan" />
+            <h2 className="font-display text-2xl text-foreground">Checking Predictions</h2>
+            <p className="text-sm text-muted">Restoring this wallet&apos;s confirmed locks…</p>
+          </div>
+        </PageShell>
+      </>
+    );
+  }
+
+  if (predictionHydrationState === "error") {
+    return (
+      <>
+        {loadingTransition}
+        <PageShell>
+          <div className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-6 text-center">
+            <AlertCircle className="mb-4 text-rose" size={48} />
+            <h2 className="font-display text-2xl text-foreground">Prediction Check Failed</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              We couldn&apos;t restore your confirmed predictions, so submission stays locked to prevent duplicates.
+            </p>
+            <button
+              onClick={() => setPredictionReloadKey((key) => key + 1)}
+              className="mt-6 flex items-center gap-2 border border-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors hover:bg-foreground hover:text-background"
+            >
+              <RefreshCw size={16} /> Retry Check
+            </button>
+          </div>
+        </PageShell>
+      </>
+    );
+  }
+
   const team1 = lineup.teams.find((t) => t.side === 1);
   const team2 = lineup.teams.find((t) => t.side === 2);
   const selectedTeam = lineup.teams.find((t) => t.side === side);
-  const team1Players = team1?.players.map((player) => toPlayerCardData(player, 1)) ?? [];
-  const team2Players = team2?.players.map((player) => toPlayerCardData(player, 2)) ?? [];
-  const selectedPlayers = side === 1 ? team1Players : team2Players;
+  const team1Roster = currentRoster(team1, officialSubstitutions);
+  const team2Roster = currentRoster(team2, officialSubstitutions);
+  const selectedRoster = side === 1 ? team1Roster : team2Roster;
   const terminal = match.phase
     ? isTerminalPhase(match.phase)
     : Boolean(match.onchain?.settled);
@@ -602,22 +813,14 @@ export default function ArenaPage() {
       {
         side: 1,
         name: team1?.teamName ?? "Home",
-        starters: team1Players.filter((player) =>
-          team1?.players.find((source) => source.id === player.id)?.starter,
-        ),
-        substitutes: team1Players.filter((player) =>
-          !team1?.players.find((source) => source.id === player.id)?.starter,
-        ),
+        starters: team1Roster.starters,
+        substitutes: team1Roster.substitutes,
       },
       {
         side: 2,
         name: team2?.teamName ?? "Away",
-        starters: team2Players.filter((player) =>
-          team2?.players.find((source) => source.id === player.id)?.starter,
-        ),
-        substitutes: team2Players.filter((player) =>
-          !team2?.players.find((source) => source.id === player.id)?.starter,
-        ),
+        starters: team2Roster.starters,
+        substitutes: team2Roster.substitutes,
       },
     ],
   };
@@ -631,14 +834,9 @@ export default function ArenaPage() {
           <PitchArena
             matchPda={pda}
             side={side}
-            starters={selectedPlayers.filter((player) =>
-              selectedTeam.players.find((source) => source.id === player.id)?.starter,
-            )}
-            substitutes={selectedPlayers.filter((player) =>
-              !selectedTeam.players.find((source) => source.id === player.id)?.starter,
-            )}
+            starters={selectedRoster.starters}
+            substitutes={selectedRoster.substitutes}
             onLock={handleLockSubstitutions}
-            locked={locked}
             isSubmitting={submitting}
             lockedPredictions={lockedPredictions}
             overview={overview}
@@ -664,7 +862,7 @@ export default function ArenaPage() {
             minute={match.live?.minute ?? 0}
             isLive={match.phase === "LIVE"}
             onLock={handleLockScore}
-            locked={locked}
+            locked={restoredScore !== null}
             isSubmitting={submitting}
           />
         )}

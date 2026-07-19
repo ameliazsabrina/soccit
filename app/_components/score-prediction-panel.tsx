@@ -12,7 +12,7 @@ interface ScorePredictionPanelProps {
   currentScore: { team1: number; team2: number };
   minute: number;
   isLive: boolean;
-  onLock: (score1: number, score2: number) => void;
+  onLock: (score1: number, score2: number) => boolean | Promise<boolean>;
   locked?: boolean;
   isSubmitting?: boolean;
   predictedScore?: { team1: number; team2: number } | null;
@@ -71,6 +71,7 @@ export function ScorePredictionPanel({
             name={team1Name}
             score={score1}
             onAdjust={(d) => adjust(1, d)}
+            disabled={locked || isSubmitting}
           />
 
           <div className="flex flex-col items-center gap-2">
@@ -86,6 +87,7 @@ export function ScorePredictionPanel({
             name={team2Name}
             score={score2}
             onAdjust={(d) => adjust(2, d)}
+            disabled={locked || isSubmitting}
           />
         </div>
 
@@ -137,10 +139,12 @@ function TeamScore({
   name,
   score,
   onAdjust,
+  disabled,
 }: {
   name: string;
   score: number;
   onAdjust: (delta: number) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-3">
@@ -151,7 +155,8 @@ function TeamScore({
       <div className="flex items-center gap-2">
         <button
           onClick={() => onAdjust(-1)}
-          className="flex h-10 w-10 items-center justify-center border border-surface bg-background text-foreground transition-colors hover:border-purple hover:text-purple"
+          disabled={disabled}
+          className="flex h-10 w-10 items-center justify-center border border-surface bg-background text-foreground transition-colors hover:border-purple hover:text-purple disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-surface disabled:hover:text-foreground"
           aria-label="Decrease score"
         >
           <Minus size={18} />
@@ -161,7 +166,8 @@ function TeamScore({
         </div>
         <button
           onClick={() => onAdjust(1)}
-          className="flex h-10 w-10 items-center justify-center border border-surface bg-background text-foreground transition-colors hover:border-purple hover:text-purple"
+          disabled={disabled}
+          className="flex h-10 w-10 items-center justify-center border border-surface bg-background text-foreground transition-colors hover:border-purple hover:text-purple disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-surface disabled:hover:text-foreground"
           aria-label="Increase score"
         >
           <Plus size={18} />

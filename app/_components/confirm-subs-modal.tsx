@@ -27,7 +27,7 @@ interface ConfirmSubsModalProps {
   locked?: boolean;
   isSubmitting?: boolean;
   avatarMap: Map<number, string>;
-  onLock: () => void;
+  onLock: () => boolean | Promise<boolean>;
 }
 
 export function ConfirmSubsModal({
@@ -43,20 +43,42 @@ export function ConfirmSubsModal({
   onLock,
 }: ConfirmSubsModalProps) {
   const [lockedState, setLockedState] = useState(false);
+  const [awaitingLock, setAwaitingLock] = useState(false);
+  const [submitFailed, setSubmitFailed] = useState(false);
 
   useEffect(() => {
-    if (open) setLockedState(false);
+    if (open) {
+      setLockedState(false);
+      setAwaitingLock(false);
+      setSubmitFailed(false);
+    }
   }, [open]);
+
+  async function confirmLock() {
+    setAwaitingLock(true);
+    setSubmitFailed(false);
+    try {
+      const confirmed = await onLock();
+      if (!confirmed) {
+        setSubmitFailed(true);
+        return false;
+      }
+      setLockedState(true);
+      return true;
+    } finally {
+      setAwaitingLock(false);
+    }
+  }
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !lockedState) onClose();
+      if (e.key === "Escape" && !lockedState && !awaitingLock) onClose();
     }
     if (open) {
       document.addEventListener("keydown", handleKey);
       return () => document.removeEventListener("keydown", handleKey);
     }
-  }, [open, lockedState, onClose]);
+  }, [open, lockedState, awaitingLock, onClose]);
 
   // Auto-close 1.5s after locked state
   useEffect(() => {
@@ -74,7 +96,7 @@ export function ConfirmSubsModal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          onClick={() => !lockedState && onClose()}
+          onClick={() => !lockedState && !awaitingLock && onClose()}
         >
           <div className="absolute inset-0 bg-foreground/60" />
 
@@ -88,7 +110,7 @@ export function ConfirmSubsModal({
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-2xl overflow-hidden border border-cyan/40 bg-background shadow-[0_20px_40px_-10px_rgba(15,23,42,0.15)]"
           >
-            {!lockedState && (
+            {!lockedState && !awaitingLock && (
               <button
                 onClick={onClose}
                 className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-foreground z-10"
@@ -139,17 +161,19 @@ export function ConfirmSubsModal({
                 {/* Slide to lock */}
                 <div className="mt-6">
                   <SlideToLock
-                    onLock={() => {
-                      setLockedState(true);
-                      onLock();
-                    }}
-                    disabled={predictions.length === 0 || locked || isSubmitting}
+                    onLock={confirmLock}
+                    disabled={predictions.length === 0 || locked || isSubmitting || awaitingLock}
                     label={
-                      isSubmitting
+                      isSubmitting || awaitingLock
                         ? "SUBMITTING…"
                         : "SLIDE TO LOCK"
                     }
                   />
+                  {submitFailed && (
+                    <p className="mt-3 text-center text-xs font-bold uppercase tracking-wider text-rose" role="alert">
+                      Not every swap was confirmed. Review the notification and try again.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

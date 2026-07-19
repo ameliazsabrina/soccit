@@ -5,7 +5,7 @@ import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { Lock } from "lucide-react";
 
 interface SlideToLockProps {
-  onLock: () => void;
+  onLock: () => void | boolean | Promise<void | boolean>;
   disabled?: boolean;
   label?: string;
 }
@@ -14,6 +14,7 @@ export function SlideToLock({ onLock, disabled, label = "SLIDE TO LOCK" }: Slide
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [max, setMax] = useState(0);
   const x = useMotionValue(0);
 
@@ -38,14 +39,26 @@ export function SlideToLock({ onLock, disabled, label = "SLIDE TO LOCK" }: Slide
 
   useEffect(() => {
     const unsubscribe = progress.on("change", (v) => {
-      if (v >= 0.95 && !unlocked && !disabled) {
+      if (v >= 0.95 && !unlocked && !disabled && !isConfirming) {
         setUnlocked(true);
+        setIsConfirming(true);
         animate(x, max, { duration: 0.2 });
-        onLock();
+        Promise.resolve(onLock())
+          .then((confirmed) => {
+            if (confirmed === false) {
+              setUnlocked(false);
+              animate(x, 0, { type: "spring", stiffness: 400, damping: 30 });
+            }
+          })
+          .catch(() => {
+            setUnlocked(false);
+            animate(x, 0, { type: "spring", stiffness: 400, damping: 30 });
+          })
+          .finally(() => setIsConfirming(false));
       }
     });
     return () => unsubscribe();
-  }, [progress, unlocked, disabled, x, max, onLock]);
+  }, [progress, unlocked, disabled, isConfirming, x, max, onLock]);
 
   function handleDragEnd() {
     setIsDragging(false);
@@ -65,7 +78,7 @@ export function SlideToLock({ onLock, disabled, label = "SLIDE TO LOCK" }: Slide
       />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <span className={`font-display text-sm uppercase tracking-[0.2em] ${unlocked ? "text-white" : "text-muted"}`}>
-          {unlocked ? "LOCKED" : label}
+          {isConfirming ? "CONFIRMING…" : unlocked ? "LOCKED" : label}
         </span>
       </div>
       <motion.button
@@ -76,7 +89,7 @@ export function SlideToLock({ onLock, disabled, label = "SLIDE TO LOCK" }: Slide
         onDragStart={() => setIsDragging(true)}
         onDragEnd={handleDragEnd}
         style={{ x }}
-        disabled={disabled || unlocked}
+        disabled={disabled || unlocked || isConfirming}
         className={`absolute left-1 top-1 flex h-14 w-14 items-center justify-center transition-colors ${
           unlocked
             ? "bg-cyan text-white"

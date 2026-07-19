@@ -42,7 +42,7 @@ export interface PitchArenaProps {
   side: 1 | 2;
   starters: PlayerCardData[];
   substitutes: PlayerCardData[];
-  onLock: (predictions: SubstitutionPrediction[]) => void | Promise<void>;
+  onLock: (predictions: SubstitutionPrediction[]) => boolean | Promise<boolean>;
   locked?: boolean;
   isSubmitting?: boolean;
   lockedPredictions?: SubstitutionPrediction[];
@@ -374,10 +374,12 @@ export function PitchArena({
 
   async function handleLock() {
     const predictionList = Object.values(predictions);
-    if (predictionList.length === 0 || locked || isSubmitting) return;
-    await Promise.resolve(onLock(predictionList));
+    if (predictionList.length === 0 || locked || isSubmitting) return false;
+    const confirmed = await onLock(predictionList);
+    if (!confirmed) return false;
     setPredictions({});
     setSelectedSub(null);
+    return true;
   }
 
   function cancelDraftPredictions() {
@@ -394,7 +396,23 @@ export function PitchArena({
 
   const bench = substitutes;
 
-  const lockedIds = new Set(lockedPredictions?.flatMap((p) => [p.outPlayerId, p.inPlayerId]) ?? []);
+  const lockedIds = new Set(
+    lockedPredictions.flatMap((p) => [p.outPlayerId, p.inPlayerId]),
+  );
+
+  useEffect(() => {
+    const confirmedPlayerIds = new Set(
+      lockedPredictions.flatMap((prediction) => [prediction.outPlayerId, prediction.inPlayerId]),
+    );
+    setPredictions((previous) =>
+      Object.fromEntries(
+        Object.entries(previous).filter(([, prediction]) =>
+          !confirmedPlayerIds.has(prediction.outPlayerId) &&
+          !confirmedPlayerIds.has(prediction.inPlayerId),
+        ),
+      ),
+    );
+  }, [lockedPredictions]);
 
   // Assign character avatars based on position + priority (starters first)
   const avatarMap = useMemo(
