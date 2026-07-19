@@ -27,7 +27,7 @@ import {
 
 type DataState = "syncing" | "live" | "preview";
 
-const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
+const FWC_LOGO_WHITE = "/api/assets/assets/events/fwc-logo-white.svg";
 
 export function WorldCupBracket() {
   const pathname = usePathname();

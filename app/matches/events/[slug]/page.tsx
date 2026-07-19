@@ -5,7 +5,7 @@ import { Trophy } from "lucide-react";
 import { PageShell } from "../../../_components/page-shell";
 import { WorldCupBracket } from "./world-cup-bracket";
 
-const UCL_LOGO_WHITE = "/assets/events/ucl-logo-white.svg";
+const UCL_LOGO_WHITE = "/api/assets/assets/events/ucl-logo-white.svg";
 
 export default function EventPage() {
   const params = useParams();

@@ -174,7 +174,7 @@ export default function ProfilePage() {
               <div className="relative h-16 w-16 overflow-hidden border-2 border-purple bg-background">
                 {avatarId ? (
                   <Image
-                    src={`/avatars/${avatarId}.webp`}
+                    src={`/api/assets/avatars/${avatarId}.webp`}
                     alt={profile?.username ?? "Player"}
                     fill
                     sizes="4rem"
@@ -467,7 +467,7 @@ function AvatarEditModal({
                 </p>
                 <div className="relative aspect-square w-full max-w-[280px] overflow-hidden border-2 border-purple">
                   <Image
-                    src={`/avatars/${avatar}.webp`}
+                    src={`/api/assets/avatars/${avatar}.webp`}
                     alt="Selected avatar"
                     fill
                     sizes="280px"

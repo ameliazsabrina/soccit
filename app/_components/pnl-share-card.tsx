@@ -52,7 +52,7 @@ const RANK_STYLES: Record<number, RankStyle> = {
     text: "text-gold",
     border: "border-gold/40",
     glow: "shadow-[0_0_40px_-8px_rgba(219,161,17,0.5)]",
-    bgImage: "/assets/pnl-bg-1.webp",
+    bgImage: "/api/assets/assets/pnl-bg-1.webp",
   },
   2: {
     label: "2ND PLACE",
@@ -61,7 +61,7 @@ const RANK_STYLES: Record<number, RankStyle> = {
     text: "text-foreground",
     border: "border-foreground/30",
     glow: "shadow-[0_0_30px_-8px_rgba(255,255,255,0.2)]",
-    bgImage: "/assets/pnl-bg-2.webp",
+    bgImage: "/api/assets/assets/pnl-bg-2.webp",
   },
   3: {
     label: "3RD PLACE",
@@ -70,7 +70,7 @@ const RANK_STYLES: Record<number, RankStyle> = {
     text: "text-bronze",
     border: "border-bronze/40",
     glow: "shadow-[0_0_30px_-8px_rgba(205,127,50,0.4)]",
-    bgImage: "/assets/pnl-bg-3.webp",
+    bgImage: "/api/assets/assets/pnl-bg-3.webp",
   },
   0: {
     label: "DIDN'T PLACE",
@@ -79,7 +79,7 @@ const RANK_STYLES: Record<number, RankStyle> = {
     text: "text-rose",
     border: "border-rose/30",
     glow: "shadow-[0_0_30px_-8px_rgba(237,60,72,0.3)]",
-    bgImage: "/assets/pnl-bg-0.webp",
+    bgImage: "/api/assets/assets/pnl-bg-0.webp",
   },
 };
 

@@ -48,7 +48,7 @@ export function AvatarPicker({ value, onChange, columns = 4 }: AvatarPickerProps
           )}
         >
           <Image
-            src={`/avatars/${id}.webp`}
+            src={`/api/assets/avatars/${id}.webp`}
             alt={id}
             fill
             sizes="5rem"

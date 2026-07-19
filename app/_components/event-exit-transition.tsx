@@ -6,12 +6,12 @@ import { EventsTransition } from "./events-transition";
 
 const EVENT_BRANDING: Record<string, EventBranding> = {
   worldcup: {
-    logoExit: "/assets/events/fwc-logo-white.svg",
+    logoExit: "/api/assets/assets/events/fwc-logo-white.svg",
     titleExit: "See You",
     subtitleExit: "World Cup 2026",
   },
   ucl: {
-    logoExit: "/assets/events/ucl-logo-white.svg",
+    logoExit: "/api/assets/assets/events/ucl-logo-white.svg",
     titleExit: "See You",
     subtitleExit: "Champions League",
   },

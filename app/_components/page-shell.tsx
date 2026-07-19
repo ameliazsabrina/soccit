@@ -30,7 +30,7 @@ export function PageShell({
       style={
         variant === "worldcup"
           ? undefined
-          : { backgroundImage: "url('/app-bg.webp')" }
+          : { backgroundImage: "url('/api/assets/app-bg.webp')" }
       }
     >
       {variant === "worldcup" && (

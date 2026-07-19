@@ -15,6 +15,7 @@ interface ScorePredictionPanelProps {
   onLock: (score1: number, score2: number) => void;
   locked?: boolean;
   isSubmitting?: boolean;
+  predictedScore?: { team1: number; team2: number } | null;
 }
 
 export function ScorePredictionPanel({
@@ -25,12 +26,21 @@ export function ScorePredictionPanel({
   onLock,
   locked,
   isSubmitting,
+  predictedScore,
 }: ScorePredictionPanelProps) {
-  const [score1, setScore1] = useState(currentScore.team1);
-  const [score2, setScore2] = useState(currentScore.team2);
+  const [score1, setScore1] = useState(
+    predictedScore?.team1 ?? currentScore.team1,
+  );
+  const [score2, setScore2] = useState(
+    predictedScore?.team2 ?? currentScore.team2,
+  );
 
   const outcome =
-    score1 === score2 ? "Draw" : score1 > score2 ? `${team1Name} wins` : `${team2Name} wins`;
+    score1 === score2
+      ? "Draw"
+      : score1 > score2
+        ? `${team1Name} wins`
+        : `${team2Name} wins`;
 
   function adjust(team: 1 | 2, delta: number) {
     if (team === 1) {
@@ -48,7 +58,9 @@ export function ScorePredictionPanel({
         className="w-full max-w-2xl bg-surface p-6 md:p-10"
       >
         <div className="mb-8 text-center">
-          <h2 className="font-display text-3xl text-foreground md:text-4xl">Call the Score</h2>
+          <h2 className="font-display text-3xl text-foreground md:text-4xl">
+            Call the Score
+          </h2>
           <p className="mt-2 text-sm text-muted">
             Predict the final whistle scoreline.
           </p>
@@ -64,7 +76,9 @@ export function ScorePredictionPanel({
           <div className="flex flex-col items-center gap-2">
             <span className="font-display text-2xl text-muted">VS</span>
             {!isLive && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Full Time</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                Full Time
+              </span>
             )}
           </div>
 
@@ -76,7 +90,9 @@ export function ScorePredictionPanel({
         </div>
 
         <div className="mb-8 border border-surface bg-background/50 p-4 text-center">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted">Predicted Outcome</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted">
+            Predicted Outcome
+          </p>
           <p className="mt-1 font-display text-xl text-foreground">{outcome}</p>
         </div>
 
@@ -84,14 +100,18 @@ export function ScorePredictionPanel({
           <div className="border border-gold/30 bg-gold/5 p-4 text-center">
             <div className="mb-1 flex items-center justify-center gap-2 text-gold">
               <Trophy size={16} />
-              <span className="text-xs font-bold uppercase tracking-wider">Exact Score</span>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Exact Score
+              </span>
             </div>
             <p className="font-display text-2xl text-foreground">5 pts</p>
           </div>
           <div className="border border-cyan/30 bg-cyan/5 p-4 text-center">
             <div className="mb-1 flex items-center justify-center gap-2 text-cyan">
               <TrendingUp size={16} />
-              <span className="text-xs font-bold uppercase tracking-wider">Correct Outcome</span>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Correct Outcome
+              </span>
             </div>
             <p className="font-display text-2xl text-foreground">3 pts</p>
           </div>
@@ -100,7 +120,13 @@ export function ScorePredictionPanel({
         <SlideToLock
           onLock={() => onLock(score1, score2)}
           disabled={locked || isSubmitting}
-          label={locked ? "LOCKED" : isSubmitting ? "SUBMITTING…" : "SLIDE TO LOCK SCORE"}
+          label={
+            locked
+              ? "LOCKED"
+              : isSubmitting
+                ? "SUBMITTING…"
+                : "SLIDE TO LOCK SCORE"
+          }
         />
       </motion.div>
     </div>

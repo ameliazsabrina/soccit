@@ -158,7 +158,7 @@ function FeaturedMatchTile({
       <div className="card-shine" />
       <div className="pointer-events-none absolute bottom-0 right-0 z-0 h-80 w-80 origin-bottom transition-transform duration-300 group-hover:scale-150">
         <Image
-          src="/assets/cards/player-hero.webp?v=2"
+          src="/api/assets/assets/cards/player-hero.webp?v=2"
           alt="Featured match"
           fill
           sizes="30rem"
@@ -308,7 +308,7 @@ function PortfolioTile({
       <div className="card-shine" />
       <div className="pointer-events-none absolute bottom-0 right-0 z-0 h-80 w-80 origin-bottom transition-transform duration-300 group-hover:scale-150">
         <Image
-          src="/assets/cards/player-arena.webp?v=2"
+          src="/api/assets/assets/cards/player-arena.webp?v=2"
           alt="Portfolio"
           fill
           sizes="20rem"
@@ -431,7 +431,7 @@ function ExplorerTile({
       icon="explore"
       title="EXPLORER"
       description="Immutable match history."
-      image="/assets/cards/player-logs.webp?v=2"
+      image="/api/assets/assets/cards/player-logs.webp?v=2"
       imageClassName="h-54 w-54 group-hover:scale-180"
       className="min-h-[220px] lg:col-span-2"
       connected={connected}
@@ -480,7 +480,7 @@ function LeaderboardTile({
       title="GLOBAL LEADERBOARD"
       description="Tier progression & rankings."
       rank={rank}
-      image="/assets/cards/player-leaderboard.webp?v=2"
+      image="/api/assets/assets/cards/player-leaderboard.webp?v=2"
       imageClassName="h-64 w-64 group-hover:scale-180"
       className="min-h-[220px] lg:col-span-3"
       connected={connected}

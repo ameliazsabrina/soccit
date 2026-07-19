@@ -254,9 +254,7 @@ export default function ExplorerPage() {
                 {currentPage + 1} / {totalPages}
               </span>
               <button
-                onClick={() =>
-                  setPage((p) => Math.min(totalPages - 1, p + 1))
-                }
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={currentPage >= totalPages - 1}
                 className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground disabled:opacity-30"
               >
@@ -349,7 +347,9 @@ function MatchLogs({
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center text-rose">
         <AlertCircle size={32} className="mb-3" />
-        <p className="font-bold uppercase tracking-wider">Matches unavailable</p>
+        <p className="font-bold uppercase tracking-wider">
+          Matches unavailable
+        </p>
         <p className="mt-1 text-sm">Couldn&apos;t load the match log.</p>
       </div>
     );
@@ -466,9 +466,9 @@ function PredictionLogs({
   status: "idle" | "loading" | "error" | "ready";
   connected: boolean;
 }) {
-  const [players, setPlayers] = useState<Map<number, { name: string; side: number }>>(
-    new Map(),
-  );
+  const [players, setPlayers] = useState<
+    Map<number, { name: string; side: number }>
+  >(new Map());
 
   useEffect(() => {
     if (!connected || userMatches.length === 0) return;
@@ -673,9 +673,9 @@ function PredictionPill({
       <p className="text-sm font-medium text-foreground">
         {predictionText(prediction, players)}
       </p>
-      {prediction.score && (
+      {prediction.kind === 3 && (
         <p className="font-display text-lg tabular-nums text-foreground">
-          {prediction.score.score1} - {prediction.score.score2}
+          {prediction.outPlayerId} - {prediction.inPlayerId}
         </p>
       )}
     </div>
@@ -688,9 +688,7 @@ function predictionText(
 ): string {
   switch (prediction.kind) {
     case 3:
-      return prediction.score
-        ? `Predicted ${prediction.score.score1}-${prediction.score.score2}`
-        : "Score prediction";
+      return `Predicted ${prediction.outPlayerId}-${prediction.inPlayerId}`;
     case 0: {
       const p = players.get(prediction.outPlayerId);
       return p

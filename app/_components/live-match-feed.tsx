@@ -558,7 +558,7 @@ function PodiumCard({
       <span className="mb-2 font-display text-2xl">#{rank}</span>
       {avatar ? (
         <div className="relative mb-2 h-10 w-10 overflow-hidden">
-          <Image src={`/avatars/${avatar}.webp`} alt={username ?? "Player"} fill className="object-cover" unoptimized />
+          <Image src={`/api/assets/avatars/${avatar}.webp`} alt={username ?? "Player"} fill className="object-cover" unoptimized />
         </div>
       ) : (
         <div className="mb-2 flex h-10 w-10 items-center justify-center bg-surface text-[10px] font-bold uppercase text-foreground">

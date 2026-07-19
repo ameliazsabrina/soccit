@@ -415,7 +415,7 @@ export function PitchArena({
               {/* Field WebP — trapezoid baked in, fills edge-to-edge */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/field.webp"
+                src="/api/assets/field.webp"
                 alt="Pitch"
                 draggable={false}
                 className="pointer-events-none absolute inset-0 h-full w-full object-fill"

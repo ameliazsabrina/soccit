@@ -115,7 +115,7 @@ export function TopNav({ variant = "default", arenaTabs }: TopNavProps) {
       <div className="mb-0 flex items-start justify-between gap-4 md:mb-6">
         <div className="hidden items-center gap-8 md:flex">
           <Image
-            src="/assets/soccit-logo.svg"
+            src="/api/assets/assets/soccit-logo.svg"
             alt="Soccit"
             width={40}
             height={40}

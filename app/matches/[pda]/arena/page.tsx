@@ -23,6 +23,7 @@ import {
   getMatch,
   getLineup,
   getEntryStatus,
+  getUserMatches,
   displayScore,
   isValidPda,
   isTerminalPhase,
@@ -153,6 +154,10 @@ export default function ArenaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  // A score prediction this wallet already locked for the fixture, restored from
+  // the backend on mount so a reload shows the LOCKED scoreline instead of a
+  // blank editable panel. null = none found (or not yet fetched).
+  const [restoredScore, setRestoredScore] = useState<{ team1: number; team2: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [lockedPredictions, setLockedPredictions] = useState<SubstitutionPrediction[]>([]);
   const [showTeamPicker, setShowTeamPicker] = useState(model === "sub" && !sideSelected);
@@ -270,6 +275,37 @@ export default function ArenaPage() {
       cancelled = true;
     };
   }, [connected, publicKey, pda, isDemo]);
+
+  // Rehydrate a previously locked score prediction. GET /api/user/:wallet/matches
+  // returns this wallet's participation in every match it has predicted —
+  // including OPEN ones (the scoring projector writes a `final:false` doc per
+  // fixture on each poll), so a lock placed before scoring still comes back.
+  // Runs once fixtureId resolves (it depends on the loaded match). NOTE: kind-3
+  // score is encoded as outPlayerId=score1 / inPlayerId=score2 — the endpoint
+  // has no `score` field (mirrors `handleLockScore`'s submit encoding).
+  useEffect(() => {
+    let cancelled = false;
+    if (isDemo || !connected || !publicKey || !isValidPda(pda) || !Number.isFinite(fixtureId)) {
+      return;
+    }
+
+    getUserMatches(publicKey.toBase58())
+      .then((matches) => {
+        if (cancelled) return;
+        const match = matches.find((m) => m.fixtureId === fixtureId);
+        // Last kind-3 wins if a wallet locked more than one scoreline.
+        const pred = match?.predictions.filter((p) => p.kind === 3).at(-1);
+        if (!pred) return;
+        setRestoredScore({ team1: pred.outPlayerId, team2: pred.inPlayerId });
+        setLocked(true);
+      })
+      .catch(() => {
+        // A failed restore just leaves the panel editable — never blocks entry.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, publicKey, pda, fixtureId, isDemo]);
 
   async function loadMatch() {
     setLoading(true);
@@ -423,7 +459,7 @@ export default function ArenaPage() {
     <EventsTransition
       mode="enter"
       experience="match"
-      logoEnter="/assets/soccit-logo-black.webp"
+      logoEnter="/api/assets/assets/soccit-logo-black.webp"
       onComplete={() => setShowLoadingTransition(false)}
     />
   ) : null;
@@ -436,7 +472,7 @@ export default function ArenaPage() {
           <div className="flex h-full flex-1 flex-col items-center justify-center gap-8 px-6 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/assets/soccit-logo-black.webp"
+              src="/api/assets/assets/soccit-logo-black.webp"
               alt="Soccit"
               className="h-24 w-auto object-contain sm:h-32"
             />
@@ -618,9 +654,13 @@ export default function ArenaPage() {
 
         {model === "score" && (
           <ScorePredictionPanel
+            // Remount when the async restore lands so the panel's initial
+            // useState seeds from the restored scoreline, not the live score.
+            key={restoredScore ? `sc-${restoredScore.team1}-${restoredScore.team2}` : "sc-live"}
             team1Name={team1?.teamName ?? "Home"}
             team2Name={team2?.teamName ?? "Away"}
             currentScore={match.live?.goals ?? { team1: 0, team2: 0 }}
+            predictedScore={restoredScore}
             minute={match.live?.minute ?? 0}
             isLive={match.phase === "LIVE"}
             onLock={handleLockScore}

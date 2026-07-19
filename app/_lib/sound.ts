@@ -3,6 +3,7 @@
 // starts both systems at the earliest permitted moment.
 
 import { MUSIC_TRACKS } from "./music-playlist";
+import { assetUrl } from "./assets";
 
 type SoundName = "hover" | "click";
 
@@ -135,7 +136,7 @@ class SoundManager {
     const ctx = this.ctx;
     if (!ctx) return;
     try {
-      const response = await fetch(`/sounds/${name}.wav`, {
+      const response = await fetch(assetUrl(`sounds/${name}.wav`), {
         cache: "force-cache",
       });
       if (!response.ok) return;

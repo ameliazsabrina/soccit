@@ -1,4 +1,5 @@
 import { publicEnv } from "./env";
+import { assetUrl } from "./assets";
 
 export const SOCCIT_API_BASE_URL = publicEnv.apiBaseUrl;
 
@@ -231,9 +232,11 @@ export type UserMatchPrediction = {
   kind: PredictionKind;
   points: number;
   side: 0 | 1 | 2;
+  // For kind:3 (score), the scoreline is encoded as outPlayerId=score1 /
+  // inPlayerId=score2. GET /api/user/:wallet/matches has no `score` field —
+  // don't add one (LeaderboardPrediction, a different endpoint, does).
   outPlayerId: number;
   inPlayerId: number;
-  score: PredictionScore | null;
 };
 
 export type UserMatch = {
@@ -811,5 +814,5 @@ export function playerRarity(
 
 export function tcgCardImage(position: string | null): string {
   const code = positionCode(position);
-  return `/assets/cards/players/${code}.webp`;
+  return assetUrl(`assets/cards/players/${code}.webp`);
 }

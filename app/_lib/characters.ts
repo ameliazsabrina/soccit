@@ -1,3 +1,5 @@
+import { assetUrl } from "./assets";
+
 export type Position = "GK" | "DF" | "MD" | "FW";
 export type SquadStatus = "Starter" | "Bench";
 
@@ -25,7 +27,7 @@ const POSITIONS: Record<Position, string> = {
 function avatar(position: Position, number: number, name: string): string {
   const paddedNumber = String(number).padStart(2, "0");
   const fileName = `${position}_${paddedNumber}_${name.replace(/\s+/g, "_")}.webp`;
-  return `/ava-tcg/${fileName}`;
+  return assetUrl(`ava-tcg/${fileName}`);
 }
 
 // ─── Starter roster (Priority 1) ─────────────────────────────

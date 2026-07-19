@@ -70,7 +70,7 @@
 
 @font-face {
   font-family: "FWC2026";
-  src: url("/fonts/fwc2026/FWC2026-Normal-Black.woff2") format("woff2");
+  src: url("/api/assets/fonts/fwc2026/FWC2026-Normal-Black.woff2") format("woff2");
   font-weight: 900;
   font-style: normal;
   font-display: swap;

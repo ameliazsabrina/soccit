@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
 
-const FWC_LOGO_BLACK = "/assets/events/fwc-logo-black.svg";
-const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
+const FWC_LOGO_BLACK = "/api/assets/assets/events/fwc-logo-black.svg";
+const FWC_LOGO_WHITE = "/api/assets/assets/events/fwc-logo-white.svg";
 
 const ROWS = 6;
 const COLS = 8;

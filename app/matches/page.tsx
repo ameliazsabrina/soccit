@@ -38,11 +38,11 @@ import {
 } from "../_lib/api";
 import { cn } from "../_lib/utils";
 
-const FWC_BANNER_BG = "/assets/events/fwc-banner-bg.webp";
-const FWC_FINAL_BANNER_BG = "/assets/events/final-wc26-banner.webp";
-const FWC_LOGO_WHITE = "/assets/events/fwc-logo-white.svg";
-const UCL_BANNER_BG = "/assets/events/ucl-banner-bg.webp";
-const UCL_LOGO_WHITE = "/assets/events/ucl-logo-white.svg";
+const FWC_BANNER_BG = "/api/assets/assets/events/fwc-banner-bg.webp";
+const FWC_FINAL_BANNER_BG = "/api/assets/assets/events/final-wc26-banner.webp";
+const FWC_LOGO_WHITE = "/api/assets/assets/events/fwc-logo-white.svg";
+const UCL_BANNER_BG = "/api/assets/assets/events/ucl-banner-bg.webp";
+const UCL_LOGO_WHITE = "/api/assets/assets/events/ucl-logo-white.svg";
 const SPAIN_ARGENTINA_PDA = "3APNEZMud1boavyxTyHyAAaoEkyxPKXuj5pr17b3yb8e";
 
 const FILTERS = [
