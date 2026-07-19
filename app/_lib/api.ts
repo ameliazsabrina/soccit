@@ -347,12 +347,30 @@ export type GlobalRankSummary = {
   competitors: number;
 };
 
+export type GlobalLeaderboardRow = {
+  owner: string;
+  points: number;
+  earliestScoringLockMinute: number | null;
+  user: null | { username: string; avatar: AvatarId | null };
+  matchesPlayed: number;
+  predictions: number;
+};
+
+export type GlobalLeaderboard = {
+  ranking: GlobalLeaderboardRow[];
+  competitors: number;
+  matchesIncluded: number;
+  unavailableMatches: number;
+  updatedAt: number | null;
+};
+
 /**
- * Aggregate the real per-match leaderboards into a global rank. The backend
+ * Aggregate the real per-match leaderboards into global standings. The backend
  * does not expose a global leaderboard endpoint yet, so this is the canonical
- * client-side fallback until that endpoint exists.
+ * client-side fallback until that endpoint exists. A stale/archived match must
+ * not prevent the remaining standings from loading.
  */
-export async function getGlobalRank(wallet: string): Promise<GlobalRankSummary> {
+export async function getGlobalLeaderboard(): Promise<GlobalLeaderboard> {
   const matches = await getMatches();
   const matchPdas = [
     ...new Set(
@@ -362,24 +380,72 @@ export async function getGlobalRank(wallet: string): Promise<GlobalRankSummary> 
     ),
   ];
   const results = await Promise.allSettled(matchPdas.map(getLeaderboard));
-  const pointsByWallet = new Map<string, number>();
+  const rowsByWallet = new Map<string, GlobalLeaderboardRow>();
+  let matchesIncluded = 0;
+  let unavailableMatches = 0;
+  let updatedAt: number | null = null;
 
   for (const result of results) {
-    if (result.status !== "fulfilled") continue;
+    if (result.status !== "fulfilled") {
+      unavailableMatches += 1;
+      continue;
+    }
+
+    matchesIncluded += 1;
+    updatedAt = Math.max(updatedAt ?? 0, result.value.updatedAt);
+
     for (const row of result.value.ranking) {
-      pointsByWallet.set(
-        row.owner,
-        (pointsByWallet.get(row.owner) ?? 0) + row.points,
-      );
+      const current = rowsByWallet.get(row.owner);
+      const scoringMinute = row.earliestScoringLockMinute;
+      const earliestScoringLockMinute =
+        current?.earliestScoringLockMinute == null
+          ? scoringMinute
+          : scoringMinute == null
+            ? current.earliestScoringLockMinute
+            : Math.min(current.earliestScoringLockMinute, scoringMinute);
+
+      rowsByWallet.set(row.owner, {
+        owner: row.owner,
+        points: (current?.points ?? 0) + row.points,
+        earliestScoringLockMinute,
+        user: row.user ?? current?.user ?? null,
+        matchesPlayed: (current?.matchesPlayed ?? 0) + 1,
+        predictions: (current?.predictions ?? 0) + row.predictions.length,
+      });
     }
   }
 
-  const points = pointsByWallet.get(wallet) ?? 0;
-  const rank = pointsByWallet.has(wallet)
-    ? 1 + [...pointsByWallet.values()].filter((score) => score > points).length
-    : null;
+  const ranking = [...rowsByWallet.values()]
+    .filter((row) => row.points > 0)
+    .sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (a.earliestScoringLockMinute == null) return 1;
+      if (b.earliestScoringLockMinute == null) return -1;
+      if (a.earliestScoringLockMinute !== b.earliestScoringLockMinute) {
+        return a.earliestScoringLockMinute - b.earliestScoringLockMinute;
+      }
+      return a.owner.localeCompare(b.owner);
+    });
 
-  return { rank, points, competitors: pointsByWallet.size };
+  return {
+    ranking,
+    competitors: ranking.length,
+    matchesIncluded,
+    unavailableMatches,
+    updatedAt,
+  };
+}
+
+export async function getGlobalRank(wallet: string): Promise<GlobalRankSummary> {
+  const leaderboard = await getGlobalLeaderboard();
+  const rowIndex = leaderboard.ranking.findIndex((row) => row.owner === wallet);
+  const row = rowIndex >= 0 ? leaderboard.ranking[rowIndex] : null;
+
+  return {
+    rank: row ? rowIndex + 1 : null,
+    points: row?.points ?? 0,
+    competitors: leaderboard.competitors,
+  };
 }
 
 export function getUser(wallet: string) {
